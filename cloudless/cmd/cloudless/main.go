@@ -24,11 +24,12 @@ import (
 	"cloudless/internal/pki"
 	"cloudless/internal/registry"
 	"cloudless/internal/relay"
+	"cloudless/internal/usage"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		usage()
+		printUsage()
 		os.Exit(2)
 	}
 	switch os.Args[1] {
@@ -38,13 +39,15 @@ func main() {
 		serve(os.Args[2:])
 	case "status":
 		status(os.Args[2:])
+	case "usage":
+		usageCmd(os.Args[2:])
 	default:
-		usage()
+		printUsage()
 		os.Exit(2)
 	}
 }
 
-func usage() {
+func printUsage() {
 	fmt.Fprintln(os.Stderr, `cloudless (working title) — group-private inference mesh
 
 usage:
@@ -257,6 +260,11 @@ func runServe(cfg *config.Config) {
 	}
 
 	gw := gateway.New(reg, cfg.APIKey, peerTLS)
+	usagePath := "usage.json"
+	if cfg.PKIDir != "" {
+		usagePath = filepath.Join(filepath.Dir(cfg.PKIDir), "usage.json")
+	}
+	gw.Usage = usage.Open(usagePath)
 	if secure && cfg.Gossip != nil {
 		if _, err := os.Stat(filepath.Join(cfg.PKIDir, "ca.key")); err == nil {
 			gw.EnrollHandler = relay.EnrollHandler(cfg.PKIDir, []byte(cfg.Gossip.Secret))
@@ -272,6 +280,28 @@ func runServe(cfg *config.Config) {
 	log.Printf("cloudless gateway listening on %s with %d backend(s)", cfg.Listen, len(cfg.Backends))
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
+	}
+}
+
+func usageCmd(args []string) {
+	fs := flag.NewFlagSet("usage", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	fs.Parse(args)
+	resp, err := http.Get(*addr + "/usage")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Usage []usage.Record `json:"usage"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("%-12s %-30s %8s %10s %10s  %s\n", "KEY", "BACKEND", "REQS", "PROMPT", "COMPLETE", "LAST USED")
+	for _, u := range out.Usage {
+		fmt.Printf("%-12s %-30s %8d %10d %10d  %s\n",
+			u.APIKey, u.Backend, u.Requests, u.PromptTokens, u.CompletionTokens, u.LastUsed.Format("15:04:05"))
 	}
 }
 

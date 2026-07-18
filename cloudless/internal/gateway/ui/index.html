@@ -119,7 +119,7 @@ const SECTIONS = [
   { id:"ops", label:"Operations", items:[
     ["monitor","Monitoring","Node health, latencies, and routing decisions (live below).","live"],
     ["logs","Logs","Centralized log collection across nodes.","planned"],
-    ["usage","Usage & Credits","Per-key accounting — the seed of cooperative credits.","planned"],
+    ["usage","Usage & Credits","Per-key accounting — the seed of cooperative credits.","live"],
     ["dr","Replication & Recovery","k-of-n redundancy and automatic failover policy.","progress"],
   ]},
 ];
@@ -153,6 +153,7 @@ function renderSection(sec) {
 
 function renderItem(sec, id) {
   stopPolling();
+  if (sec.id === "ops" && id === "usage") return renderUsage();
   const it = sec.items.find(i => i[0] === id);
   if (!it) return renderSection(sec);
   const [, name, desc, st] = it;
@@ -201,6 +202,28 @@ function renderAbout() {
   and this same console. Open source on
   <a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a> —
   see <a href="#/contribute">Contribute</a>.</p>`;
+}
+
+// ---- usage (live) -----------------------------------------------------------
+function renderUsage() {
+  main.innerHTML = `<p class="crumb"><a href="#/ops">Operations</a> / Usage &amp; Credits</p>
+  <h1>Usage &amp; Credits <span class="badge b-live">Live</span></h1>
+  <p>Requests and tokens per API key and node — the visibility layer that replaces the cloud bill,
+  and the seed of the cooperative credit system.</p>
+  <table><thead><tr><th>Key</th><th>Node</th><th>Requests</th><th>Prompt tok</th><th>Completion tok</th><th>Last used</th></tr></thead>
+  <tbody id="usage"></tbody></table>
+  <p class="muted">Streaming responses count requests; token counts come from non-streaming responses.
+  Updates every 3s.</p>`;
+  const load = async () => {
+    try {
+      const d = await (await fetch('/usage')).json();
+      document.getElementById('usage').innerHTML = (d.usage || []).map(u =>
+        `<tr><td><code>${esc(u.api_key)}</code></td><td>${esc(u.backend)}</td><td>${u.requests}</td>` +
+        `<td>${u.prompt_tokens}</td><td>${u.completion_tokens}</td><td>${esc((u.last_used||'').slice(11,19))}</td></tr>`).join('')
+        || `<tr><td colspan="6" class="muted">No usage recorded yet.</td></tr>`;
+    } catch {}
+  };
+  load(); timer = setInterval(load, 3000);
 }
 
 // ---- contribute -------------------------------------------------------------

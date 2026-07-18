@@ -9,10 +9,12 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"cloudless/internal/registry"
+	"cloudless/internal/usage"
 )
 
 //go:embed ui/index.html
@@ -36,6 +38,9 @@ type Gateway struct {
 
 	// EnrollHandler, when set (CA-holding node), serves POST /enroll.
 	EnrollHandler http.HandlerFunc
+
+	// Usage, when set, accumulates per-key/backend accounting.
+	Usage *usage.Store
 }
 
 const routeLogSize = 20
@@ -60,6 +65,10 @@ func (g *Gateway) Handler() http.Handler {
 	if g.EnrollHandler != nil {
 		mux.HandleFunc("POST /enroll", g.EnrollHandler)
 	}
+	mux.HandleFunc("GET /usage", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"usage": g.Usage.Snapshot()})
+	})
 	mux.HandleFunc("GET /ui", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(consoleHTML)
@@ -121,7 +130,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		g.logRoute(r.URL.Path, b.Backend.Name, resp.StatusCode, i)
-		copyResponse(w, resp)
+		g.deliver(w, r, resp, b.Backend.Name)
 		return
 	}
 	g.logRoute(r.URL.Path, "-", http.StatusBadGateway, len(backends))
@@ -139,6 +148,40 @@ func trimV1(path string) string {
 		return path[len(p):]
 	}
 	return path
+}
+
+// deliver relays the backend response to the client. Non-streaming JSON is
+// buffered so token usage can be read from the body; streams pass through
+// untouched and count requests only.
+func (g *Gateway) deliver(w http.ResponseWriter, r *http.Request, resp *http.Response, backendName string) {
+	key := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	ct := resp.Header.Get("Content-Type")
+	if strings.HasPrefix(ct, "text/event-stream") {
+		g.Usage.Add(key, backendName, 1, 0, 0)
+		copyResponse(w, resp)
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if err != nil {
+		http.Error(w, `{"error":"upstream read"}`, http.StatusBadGateway)
+		return
+	}
+	var parsed struct {
+		Usage struct {
+			PromptTokens     int64 `json:"prompt_tokens"`
+			CompletionTokens int64 `json:"completion_tokens"`
+		} `json:"usage"`
+	}
+	json.Unmarshal(body, &parsed)
+	g.Usage.Add(key, backendName, 1, parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens)
+	for k, vv := range resp.Header {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	w.Write(body)
 }
 
 func copyResponse(w http.ResponseWriter, resp *http.Response) {
