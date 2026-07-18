@@ -111,10 +111,13 @@ This system is not just an intranet, extranet, or community network. It is a sha
 ## 5. Security and Trust
 - Authenticate nodes before tasks are accepted
 - Run untrusted workloads in sandboxes / containers
-- Encrypt all communication
+- Encrypt all communication (membership, service, and overlay layers)
+- Encrypt all data at rest on every node with a rotating key hierarchy (root → cluster → node → artifact)
+- Data Guard: classify data (private/group/public, private by default), enforce locality (private data never leaves its node, group data never leaves the mesh), default-deny workload egress, audit every data movement, crypto-shred on delete
 - Limit access to local data
-- Accept only vetted open-source AI models
+- Accept only vetted open-source AI models in safe formats
 - Monitor and revoke nodes that misbehave
+- Group-held k-of-n key recovery — no single member or outsider can unlock alone
 
 ## 6. Suggested Implementation Stack
 Licensing rule: only OSI-approved open-source components (Apache-2.0/MIT/BSD/MPL/GPL) — no BUSL or source-available software (excludes Nomad, Consul, Vault, ZeroTier) and no proprietary SaaS control planes (excludes Tailscale coordination).

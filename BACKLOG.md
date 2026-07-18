@@ -53,6 +53,16 @@ The open, public board for this project lives on GitHub Issues/Milestones (our "
 | F11 | Anomaly quarantine | Behavioral signals drain suspicious nodes |
 | F12 | k-of-n result validation | Redundant execution + comparison for critical jobs |
 
+## EPIC G — Encryption & Data Guard — P1/P2
+| G1 | Cluster key hierarchy & rotation | Root → cluster → node → artifact keys; scheduled rotation; tier compromise contained |
+| G2 | Encryption at rest on every node | Blobs/config/DB/audit log AES-256-GCM; keys via OS keystore/passphrase, never plaintext on disk |
+| G3 | Zero-plaintext transit audit | mTLS on all service+peer traffic; no plaintext listener anywhere; CI check |
+| G4 | Data classification & locality | private/group/public labels, private default; store+scheduler enforce locality |
+| G5 | Workload egress guard | Default-deny outbound; declared egress allowlist; all egress logged |
+| G6 | Data movement audit & leak detection | Transfers in signed audit log; anomaly patterns quarantine node |
+| G7 | Crypto-shredding delete | Delete destroys artifact key; ciphertext unreadable on peers/backups |
+| G8 | k-of-n root key recovery | Group members hold secret shares; no single party can unlock |
+
 ## Working agreements
 - Every story ships web console + HTTP API + CLI together (one-surface rule).
 - Security acceptance criteria are part of "done", not a later pass.

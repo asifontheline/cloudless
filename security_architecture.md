@@ -42,7 +42,28 @@ Peer-to-peer resource sharing is a hostile-takeover target: a compromised node c
 - For critical jobs: **k-of-n redundant execution with result comparison** (rule engine) — a lying node is outvoted and flagged. This is the practical answer to result poisoning without exotic cryptography.
 - Per-key quotas and rate limits stop resource monopolization; usage accounting (M3) makes abuse visible.
 
-## Layer 6 — Supply chain (T7)
+## Layer 6 — Encryption everywhere & Data Guard (T2, T4, T5)
+Encryption is universal — mesh control traffic, service traffic, and every byte at rest — and Data Guard governs where data may *go*, not just who may read it. (Per the honesty rule: this is layered defense with stated limits, not "foolproof" — a fully compromised node can read what that node legitimately processes in memory.)
+
+**Encryption in transit (three layers):**
+- Gossip/membership: AES-GCM with rotating cluster key — built.
+- Service + peer traffic: mutual TLS from the cluster CA on every connection; zero plaintext listeners (M1b).
+- Optional encrypted overlay beneath everything for hostile networks (M5).
+
+**Encryption at rest (every node store):**
+- All node-held data — model blobs, cached artifacts, configs, accounting DB, audit log — encrypted with per-node data keys (AES-256-GCM), wrapped by the cluster key hierarchy.
+- Key hierarchy: root (offline/console-held) → cluster keys → per-node keys → per-artifact keys; scheduled rotation; compromise of one tier never exposes the tier above.
+- Node keys unlocked at agent start via OS keystore or passphrase; never stored plaintext on disk.
+
+**Data Guard (where data may go):**
+- **Classification:** every artifact and dataset is labeled `private` (never leaves its origin node), `group` (replicates only inside the mesh), or `public`. Default is `private` — sharing is opt-in, matching the blueprint's privacy-first principle.
+- **Locality enforcement:** the store and scheduler refuse to replicate or route `private` data off-node; `group` data never exits the mesh boundary.
+- **Egress guard:** workloads get no outbound network by default; any egress must be declared and is logged.
+- **Movement audit + leak detection:** every data transfer is recorded in the signed audit log; anomalous volume/destination patterns quarantine the node (Layer 5).
+- **Crypto-shredding:** deletion destroys the artifact's key — the ciphertext everywhere becomes unreadable, including on peers and backups.
+- **Recovery without a vendor:** cluster root key recoverable via k-of-n secret shares held by group members — no single member, and no outsider, can unlock alone.
+
+## Layer 7 — Supply chain (T7)
 - Minimal dependencies (currently one library beyond the standard library), pinned and checksum-locked; dependency review on every addition per the licensing policy.
 - Reproducible builds and signed release binaries with published checksums.
 - The web console is embedded with zero external assets — no CDN scripts, no third-party trackers, nothing fetched at runtime. This is already policy and also a security property.
