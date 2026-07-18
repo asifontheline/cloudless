@@ -15,7 +15,8 @@ type Gossip struct {
 	NodeName   string   `json:"node_name"`
 	Bind       string   `json:"bind"`        // e.g. "0.0.0.0:7946"
 	Join       []string `json:"join"`        // seed peers, host:port
-	BackendURL string   `json:"backend_url"` // this node's inference endpoint advertised to peers
+	BackendURL string   `json:"backend_url"` // this node's local inference endpoint
+	RelayURL   string   `json:"relay_url"`   // mutual-TLS relay URL advertised to peers (preferred over backend_url)
 	Secret     string   `json:"secret"`      // shared cluster key (16/24/32 bytes) encrypting gossip
 }
 
@@ -25,6 +26,8 @@ type Config struct {
 	HealthIntervalSeconds int       `json:"health_interval_seconds"`
 	Backends              []Backend `json:"backends"`
 	Gossip                *Gossip   `json:"gossip,omitempty"`
+	PKIDir                string    `json:"pki_dir,omitempty"` // cluster PKI directory; enables the mTLS relay
+	Relay                 string    `json:"relay,omitempty"`   // relay listen address (default :9443 when PKI present)
 }
 
 func Load(path string) (*Config, error) {

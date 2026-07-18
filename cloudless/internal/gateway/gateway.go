@@ -3,6 +3,7 @@ package gateway
 import (
 	"bytes"
 	"crypto/subtle"
+	"crypto/tls"
 	_ "embed"
 	"encoding/json"
 	"io"
@@ -32,16 +33,21 @@ type Gateway struct {
 
 	mu     sync.Mutex
 	routes []RouteEntry // ring buffer of recent routing decisions
+
+	// EnrollHandler, when set (CA-holding node), serves POST /enroll.
+	EnrollHandler http.HandlerFunc
 }
 
 const routeLogSize = 20
 
-func New(reg *registry.Registry, apiKey string) *Gateway {
+// New builds the gateway; tlsCfg (may be nil) carries the node's client cert
+// for proxying to peers' mutual-TLS relays.
+func New(reg *registry.Registry, apiKey string, tlsCfg *tls.Config) *Gateway {
 	return &Gateway{
 		reg:    reg,
 		apiKey: apiKey,
 		// No overall timeout: chat completions stream for minutes.
-		client: &http.Client{Timeout: 0},
+		client: &http.Client{Timeout: 0, Transport: &http.Transport{TLSClientConfig: tlsCfg}},
 	}
 }
 
@@ -51,6 +57,9 @@ func (g *Gateway) Handler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("GET /status", g.handleStatus)
+	if g.EnrollHandler != nil {
+		mux.HandleFunc("POST /enroll", g.EnrollHandler)
+	}
 	mux.HandleFunc("GET /ui", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(consoleHTML)

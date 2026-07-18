@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"sync"
 	"time"
@@ -26,11 +27,13 @@ type Registry struct {
 	client   *http.Client
 }
 
-func New(backends []config.Backend, interval time.Duration) *Registry {
+// New builds a registry; tlsCfg (may be nil) carries the node's client cert
+// so health probes can reach peers' mutual-TLS relays.
+func New(backends []config.Backend, interval time.Duration, tlsCfg *tls.Config) *Registry {
 	r := &Registry{
 		states:   make(map[string]*BackendState, len(backends)),
 		interval: interval,
-		client:   &http.Client{Timeout: 3 * time.Second},
+		client:   &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{TLSClientConfig: tlsCfg}},
 	}
 	for _, b := range backends {
 		r.states[b.Name] = &BackendState{Backend: b}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -20,7 +21,9 @@ import (
 	"cloudless/internal/config"
 	"cloudless/internal/gateway"
 	"cloudless/internal/gossip"
+	"cloudless/internal/pki"
 	"cloudless/internal/registry"
+	"cloudless/internal/relay"
 )
 
 func main() {
@@ -59,6 +62,8 @@ func up(args []string) {
 	backend := fs.String("backend", "", "local inference endpoint (default: auto-detect)")
 	listen := fs.String("listen", ":8080", "gateway listen address")
 	bind := fs.String("bind", "0.0.0.0:7946", "gossip bind address")
+	relayAddr := fs.String("relay", ":9443", "mutual-TLS relay listen address")
+	seedAPI := fs.String("seed-api", "", "seed node gateway URL for enrollment (default http://<join-host>:8080)")
 	fs.Parse(args)
 
 	home, err := os.UserHomeDir()
@@ -73,8 +78,34 @@ func up(args []string) {
 		log.Printf("using existing config %s", cfgPath)
 	} else {
 		cfg = buildConfig(*joinArg, *backend, *listen, *bind)
+		cfg.PKIDir = filepath.Join(dir, "pki")
+		cfg.Relay = *relayAddr
+		cfg.Gossip.RelayURL = "https://" + advertiseAddr(*relayAddr) + "/v1"
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			log.Fatal(err)
+		}
+		// A1/A2: first node mints the cluster CA and self-issues; joiners
+		// enroll their public key with the seed, authenticated by the secret.
+		if *joinArg == "" {
+			if err := pki.EnsureCA(cfg.PKIDir); err != nil {
+				log.Fatal(err)
+			}
+			if err := pki.SelfIssue(cfg.PKIDir, cfg.Gossip.NodeName); err != nil {
+				log.Fatal(err)
+			}
+			log.Print("pki: cluster CA created; node certificate issued")
+		} else {
+			api := *seedAPI
+			if api == "" {
+				if _, seed, ok := strings.Cut(*joinArg, "@"); ok {
+					seedHost, _, _ := strings.Cut(seed, ":")
+					api = "http://" + seedHost + ":8080"
+				}
+			}
+			if err := relay.Enroll(api, cfg.PKIDir, cfg.Gossip.NodeName, []byte(cfg.Gossip.Secret)); err != nil {
+				log.Fatal(err)
+			}
+			log.Printf("pki: enrolled with %s; certificate received", api)
 		}
 		data, _ := json.MarshalIndent(cfg, "", "  ")
 		if err := os.WriteFile(cfgPath, data, 0o600); err != nil {
@@ -86,7 +117,8 @@ func up(args []string) {
 	fmt.Printf("\n  Console:  http://127.0.0.1%s/\n", portOf(cfg.Listen))
 	fmt.Printf("  API:      http://<this-ip>%s/v1/chat/completions (Bearer %s)\n", portOf(cfg.Listen), cfg.APIKey)
 	if cfg.Gossip != nil {
-		fmt.Printf("  Add a node: cloudless up -join %s@%s\n\n", cfg.Gossip.Secret, advertiseAddr(cfg.Gossip.Bind))
+		fmt.Printf("  Add a node: cloudless up -join %s@%s -seed-api http://%s\n\n",
+			cfg.Gossip.Secret, advertiseAddr(cfg.Gossip.Bind), advertiseAddr(cfg.Listen))
 	}
 	runServe(cfg)
 }
@@ -146,9 +178,14 @@ func portOf(listen string) string {
 	return ":8080"
 }
 
-// advertiseAddr picks this machine's primary outbound IP for the join hint.
+// advertiseAddr derives the address peers should dial: an explicitly bound
+// IP is kept as-is; wildcard binds advertise the primary outbound IP.
 func advertiseAddr(bind string) string {
 	port := portOf(bind)
+	host := strings.TrimSuffix(bind, port)
+	if host != "" && host != "0.0.0.0" && host != "::" && host != "[::]" {
+		return host + port
+	}
 	conn, err := net.Dial("udp", "192.0.2.1:9") // no traffic sent; kernel picks the route
 	if err != nil {
 		return "<this-ip>" + port
@@ -173,18 +210,43 @@ func runServe(cfg *config.Config) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	reg := registry.New(cfg.Backends, time.Duration(cfg.HealthIntervalSeconds)*time.Second)
+	// A3: with PKI present, start the mutual-TLS relay and dial peers with
+	// the node certificate; peer traffic is never plaintext.
+	var peerTLS *tls.Config
+	secure := cfg.PKIDir != "" && pki.HasCreds(cfg.PKIDir)
+	if secure {
+		var err error
+		peerTLS, err = pki.ClientTLS(cfg.PKIDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+		backendURL := ""
+		if cfg.Gossip != nil {
+			backendURL = cfg.Gossip.BackendURL
+		}
+		go func() {
+			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL); err != nil {
+				log.Fatalf("relay: %v", err)
+			}
+		}()
+	}
+
+	reg := registry.New(cfg.Backends, time.Duration(cfg.HealthIntervalSeconds)*time.Second, peerTLS)
 	go reg.Run(ctx)
 
 	if cfg.Gossip != nil {
 		if cfg.Gossip.BackendURL != "" {
 			reg.Upsert(config.Backend{Name: cfg.Gossip.NodeName, BaseURL: cfg.Gossip.BackendURL})
 		}
+		advertise := cfg.Gossip.BackendURL
+		if secure && cfg.Gossip.RelayURL != "" {
+			advertise = cfg.Gossip.RelayURL
+		}
 		mesh, err := gossip.Start(gossip.Options{
 			NodeName:   cfg.Gossip.NodeName,
 			BindAddr:   cfg.Gossip.Bind,
 			Join:       cfg.Gossip.Join,
-			BackendURL: cfg.Gossip.BackendURL,
+			BackendURL: advertise,
 			Secret:     []byte(cfg.Gossip.Secret),
 		}, reg)
 		if err != nil {
@@ -194,7 +256,12 @@ func runServe(cfg *config.Config) {
 		log.Printf("gossip: node %s on %s", cfg.Gossip.NodeName, cfg.Gossip.Bind)
 	}
 
-	gw := gateway.New(reg, cfg.APIKey)
+	gw := gateway.New(reg, cfg.APIKey, peerTLS)
+	if secure && cfg.Gossip != nil {
+		if _, err := os.Stat(filepath.Join(cfg.PKIDir, "ca.key")); err == nil {
+			gw.EnrollHandler = relay.EnrollHandler(cfg.PKIDir, []byte(cfg.Gossip.Secret))
+		}
+	}
 	srv := &http.Server{Addr: cfg.Listen, Handler: gw.Handler()}
 	go func() {
 		<-ctx.Done()
