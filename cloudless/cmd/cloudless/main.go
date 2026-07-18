@@ -2,13 +2,18 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +29,8 @@ func main() {
 		os.Exit(2)
 	}
 	switch os.Args[1] {
+	case "up":
+		up(os.Args[2:])
 	case "serve":
 		serve(os.Args[2:])
 	case "status":
@@ -35,11 +42,119 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `cloudless — group-private OpenAI-compatible inference mesh (M0)
+	fmt.Fprintln(os.Stderr, `cloudless (working title) — group-private inference mesh
 
 usage:
+  cloudless up     [-join <secret>@<host:port>] [-backend <url>]   # zero-config start
   cloudless serve  -config config.json
   cloudless status -addr http://127.0.0.1:8080`)
+}
+
+// up is the zero-friction path: detect a local runtime, generate a config
+// with a fresh cluster secret (or join an existing mesh), persist it, print
+// the join command for the next machine, and serve.
+func up(args []string) {
+	fs := flag.NewFlagSet("up", flag.ExitOnError)
+	joinArg := fs.String("join", "", "join an existing mesh: <secret>@<host:port>")
+	backend := fs.String("backend", "", "local inference endpoint (default: auto-detect)")
+	listen := fs.String("listen", ":8080", "gateway listen address")
+	bind := fs.String("bind", "0.0.0.0:7946", "gossip bind address")
+	fs.Parse(args)
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	dir := filepath.Join(home, ".cloudless")
+	cfgPath := filepath.Join(dir, "config.json")
+
+	cfg, err := config.Load(cfgPath)
+	if err == nil {
+		log.Printf("using existing config %s", cfgPath)
+	} else {
+		cfg = buildConfig(*joinArg, *backend, *listen, *bind)
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			log.Fatal(err)
+		}
+		data, _ := json.MarshalIndent(cfg, "", "  ")
+		if err := os.WriteFile(cfgPath, data, 0o600); err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("wrote %s", cfgPath)
+	}
+
+	fmt.Printf("\n  Console:  http://127.0.0.1%s/\n", portOf(cfg.Listen))
+	fmt.Printf("  API:      http://<this-ip>%s/v1/chat/completions (Bearer %s)\n", portOf(cfg.Listen), cfg.APIKey)
+	if cfg.Gossip != nil {
+		fmt.Printf("  Add a node: cloudless up -join %s@%s\n\n", cfg.Gossip.Secret, advertiseAddr(cfg.Gossip.Bind))
+	}
+	runServe(cfg)
+}
+
+func buildConfig(joinArg, backend, listen, bind string) *config.Config {
+	if backend == "" {
+		backend = detectRuntime()
+	}
+	host, _ := os.Hostname()
+	// Suffix guarantees mesh-wide uniqueness even when hostnames collide.
+	g := &config.Gossip{NodeName: host + "-" + randomHex(2), Bind: bind, BackendURL: backend}
+	apiKey := randomHex(16)
+	if joinArg != "" {
+		secret, seed, ok := strings.Cut(joinArg, "@")
+		if !ok {
+			log.Fatal("-join must be <secret>@<host:port>")
+		}
+		g.Secret = secret
+		g.Join = []string{seed}
+	} else {
+		g.Secret = randomHex(16) // 32 hex chars = 32-byte gossip key
+	}
+	return &config.Config{Listen: listen, APIKey: apiKey, HealthIntervalSeconds: 5, Gossip: g}
+}
+
+// detectRuntime probes well-known local inference runtime ports.
+func detectRuntime() string {
+	candidates := []string{"http://127.0.0.1:11434/v1", "http://127.0.0.1:8000/v1", "http://127.0.0.1:8081/v1"}
+	client := &http.Client{Timeout: 800 * time.Millisecond}
+	for _, base := range candidates {
+		resp, err := client.Get(base + "/models")
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode < 500 {
+			log.Printf("detected local runtime at %s", base)
+			return base
+		}
+	}
+	log.Print("no local runtime detected; this node will route to peers only")
+	return ""
+}
+
+func randomHex(nBytes int) string {
+	b := make([]byte, nBytes)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatal(err)
+	}
+	return hex.EncodeToString(b)
+}
+
+func portOf(listen string) string {
+	if i := strings.LastIndex(listen, ":"); i >= 0 {
+		return listen[i:]
+	}
+	return ":8080"
+}
+
+// advertiseAddr picks this machine's primary outbound IP for the join hint.
+func advertiseAddr(bind string) string {
+	port := portOf(bind)
+	conn, err := net.Dial("udp", "192.0.2.1:9") // no traffic sent; kernel picks the route
+	if err != nil {
+		return "<this-ip>" + port
+	}
+	defer conn.Close()
+	return conn.LocalAddr().(*net.UDPAddr).IP.String() + port
 }
 
 func serve(args []string) {
@@ -51,6 +166,10 @@ func serve(args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	runServe(cfg)
+}
+
+func runServe(cfg *config.Config) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 

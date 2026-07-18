@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CloudLess — logo options</title>
+<style>
+  :root { color-scheme: light dark; --line: color-mix(in srgb, currentColor 14%, transparent);
+          --card: color-mix(in srgb, currentColor 4%, transparent); --accent:#4a7dbd; --strike:#d64545; }
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 1020px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.3rem; } .sub { color: #8a8f98; margin-top: -0.6rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+  .card { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 1rem; }
+  .card h2 { font-size: .95rem; margin: 0 0 .2rem; } .card p { font-size: .82rem; color: #8a8f98; margin: .2rem 0 .8rem; }
+  .stage { display: flex; align-items: center; justify-content: center; height: 150px;
+           border-radius: 8px; background: color-mix(in srgb, currentColor 3%, transparent); }
+  .row { display: flex; gap: .6rem; align-items: center; margin-top: .7rem; }
+  .chip { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+          background: var(--card); border: 1px solid var(--line); }
+  .chip svg { width: 20px; height: 20px; }
+  .dark { background: #16181d; } .light { background: #f5f6f8; }
+</style>
+</head>
+<body>
+<h1>CloudLess — logo &amp; icon options</h1>
+<p class="sub">All original vector artwork · single accent color + strike color · each shown with favicon-size chips on light/dark</p>
+<div class="grid">
+
+<!-- ================= OPTION 1: clean slash ================= -->
+<div class="card">
+  <h2>Option 1 — The Clean Slash</h2>
+  <p>Line-art cloud, one confident diagonal strike. Minimal, timeless, reads at any size.</p>
+  <div class="stage">
+    <svg width="130" height="110" viewBox="0 0 100 84">
+      <path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z"
+            fill="none" stroke="#4a7dbd" stroke-width="5" stroke-linejoin="round"/>
+      <line x1="16" y1="72" x2="84" y2="12" stroke="#d64545" stroke-width="6" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="row">
+    <div class="chip light"><svg viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="#4a7dbd" stroke-width="7"/><line x1="16" y1="72" x2="84" y2="12" stroke="#d64545" stroke-width="8" stroke-linecap="round"/></svg></div>
+    <div class="chip dark"><svg viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="#7ba7dd" stroke-width="7"/><line x1="16" y1="72" x2="84" y2="12" stroke="#e06767" stroke-width="8" stroke-linecap="round"/></svg></div>
+    <span class="sub" style="font-size:.8rem">favicon preview</span>
+  </div>
+</div>
+
+<!-- ================= OPTION 2: prohibition sign ================= -->
+<div class="card">
+  <h2>Option 2 — The No-Cloud Sign</h2>
+  <p>Universal prohibition symbol around the cloud. Instantly legible: clouds not allowed here.</p>
+  <div class="stage">
+    <svg width="120" height="120" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="42" fill="none" stroke="#d64545" stroke-width="7"/>
+      <path d="M32 62 h34 a11 11 0 0 0 1.5-21.8 A15.5 15.5 0 0 0 38 35 a10 10 0 0 0-6 27 z"
+            fill="none" stroke="#4a7dbd" stroke-width="4.5" stroke-linejoin="round"/>
+      <line x1="21" y1="79" x2="79" y2="21" stroke="#d64545" stroke-width="7" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="row">
+    <div class="chip light"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="#d64545" stroke-width="9"/><path d="M32 62 h34 a11 11 0 0 0 1.5-21.8 A15.5 15.5 0 0 0 38 35 a10 10 0 0 0-6 27 z" fill="none" stroke="#4a7dbd" stroke-width="6"/><line x1="21" y1="79" x2="79" y2="21" stroke="#d64545" stroke-width="9" stroke-linecap="round"/></svg></div>
+    <div class="chip dark"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="#e06767" stroke-width="9"/><path d="M32 62 h34 a11 11 0 0 0 1.5-21.8 A15.5 15.5 0 0 0 38 35 a10 10 0 0 0-6 27 z" fill="none" stroke="#7ba7dd" stroke-width="6"/><line x1="21" y1="79" x2="79" y2="21" stroke="#e06767" stroke-width="9" stroke-linecap="round"/></svg></div>
+    <span class="sub" style="font-size:.8rem">favicon preview</span>
+  </div>
+</div>
+
+<!-- ================= OPTION 3: wordmark strikethrough ================= -->
+<div class="card">
+  <h2>Option 3 — The Wordmark</h2>
+  <p>“Cloud” struck through, “Less” standing proud. The joke *is* the logo. Great for headers/docs.</p>
+  <div class="stage">
+    <svg width="240" height="70" viewBox="0 0 240 70">
+      <text x="8" y="46" font-family="system-ui, sans-serif" font-size="34" font-weight="600" fill="#8a8f98">Cloud</text>
+      <line x1="4" y1="34" x2="106" y2="34" stroke="#d64545" stroke-width="5" stroke-linecap="round" transform="rotate(-4 55 34)"/>
+      <text x="110" y="46" font-family="system-ui, sans-serif" font-size="34" font-weight="800" fill="#4a7dbd">Less</text>
+    </svg>
+  </div>
+  <div class="row">
+    <div class="chip light"><svg viewBox="0 0 70 70"><text x="8" y="50" font-family="system-ui" font-size="44" font-weight="800" fill="#4a7dbd">L</text><line x1="10" y1="35" x2="60" y2="35" stroke="#d64545" stroke-width="8" stroke-linecap="round" transform="rotate(-18 35 35)"/></svg></div>
+    <div class="chip dark"><svg viewBox="0 0 70 70"><text x="8" y="50" font-family="system-ui" font-size="44" font-weight="800" fill="#7ba7dd">L</text><line x1="10" y1="35" x2="60" y2="35" stroke="#e06767" stroke-width="8" stroke-linecap="round" transform="rotate(-18 35 35)"/></svg></div>
+    <span class="sub" style="font-size:.8rem">favicon = struck “L”</span>
+  </div>
+</div>
+
+<!-- ================= OPTION 4: cloud dissolving into mesh ================= -->
+<div class="card">
+  <h2>Option 4 — Cloud → Mesh</h2>
+  <p>Half the cloud dissolves into connected peer nodes: the story of the product in one mark. Strike optional.</p>
+  <div class="stage">
+    <svg width="150" height="110" viewBox="0 0 110 84">
+      <path d="M28 62 a13 13 0 0 1 7-35 a20 20 0 0 1 27 6" fill="none" stroke="#8a8f98" stroke-width="5" stroke-linecap="round"/>
+      <line x1="14" y1="70" x2="72" y2="14" stroke="#d64545" stroke-width="5" stroke-linecap="round"/>
+      <g stroke="#4a7dbd" stroke-width="2.5">
+        <line x1="72" y1="34" x2="88" y2="44"/><line x1="88" y1="44" x2="80" y2="62"/>
+        <line x1="72" y1="34" x2="80" y2="62"/><line x1="80" y1="62" x2="58" y2="62"/><line x1="72" y1="34" x2="58" y2="62"/>
+      </g>
+      <g fill="#4a7dbd">
+        <circle cx="72" cy="34" r="5.5"/><circle cx="88" cy="44" r="5.5"/><circle cx="80" cy="62" r="5.5"/><circle cx="58" cy="62" r="5.5"/>
+      </g>
+    </svg>
+  </div>
+  <div class="row">
+    <div class="chip light"><svg viewBox="0 0 110 84"><path d="M28 62 a13 13 0 0 1 7-35 a20 20 0 0 1 27 6" fill="none" stroke="#8a8f98" stroke-width="7"/><g fill="#4a7dbd"><circle cx="72" cy="34" r="8"/><circle cx="88" cy="44" r="8"/><circle cx="80" cy="62" r="8"/><circle cx="58" cy="62" r="8"/></g></svg></div>
+    <div class="chip dark"><svg viewBox="0 0 110 84"><path d="M28 62 a13 13 0 0 1 7-35 a20 20 0 0 1 27 6" fill="none" stroke="#8a8f98" stroke-width="7"/><g fill="#7ba7dd"><circle cx="72" cy="34" r="8"/><circle cx="88" cy="44" r="8"/><circle cx="80" cy="62" r="8"/><circle cx="58" cy="62" r="8"/></g></svg></div>
+    <span class="sub" style="font-size:.8rem">favicon (strike dropped)</span>
+  </div>
+</div>
+
+<!-- ================= OPTION 5: scissors cut line ================= -->
+<div class="card">
+  <h2>Option 5 — The Cut Line</h2>
+  <p>Dashed “cut here” line through the cloud — playful, says you’re cutting the cloud (and the bill).</p>
+  <div class="stage">
+    <svg width="140" height="110" viewBox="0 0 100 84">
+      <path d="M28 64 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 29 a13 13 0 0 0-7 35 z"
+            fill="color-mix(in srgb, #4a7dbd 18%, transparent)" stroke="#4a7dbd" stroke-width="4" stroke-linejoin="round"/>
+      <line x1="10" y1="47" x2="90" y2="47" stroke="#d64545" stroke-width="4" stroke-dasharray="9 7" stroke-linecap="round"/>
+      <path d="M14 40 l8 7 -8 7 M14 40 a4.5 4.5 0 1 0 .1 .1 M14 54 a4.5 4.5 0 1 0 .1 .1" transform="translate(-6 0)"
+            fill="none" stroke="#d64545" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="row">
+    <div class="chip light"><svg viewBox="0 0 100 84"><path d="M28 64 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 29 a13 13 0 0 0-7 35 z" fill="none" stroke="#4a7dbd" stroke-width="7"/><line x1="8" y1="47" x2="92" y2="47" stroke="#d64545" stroke-width="7" stroke-dasharray="11 9" stroke-linecap="round"/></svg></div>
+    <div class="chip dark"><svg viewBox="0 0 100 84"><path d="M28 64 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 29 a13 13 0 0 0-7 35 z" fill="none" stroke="#7ba7dd" stroke-width="7"/><line x1="8" y1="47" x2="92" y2="47" stroke="#e06767" stroke-width="7" stroke-dasharray="11 9" stroke-linecap="round"/></svg></div>
+    <span class="sub" style="font-size:.8rem">favicon preview</span>
+  </div>
+</div>
+
+<!-- ================= OPTION 6: X pin ================= -->
+<div class="card">
+  <h2>Option 6 — The Bold X</h2>
+  <p>Solid cloud silhouette with a heavy X carved through. High contrast, works as an app icon tile.</p>
+  <div class="stage">
+    <svg width="130" height="110" viewBox="0 0 100 84">
+      <path d="M26 66 h48 a15 15 0 0 0 2-29.8 A21 21 0 0 0 34 28 a14 14 0 0 0-8 38 z" fill="#4a7dbd"/>
+      <g stroke="#fff" stroke-width="9" stroke-linecap="round">
+        <line x1="35" y1="36" x2="65" y2="60"/><line x1="65" y1="36" x2="35" y2="60"/>
+      </g>
+    </svg>
+  </div>
+  <div class="row">
+    <div class="chip light"><svg viewBox="0 0 100 84"><path d="M26 66 h48 a15 15 0 0 0 2-29.8 A21 21 0 0 0 34 28 a14 14 0 0 0-8 38 z" fill="#4a7dbd"/><g stroke="#fff" stroke-width="11" stroke-linecap="round"><line x1="35" y1="36" x2="65" y2="60"/><line x1="65" y1="36" x2="35" y2="60"/></g></svg></div>
+    <div class="chip dark"><svg viewBox="0 0 100 84"><path d="M26 66 h48 a15 15 0 0 0 2-29.8 A21 21 0 0 0 34 28 a14 14 0 0 0-8 38 z" fill="#7ba7dd"/><g stroke="#16181d" stroke-width="11" stroke-linecap="round"><line x1="35" y1="36" x2="65" y2="60"/><line x1="65" y1="36" x2="35" y2="60"/></g></svg></div>
+    <span class="sub" style="font-size:.8rem">favicon preview</span>
+  </div>
+</div>
+
+</div>
+<p class="sub" style="margin-top:1.4rem">Any option can be combined with the Option 3 wordmark (icon left, “<s>Cloud</s><b>Less</b>” right).</p>
+</body>
+</html>

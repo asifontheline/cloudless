@@ -29,6 +29,9 @@ Existing approaches cluster into four camps, none of which serves our niche:
 - Every management action available in the console maps to the same HTTP API the CLI uses — web UI, CLI, and automation stay one surface.
 - Any feature that requires multi-step manual setup is considered incomplete; the setup flow is part of the feature.
 
+## Security principle: layered protection backbone (hard constraint)
+Peer resource sharing is a takeover target; protection is a first-class pillar, not a feature. Full threat model and layer design live in [security_architecture.md](security_architecture.md): membership identity + revocation, mutual TLS everywhere, workload sandboxing, artifact hash verification with safe-format allowlist (pickle-based weights rejected — the ecosystem's main malware vector), signed audit log, anomaly quarantine, k-of-n result comparison, and supply-chain minimalism. Honesty rule: we say "defense in depth", never "foolproof".
+
 ## Licensing and naming policy (hard constraint)
 - **Every runtime dependency, bundled component, and default model must be under an OSI-approved license** (Apache-2.0, MIT, BSD, MPL-2.0, GPL where linkage allows) or public domain. No source-available/BUSL software, no proprietary SaaS control planes, no restricted-use model licenses. Restricted-license models are never bundled, redistributed, or set as defaults (users may load what they are licensed to use).
 - **No third-party or cloud-provider name appears in our product naming, feature naming, UI, or marketing.** We may mimic *capabilities* of commercial clouds, but every feature is named in our own vocabulary and justified by our core principles (privacy-first, cooperative ownership, low-cost community hardware) — never as "X, like <brand>".
@@ -84,6 +87,8 @@ Existing approaches cluster into four camps, none of which serves our niche:
 - **M0 BUILT ✅ (2026-07-18).** Implemented in `cloudless/` (working title). Smoke-tested with two mock backends: latency-ranked routing, automatic failover when a backend is killed, Bearer-key auth, `status` output. Stdlib-only at this stage.
 - **M1a BUILT ✅ (2026-07-18).** Gossip peer discovery; nodes advertise their inference endpoint; joins/leaves update the routing table live; gossip encrypted+authenticated with a shared cluster secret (verified wrong-secret nodes cannot join). Per-node certs/mutual TLS remain M1b.
 - **Web console seed BUILT ✅ (2026-07-18).** Embedded single-file console at `/ui`: live node health, latencies, recent routes; zero external assets.
+- **One-command onboarding (`up`) BUILT ✅ (2026-07-18).** `up` auto-detects a local runtime, generates config + strong random cluster secret and API key to `~/.cloudless/`, prints console URL and a copy-paste join command with the machine's LAN address; `up -join <secret>@<host>` adds a node in one command. Node names auto-uniquified. Verified: two nodes onboarded with two commands total, mesh formed, request served.
+- **Security architecture DEFINED ✅ (2026-07-18).** Threat model T1–T8 and six defense layers in `security_architecture.md`; M1b reprioritized to lead with single-use join tokens, mTLS, and console revocation.
 - **Full console skeleton BUILT ✅ (2026-07-18).** Top menu with all doable capability sections (AI Services, Compute, Storage, Data & Messaging, Network, Security, Operations), every capability hyperlinked to its own page with status badge (Live / In progress / Planned) and principles note. Each page is the anchor for building that capability individually; still one embedded HTML file, own vocabulary only.
 
 ## Appendix A — open-source dependencies and compatibility targets (nominative references)

@@ -14,8 +14,10 @@
   body { font: 15px/1.5 system-ui, sans-serif; margin: 0; }
   header { border-bottom: 1px solid var(--line); padding: 0 1rem; position: sticky; top: 0;
            backdrop-filter: blur(8px); background: color-mix(in srgb, Canvas 85%, transparent); }
-  .brand { font-weight: 700; padding: .8rem .4rem .2rem; }
+  .brand { font-weight: 700; padding: .8rem .4rem .2rem; display: flex; align-items: center; gap: .5rem; }
   .brand small { color: var(--plan); font-weight: 400; }
+  .brand .logo svg { height: 26px; width: auto; display: block; }
+  .brand .wordmark s { color: var(--plan); text-decoration-color: var(--strike, #d64545); text-decoration-thickness: 2.5px; }
   nav { display: flex; flex-wrap: wrap; gap: .2rem; padding-bottom: .5rem; }
   nav a { padding: .35rem .7rem; border-radius: 6px; text-decoration: none; color: inherit; font-size: .9rem; }
   nav a.active, nav a:hover { background: var(--card); color: var(--accent); }
@@ -41,11 +43,30 @@
 </head>
 <body>
 <header>
-  <div class="brand">mesh console <small>· community-owned infrastructure (prototype)</small></div>
+  <div class="brand"><span class="logo" id="logo"></span><span class="wordmark"><s>Cloud</s>Less</span> <small>· community-owned infrastructure (prototype)</small></div>
   <nav id="nav"></nav>
 </header>
 <main id="main"></main>
 <script>
+// ---- logo of the day --------------------------------------------------------
+// Seven original marks, rotated by weekday (Sun..Sat). Same SVG feeds the
+// header logo and the favicon.
+const LOGOS = [ // index = Date.getDay(): 0 Sun ... 6 Sat
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 84"><path d="M28 62 a13 13 0 0 1 7-35 a20 20 0 0 1 20 2" fill="none" stroke="#4a7dbd" stroke-width="6" stroke-linecap="round"/><path d="M60 33 a14 14 0 0 1 12 1.2 a14 14 0 0 1 2 27.8 h-18" fill="none" stroke="#4a7dbd" stroke-width="6" stroke-linecap="round" stroke-dasharray="2 11" opacity="0.55"/><rect x="72" y="18" width="26" height="16" rx="3" transform="rotate(38 85 26)" fill="#d64545"/></svg>`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="#4a7dbd" stroke-width="6" stroke-linejoin="round"/><line x1="16" y1="72" x2="84" y2="12" stroke="#d64545" stroke-width="7" stroke-linecap="round"/></svg>`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="#d64545" stroke-width="8"/><path d="M32 62 h34 a11 11 0 0 0 1.5-21.8 A15.5 15.5 0 0 0 38 35 a10 10 0 0 0-6 27 z" fill="none" stroke="#4a7dbd" stroke-width="5" stroke-linejoin="round"/><line x1="21" y1="79" x2="79" y2="21" stroke="#d64545" stroke-width="8" stroke-linecap="round"/></svg>`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70"><text x="8" y="50" font-family="system-ui, sans-serif" font-size="44" font-weight="800" fill="#4a7dbd">L</text><line x1="10" y1="35" x2="60" y2="35" stroke="#d64545" stroke-width="8" stroke-linecap="round" transform="rotate(-18 35 35)"/></svg>`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 84"><path d="M28 62 a13 13 0 0 1 7-35 a20 20 0 0 1 27 6" fill="none" stroke="#8a8f98" stroke-width="5" stroke-linecap="round"/><line x1="14" y1="70" x2="72" y2="14" stroke="#d64545" stroke-width="5" stroke-linecap="round"/><g stroke="#4a7dbd" stroke-width="2.5"><line x1="72" y1="34" x2="88" y2="44"/><line x1="88" y1="44" x2="80" y2="62"/><line x1="72" y1="34" x2="80" y2="62"/><line x1="80" y1="62" x2="58" y2="62"/><line x1="72" y1="34" x2="58" y2="62"/></g><g fill="#4a7dbd"><circle cx="72" cy="34" r="5.5"/><circle cx="88" cy="44" r="5.5"/><circle cx="80" cy="62" r="5.5"/><circle cx="58" cy="62" r="5.5"/></g></svg>`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M28 64 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 29 a13 13 0 0 0-7 35 z" fill="#4a7dbd" fill-opacity="0.18" stroke="#4a7dbd" stroke-width="4.5" stroke-linejoin="round"/><line x1="10" y1="47" x2="90" y2="47" stroke="#d64545" stroke-width="4.5" stroke-dasharray="9 7" stroke-linecap="round"/></svg>`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M26 66 h48 a15 15 0 0 0 2-29.8 A21 21 0 0 0 34 28 a14 14 0 0 0-8 38 z" fill="#4a7dbd"/><g stroke="#ffffff" stroke-width="9" stroke-linecap="round"><line x1="35" y1="36" x2="65" y2="60"/><line x1="65" y1="36" x2="35" y2="60"/></g></svg>`,
+];
+const todaysLogo = LOGOS[new Date().getDay()];
+document.getElementById("logo").innerHTML = todaysLogo;
+const fav = document.createElement("link");
+fav.rel = "icon"; fav.type = "image/svg+xml";
+fav.href = "data:image/svg+xml;utf8," + encodeURIComponent(todaysLogo);
+document.head.appendChild(fav);
+
 // ---- capability catalog -----------------------------------------------------
 // status: live = works today · progress = milestone underway · planned = build later
 const SECTIONS = [
