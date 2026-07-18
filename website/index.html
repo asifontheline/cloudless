@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Cloudless — a network of cheap community hardware built to beat commercially available clouds. Cloud AI is its first child service.">
+<title>CloudLess — cheap hardware, networked to beat the cloud</title>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="%234a7dbd" stroke-width="7"/><line x1="16" y1="72" x2="84" y2="12" stroke="%23d64545" stroke-width="8" stroke-linecap="round"/></svg>'>
+<style>
+  :root { color-scheme: light dark; --line: color-mix(in srgb, currentColor 14%, transparent);
+    --card: color-mix(in srgb, currentColor 4%, transparent); --accent:#4a7dbd; --strike:#d64545;
+    --ok:#2e9e5b; --warn:#c78a00; --plan:#8a8f98; }
+  * { box-sizing: border-box; }
+  body { font: 16px/1.6 system-ui, sans-serif; margin: 0; }
+  header { position: sticky; top: 0; border-bottom: 1px solid var(--line); padding: .7rem 1rem;
+           backdrop-filter: blur(8px); background: color-mix(in srgb, Canvas 85%, transparent);
+           display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+  .logo svg { height: 28px; display: block; }
+  .wordmark { font-weight: 700; font-size: 1.1rem; }
+  .wordmark s { color: var(--plan); text-decoration-color: var(--strike); text-decoration-thickness: 2.5px; }
+  nav { margin-left: auto; display: flex; gap: .2rem; flex-wrap: wrap; }
+  nav a { padding: .35rem .7rem; border-radius: 6px; text-decoration: none; color: inherit; font-size: .92rem; }
+  nav a:hover { background: var(--card); color: var(--accent); }
+  main { max-width: 960px; margin: 0 auto; padding: 0 1rem 3rem; }
+  .hero { text-align: center; padding: 3.5rem 0 2.5rem; }
+  .hero .logo svg { height: 84px; margin: 0 auto 1rem; }
+  h1 { font-size: 2rem; margin: .2rem 0; }
+  .tagline { font-size: 1.15rem; color: color-mix(in srgb, currentColor 75%, transparent); max-width: 620px; margin: .6rem auto; }
+  .cta { display: inline-block; margin: 1rem .3rem 0; padding: .6rem 1.2rem; border-radius: 8px;
+         text-decoration: none; font-weight: 600; }
+  .cta.primary { background: var(--accent); color: #fff; }
+  .cta.ghost { border: 1px solid var(--line); color: inherit; }
+  h2 { font-size: 1.3rem; margin-top: 3rem; scroll-margin-top: 4.5rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: .9rem; }
+  .card { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 1rem; }
+  .card h3 { margin: 0 0 .3rem; font-size: 1rem; }
+  .card p { margin: .3rem 0 0; font-size: .9rem; color: color-mix(in srgb, currentColor 75%, transparent); }
+  .badge { float: right; font-size: .7rem; padding: .1rem .5rem; border-radius: 99px; border: 1px solid var(--line); }
+  .b-live { color: var(--ok); } .b-progress { color: var(--warn); } .b-planned { color: var(--plan); }
+  .principle { border-left: 3px solid var(--accent); padding: .3rem .9rem; margin: 1.2rem 0;
+               color: color-mix(in srgb, currentColor 80%, transparent); }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem;
+        overflow-x: auto; font-size: .88rem; }
+  a { color: var(--accent); }
+  footer { border-top: 1px solid var(--line); margin-top: 3rem; padding: 1.2rem 1rem; text-align: center;
+           font-size: .85rem; color: var(--plan); }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo"><svg viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="#4a7dbd" stroke-width="6" stroke-linejoin="round"/><line x1="16" y1="72" x2="84" y2="12" stroke="#d64545" stroke-width="7" stroke-linecap="round"/></svg></span>
+  <span class="wordmark"><s>Cloud</s>Less</span>
+  <nav>
+    <a href="#about">About</a><a href="#family">Products</a><a href="#features">Features</a>
+    <a href="#billing">Why</a><a href="#contribute">Contribute</a>
+    <a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a>
+  </nav>
+</header>
+<main>
+
+<div class="hero">
+  <span class="logo"><svg viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="#4a7dbd" stroke-width="6" stroke-linejoin="round"/><line x1="16" y1="72" x2="84" y2="12" stroke="#d64545" stroke-width="7" stroke-linecap="round"/></svg></span>
+  <h1><s style="color:var(--plan)">Cloud</s>Less</h1>
+  <p class="tagline"><strong>A network of cheap hardware built to beat the commercially available clouds.</strong><br>
+  Machines your group already owns, federated into one mesh — with replication, failover, and a web console built in.</p>
+  <a class="cta primary" href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">Get the code</a>
+  <a class="cta ghost" href="#about">Learn more</a>
+</div>
+
+<h2 id="about">About</h2>
+<p>Commercial clouds win by concentrating expensive machines in their data centers and renting them back to you,
+metered by the second. Cloudless inverts that: spare desktops, old workstations, and consumer GPUs owned by a
+trusted group — a team, a lab, a co-op — federate into shared infrastructure that behaves like a cloud with
+none of a cloud's bills, lock-in, or data custody.</p>
+<div class="principle">Privacy-first: data never leaves group hardware · Cooperatively owned: no vendor ·
+Cheap hardware first: heterogeneity is the design, not a compromise · Honest security: defense in depth,
+never "foolproof" · Web-managed: everything runs from an embedded console, setup in seconds.</div>
+
+<h2 id="family">Product family</h2>
+<p><strong>Cloudless</strong> is the parent platform — node agent, encrypted mesh membership, gateway with
+failover, security backbone, embedded console. Child services ride the same mesh:</p>
+<div class="grid">
+  <div class="card"><span class="badge b-live">First child · current focus</span><h3>Cloud AI</h3>
+    <p>Standard chat-completions API served by the mesh: chat, embeddings, speech, vision, images, vector
+    search — where cloud cost and privacy pain are highest today.</p></div>
+  <div class="card"><span class="badge b-planned">Planned</span><h3>Cloud Storage</h3>
+    <p>Model commons, object store, encrypted backup &amp; archive on community disks.</p></div>
+  <div class="card"><span class="badge b-planned">Planned</span><h3>Cloud Compute</h3>
+    <p>Batch jobs, scheduled jobs, containers, functions across peers.</p></div>
+  <div class="card"><span class="badge b-planned">Planned</span><h3>Cloud Data</h3>
+    <p>Queues, key-value, time-series, workflows on the same nodes.</p></div>
+</div>
+
+<h2 id="features">What works today</h2>
+<div class="grid">
+  <div class="card"><span class="badge b-live">Live</span><h3>One-command setup</h3>
+    <p><code>up</code> detects your runtime, generates keys, prints a join command for the next machine.</p></div>
+  <div class="card"><span class="badge b-live">Live</span><h3>Encrypted mesh</h3>
+    <p>Gossip membership encrypted and authenticated; cluster CA with mutual-TLS relays between nodes.</p></div>
+  <div class="card"><span class="badge b-live">Live</span><h3>Routing &amp; failover</h3>
+    <p>Requests go to the best healthy node; a dying node's work reroutes automatically.</p></div>
+  <div class="card"><span class="badge b-live">Live</span><h3>Web console</h3>
+    <p>Live mesh dashboard embedded in the binary — zero external assets, nothing to install.</p></div>
+  <div class="card"><span class="badge b-progress">In progress</span><h3>Model commons</h3>
+    <p>Content-addressed, hash-verified model cache; peers serve each other blobs.</p></div>
+  <div class="card"><span class="badge b-progress">In progress</span><h3>Encryption &amp; Data Guard</h3>
+    <p>At-rest encryption, data locality enforcement, egress guard, crypto-shredding.</p></div>
+</div>
+<pre>$ cloudless up
+  Console:  http://127.0.0.1:8080/
+  API:      http://&lt;this-ip&gt;:8080/v1/chat/completions
+  Add a node: cloudless up -join &lt;secret&gt;@&lt;your-ip&gt;:7946</pre>
+
+<h2 id="billing">Why: the cloud bill problem</h2>
+<p>Cloud spend is unpredictable by design — per-second metering, egress fees, idle resources, surprise
+autoscaling, per-token AI pricing across hundreds of SKUs. Whole teams (FinOps) exist just to understand
+the bill. Cloudless's answer is structural, not a discount: hardware you already own has <strong>zero
+marginal cost</strong> — no meters, no egress fees, no surprise invoices. The only "bill" is electricity,
+and the group sees exactly who contributed and who consumed.</p>
+
+<h2 id="contribute">Contribute</h2>
+<p>The code, the board, and the roadmap are all public:</p>
+<div class="grid">
+  <div class="card"><h3><a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">Source code ↗</a></h3>
+    <p>The full platform, Apache-2.0. Clone it, run <code>up</code>, join the mesh.</p></div>
+  <div class="card"><h3><a href="https://github.com/asifontheline/cloudless/issues" target="_blank" rel="noopener">Open board ↗</a></h3>
+    <p>Every feature is a public issue with acceptance criteria — our open Jira.</p></div>
+  <div class="card"><h3><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">Milestones ↗</a></h3>
+    <p>Epics A–G: secure mesh, model commons, accounts, evaluation, networking, services, encryption.</p></div>
+  <div class="card"><h3><a href="https://github.com/asifontheline/cloudless/blob/main/BACKLOG.md" target="_blank" rel="noopener">Backlog ↗</a></h3>
+    <p>Canonical backlog snapshot and working agreements.</p></div>
+</div>
+
+</main>
+<footer>CloudLess (working title) · Apache-2.0 · community-owned infrastructure ·
+<a href="https://github.com/asifontheline/cloudless">github.com/asifontheline/cloudless</a></footer>
+</body>
+</html>
