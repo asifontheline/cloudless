@@ -43,7 +43,7 @@
 </head>
 <body>
 <header>
-  <div class="brand"><span class="logo" id="logo"></span><span class="wordmark"><s>Cloud</s>Less</span> <small>· community-owned infrastructure (prototype)</small></div>
+  <div class="brand"><span class="logo" id="logo"></span><span class="wordmark"><s>Cloud</s>Less</span> <small>· cheap hardware, networked to beat the cloud (prototype)</small></div>
   <nav id="nav"></nav>
 </header>
 <main id="main"></main>
@@ -71,7 +71,8 @@ document.head.appendChild(fav);
 // status: live = works today · progress = milestone underway · planned = build later
 const SECTIONS = [
   { id:"dashboard", label:"Dashboard" },
-  { id:"ai", label:"AI Services", items:[
+  { id:"about", label:"About" },
+  { id:"ai", label:"Cloud AI", items:[
     ["chat","Chat & Completions","Standard chat-completions API served by the mesh with routing and failover.","live"],
     ["embeddings","Embeddings","Vector embeddings endpoint on the same gateway; runs on any node.","planned"],
     ["speech-in","Speech to Text","Private transcription on group hardware.","planned"],
@@ -82,20 +83,20 @@ const SECTIONS = [
     ["finetune","Fine-tuning","Adapter fine-tunes on a single capable node.","planned"],
     ["vectors","Vector Search","Semantic search store paired with the inference gateway.","planned"],
   ]},
-  { id:"compute", label:"Compute", items:[
+  { id:"compute", label:"Cloud Compute", items:[
     ["batch","Batch Jobs","Parallel jobs (render, transcode, data prep) spread across peers.","planned"],
     ["cron","Scheduled Jobs","Recurring tasks that survive node failure via failover.","planned"],
     ["containers","Containers","Sandboxed container workloads dispatched to nodes.","planned"],
     ["functions","Functions","Short sandboxed jobs routed like inference requests.","planned"],
     ["media","Media Transcode","Distributed audio/video conversion jobs.","planned"],
   ]},
-  { id:"storage", label:"Storage", items:[
+  { id:"storage", label:"Cloud Storage", items:[
     ["models","Model Commons","Content-addressed model registry; peers serve each other blobs.","progress"],
     ["objects","Object Store","Replicated content-addressed storage across trusted peers.","planned"],
     ["backup","Backup & Archive","Encrypted k-of-n replicated backups on community disks.","planned"],
     ["artifacts","Artifact Registry","Container images and build artifacts on the same blob store.","planned"],
   ]},
-  { id:"data", label:"Data & Messaging", items:[
+  { id:"data", label:"Cloud Data", items:[
     ["queues","Queues & Events","Durable message queues and event routing inside the mesh.","planned"],
     ["kv","Key-Value Store","Replicated key-value data with eventual consistency.","planned"],
     ["telemetry","Time-series","Metrics storage — also used by the mesh's own monitoring.","planned"],
@@ -132,6 +133,7 @@ function route() {
   const sec = SECTIONS.find(s => s.id === parts[0]) || SECTIONS[0];
   nav.querySelectorAll("a").forEach(a => a.classList.toggle("active", a.dataset.id === sec.id));
   if (sec.id === "dashboard") return renderDashboard();
+  if (sec.id === "about") return renderAbout();
   if (parts[1]) return renderItem(sec, parts[1]);
   renderSection(sec);
 }
@@ -162,6 +164,39 @@ function renderItem(sec, id) {
     ? `<p>This capability is <strong>live</strong> on the current prototype. See the <a href="#/dashboard">dashboard</a>.</p>`
     : `<p class="muted">Section reserved — this capability will be designed and built as its own work item.
        Management UI, HTTP API, and CLI will land together per the one-surface rule.</p>`}`;
+}
+
+// ---- about ------------------------------------------------------------------
+function renderAbout() {
+  stopPolling();
+  main.innerHTML = `<h1>About <s style="color:var(--plan)">Cloud</s>Less</h1>
+  <p><strong>A network of cheap hardware built to beat the commercially available clouds.</strong></p>
+  <p>Commercial clouds win by concentrating expensive machines in their data centers and renting them back
+  to you. Cloudless inverts that: machines a trusted group already owns — spare desktops, old workstations,
+  consumer GPUs — federate into one mesh with replication, failover, and web management built in.</p>
+  <div class="principle">Privacy-first: data never leaves group hardware · Cooperatively owned: no vendor ·
+  Cheap hardware first: heterogeneity is the design, not a compromise · Honest security: defense in depth,
+  never "foolproof".</div>
+  <h2>Product family</h2>
+  <p><strong>Cloudless</strong> is the parent platform — node agent, mesh membership, gateway with failover,
+  security backbone, this console.</p>
+  <div class="grid">
+    <div class="card"><span class="badge b-live">First child · current focus</span>
+      <a class="title" href="#/ai">Cloud AI</a>
+      <p>Inference on the mesh: chat, embeddings, speech, vision, images, vector search — where cloud cost and
+      privacy pain are highest today.</p></div>
+    <div class="card"><span class="badge b-planned">Child · planned</span>
+      <a class="title" href="#/storage">Cloud Storage</a>
+      <p>Model commons, object store, backup &amp; archive on community disks.</p></div>
+    <div class="card"><span class="badge b-planned">Child · planned</span>
+      <a class="title" href="#/compute">Cloud Compute</a>
+      <p>Batch, scheduled jobs, containers, functions across peers.</p></div>
+    <div class="card"><span class="badge b-planned">Child · planned</span>
+      <a class="title" href="#/data">Cloud Data</a>
+      <p>Queues, key-value, time-series, workflows on the same nodes.</p></div>
+  </div>
+  <p class="muted" style="margin-top:1rem">Every child service rides the same mesh, the same security backbone,
+  and this same console.</p>`;
 }
 
 // ---- live dashboard ---------------------------------------------------------
