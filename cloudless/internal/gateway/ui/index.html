@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mesh console</title>
+<style>
+  :root { color-scheme: light dark;
+    --ok:#2e9e5b; --warn:#c78a00; --plan:#8a8f98; --bad:#d64545;
+    --line: color-mix(in srgb, currentColor 14%, transparent);
+    --card: color-mix(in srgb, currentColor 5%, transparent);
+    --accent:#4a7dbd; }
+  * { box-sizing: border-box; }
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0; }
+  header { border-bottom: 1px solid var(--line); padding: 0 1rem; position: sticky; top: 0;
+           backdrop-filter: blur(8px); background: color-mix(in srgb, Canvas 85%, transparent); }
+  .brand { font-weight: 700; padding: .8rem .4rem .2rem; }
+  .brand small { color: var(--plan); font-weight: 400; }
+  nav { display: flex; flex-wrap: wrap; gap: .2rem; padding-bottom: .5rem; }
+  nav a { padding: .35rem .7rem; border-radius: 6px; text-decoration: none; color: inherit; font-size: .9rem; }
+  nav a.active, nav a:hover { background: var(--card); color: var(--accent); }
+  main { max-width: 980px; margin: 1.5rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.25rem; } h2 { font-size: 1.05rem; margin-top: 1.6rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: .8rem; }
+  .card { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: .9rem; }
+  .card a.title { font-weight: 600; text-decoration: none; color: var(--accent); }
+  .card p { margin: .4rem 0 0; font-size: .87rem; color: color-mix(in srgb, currentColor 75%, transparent); }
+  .badge { float: right; font-size: .7rem; padding: .1rem .5rem; border-radius: 99px; border: 1px solid var(--line); }
+  .b-live { color: var(--ok); } .b-progress { color: var(--warn); } .b-planned { color: var(--plan); }
+  table { width: 100%; border-collapse: collapse; margin: .5rem 0 1.5rem; }
+  th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--line); }
+  th { color: var(--plan); font-weight: 600; font-size: .78rem; text-transform: uppercase; }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; }
+  .muted { color: var(--plan); }
+  #err { color: var(--bad); display: none; }
+  .crumb { font-size: .85rem; } .crumb a { color: var(--accent); text-decoration: none; }
+  .principle { border-left: 3px solid var(--accent); padding: .2rem .8rem; margin: 1rem 0; font-size: .9rem;
+               color: color-mix(in srgb, currentColor 80%, transparent); }
+  code { background: var(--card); padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">mesh console <small>· community-owned infrastructure (prototype)</small></div>
+  <nav id="nav"></nav>
+</header>
+<main id="main"></main>
+<script>
+// ---- capability catalog -----------------------------------------------------
+// status: live = works today · progress = milestone underway · planned = build later
+const SECTIONS = [
+  { id:"dashboard", label:"Dashboard" },
+  { id:"ai", label:"AI Services", items:[
+    ["chat","Chat & Completions","Standard chat-completions API served by the mesh with routing and failover.","live"],
+    ["embeddings","Embeddings","Vector embeddings endpoint on the same gateway; runs on any node.","planned"],
+    ["speech-in","Speech to Text","Private transcription on group hardware.","planned"],
+    ["speech-out","Text to Speech","Voice synthesis served from mesh nodes.","planned"],
+    ["translate","Translation","Text translation with open models; data never leaves the mesh.","planned"],
+    ["images","Image Generation","Image synthesis jobs on GPU nodes.","planned"],
+    ["vision","Vision & OCR","Image understanding and document text extraction.","planned"],
+    ["finetune","Fine-tuning","Adapter fine-tunes on a single capable node.","planned"],
+    ["vectors","Vector Search","Semantic search store paired with the inference gateway.","planned"],
+  ]},
+  { id:"compute", label:"Compute", items:[
+    ["batch","Batch Jobs","Parallel jobs (render, transcode, data prep) spread across peers.","planned"],
+    ["cron","Scheduled Jobs","Recurring tasks that survive node failure via failover.","planned"],
+    ["containers","Containers","Sandboxed container workloads dispatched to nodes.","planned"],
+    ["functions","Functions","Short sandboxed jobs routed like inference requests.","planned"],
+    ["media","Media Transcode","Distributed audio/video conversion jobs.","planned"],
+  ]},
+  { id:"storage", label:"Storage", items:[
+    ["models","Model Commons","Content-addressed model registry; peers serve each other blobs.","progress"],
+    ["objects","Object Store","Replicated content-addressed storage across trusted peers.","planned"],
+    ["backup","Backup & Archive","Encrypted k-of-n replicated backups on community disks.","planned"],
+    ["artifacts","Artifact Registry","Container images and build artifacts on the same blob store.","planned"],
+  ]},
+  { id:"data", label:"Data & Messaging", items:[
+    ["queues","Queues & Events","Durable message queues and event routing inside the mesh.","planned"],
+    ["kv","Key-Value Store","Replicated key-value data with eventual consistency.","planned"],
+    ["telemetry","Time-series","Metrics storage — also used by the mesh's own monitoring.","planned"],
+    ["sql","Ad-hoc SQL","Query files stored in the mesh with embedded analytics engines.","planned"],
+    ["workflows","Workflows","Multi-step job orchestration over the queue substrate.","planned"],
+  ]},
+  { id:"network", label:"Network", items:[
+    ["overlay","Mesh Overlay","Encrypted private network joining all nodes (one-command join).","planned"],
+    ["gateway","Gateway & Balancing","Ranked routing, health checks, circuit breaking.","live"],
+    ["naming","Internal Naming","Stable names for nodes and services inside the mesh.","planned"],
+  ]},
+  { id:"security", label:"Security", items:[
+    ["members","Members & API Keys","Per-user keys, roles, and access control.","progress"],
+    ["join","Join Tokens","Invite new nodes from the browser; encrypted membership.","progress"],
+    ["secrets","Secrets","Encrypted replicated secrets unlocked by the cluster key.","planned"],
+    ["certs","Certificates","Cluster CA with per-node certificates and mutual TLS.","progress"],
+    ["audit","Audit Log","Signed append-only record of administrative actions.","planned"],
+  ]},
+  { id:"ops", label:"Operations", items:[
+    ["monitor","Monitoring","Node health, latencies, and routing decisions (live below).","live"],
+    ["logs","Logs","Centralized log collection across nodes.","planned"],
+    ["usage","Usage & Credits","Per-key accounting — the seed of cooperative credits.","planned"],
+    ["dr","Replication & Recovery","k-of-n redundancy and automatic failover policy.","progress"],
+  ]},
+];
+const BADGE = { live:["Live","b-live"], progress:["In progress","b-progress"], planned:["Planned","b-planned"] };
+
+// ---- routing ----------------------------------------------------------------
+const nav = document.getElementById("nav"), main = document.getElementById("main");
+nav.innerHTML = SECTIONS.map(s => `<a href="#/${s.id}" data-id="${s.id}">${s.label}</a>`).join("");
+
+function route() {
+  const parts = (location.hash || "#/dashboard").slice(2).split("/");
+  const sec = SECTIONS.find(s => s.id === parts[0]) || SECTIONS[0];
+  nav.querySelectorAll("a").forEach(a => a.classList.toggle("active", a.dataset.id === sec.id));
+  if (sec.id === "dashboard") return renderDashboard();
+  if (parts[1]) return renderItem(sec, parts[1]);
+  renderSection(sec);
+}
+window.addEventListener("hashchange", route);
+
+function renderSection(sec) {
+  stopPolling();
+  main.innerHTML = `<h1>${sec.label}</h1>
+  <div class="grid">` + sec.items.map(([id, name, desc, st]) => `
+    <div class="card"><span class="badge ${BADGE[st][1]}">${BADGE[st][0]}</span>
+      <a class="title" href="#/${sec.id}/${id}">${name}</a>
+      <p>${desc}</p>
+    </div>`).join("") + `</div>`;
+}
+
+function renderItem(sec, id) {
+  stopPolling();
+  const it = sec.items.find(i => i[0] === id);
+  if (!it) return renderSection(sec);
+  const [, name, desc, st] = it;
+  main.innerHTML = `<p class="crumb"><a href="#/${sec.id}">${sec.label}</a> / ${name}</p>
+  <h1>${name} <span class="badge ${BADGE[st][1]}">${BADGE[st][0]}</span></h1>
+  <p>${desc}</p>
+  <div class="principle">Built on the mesh principles: privacy-first (data stays on group hardware),
+  cooperative ownership (no vendor), low-cost community machines, replication &amp; failover by default,
+  web-managed with zero-friction setup.</div>
+  ${st === "live"
+    ? `<p>This capability is <strong>live</strong> on the current prototype. See the <a href="#/dashboard">dashboard</a>.</p>`
+    : `<p class="muted">Section reserved — this capability will be designed and built as its own work item.
+       Management UI, HTTP API, and CLI will land together per the one-surface rule.</p>`}`;
+}
+
+// ---- live dashboard ---------------------------------------------------------
+let timer = null;
+function stopPolling() { if (timer) { clearInterval(timer); timer = null; } }
+function renderDashboard() {
+  stopPolling();
+  main.innerHTML = `<h1>Mesh dashboard</h1>
+  <p id="err">Cannot reach gateway.</p>
+  <h2>Nodes</h2>
+  <table><thead><tr><th>Name</th><th>Backend</th><th>State</th><th>Latency</th></tr></thead><tbody id="nodes"></tbody></table>
+  <h2>Recent routes</h2>
+  <table><thead><tr><th>Time</th><th>Path</th><th>Routed to</th><th>Status</th></tr></thead><tbody id="routes"></tbody></table>
+  <p class="muted">Auto-refreshes every 2s · API: <code>POST /v1/chat/completions</code> · Explore capability sections in the menu above.</p>`;
+  tick(); timer = setInterval(tick, 2000);
+}
+async function tick() {
+  try {
+    const r = await fetch('/status'); const d = await r.json();
+    document.getElementById('err').style.display = 'none';
+    document.getElementById('nodes').innerHTML = (d.backends || []).map(b =>
+      `<tr><td>${esc(b.Backend.Name)}</td><td><code>${esc(b.Backend.BaseURL)}</code></td>` +
+      `<td class="${b.Healthy ? 'ok' : 'bad'}">${b.Healthy ? 'healthy' : 'unhealthy'}</td>` +
+      `<td>${b.Healthy ? b.LatencyMS + ' ms' : '—'}</td></tr>`).join('');
+    document.getElementById('routes').innerHTML = (d.routes || []).slice().reverse().map(x =>
+      `<tr><td>${esc((x.time || '').slice(11, 19))}</td><td><code>${esc(x.path)}</code></td>` +
+      `<td>${esc(x.backend)}</td><td>${x.status}</td></tr>`).join('');
+  } catch { const e = document.getElementById('err'); if (e) e.style.display = 'block'; }
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+route();
+</script>
+</body>
+</html>
