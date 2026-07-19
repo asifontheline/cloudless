@@ -140,24 +140,73 @@ failover, and web management built in.</p>
 routing and failover, where cloud cost and privacy pain are highest. Storage, compute, and data
 services ride the same mesh next.</p>
 
-<h2 id="features">Features &amp; status</h2>
+<h2 id="features">Products &amp; services</h2>
+<p>Grouped the way a cloud catalog is — except every service runs on your group's own hardware.</p>
 <div class="grid">
-  <div class="card"><span class="badge b-live">Live</span><h3>One-command mesh</h3>
-    <p><code>up</code> detects your runtime, generates keys, prints a join command. Second machine pastes it. Done.</p></div>
-  <div class="card"><span class="badge b-live">Live</span><h3>Encrypted everything</h3>
-    <p>Cluster CA, certificate enrollment, mutual-TLS relays — peer traffic is never plaintext.</p></div>
-  <div class="card"><span class="badge b-live">Live</span><h3>Self-healing routing</h3>
-    <p>Requests go to the best healthy node; a dying node's work reroutes mid-flight.</p></div>
-  <div class="card"><span class="badge b-live">Live</span><h3>Billing freedom</h3>
-    <p>Usage per member, fair-use quotas, a contribution ledger, a cost calculator, idle-capacity alerts.</p></div>
-  <div class="card"><span class="badge b-live">Live</span><h3>Members &amp; keys</h3>
-    <p>Named API keys created and revoked from the browser; everything attributes per person.</p></div>
-  <div class="card"><span class="badge b-live">Live</span><h3>Built-in console</h3>
-    <p>The whole platform managed from a web page embedded in one binary. Nothing else to install.</p></div>
-  <div class="card"><span class="badge b-progress">In progress</span><h3>Model commons</h3>
-    <p>Hash-verified, content-addressed model store; peers serve each other models.</p></div>
-  <div class="card"><span class="badge b-planned">Planned</span><h3>Beyond inference</h3>
-    <p>Speech, images, batch jobs, object storage, queues, vector search — same mesh, same console.</p></div>
+
+  <div class="card"><h3>🧠 AI &amp; Machine Learning</h3><ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.92rem">
+    <li>Chat &amp; completions API <span class="b-live">· live</span></li>
+    <li>Embeddings <span class="b-planned">· planned</span></li>
+    <li>Speech to text / text to speech <span class="b-planned">· planned</span></li>
+    <li>Vision &amp; OCR <span class="b-planned">· planned</span></li>
+    <li>Image generation <span class="b-planned">· planned</span></li>
+    <li>Vector search <span class="b-planned">· planned</span></li>
+    <li>Fine-tuning <span class="b-planned">· planned</span></li>
+  </ul></div>
+
+  <div class="card"><h3>⚙️ Compute</h3><ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.92rem">
+    <li>Batch jobs <span class="b-planned">· planned</span></li>
+    <li>Scheduled jobs <span class="b-planned">· planned</span></li>
+    <li>Containers <span class="b-planned">· planned</span></li>
+    <li>Functions <span class="b-planned">· planned</span></li>
+    <li>Media transcode <span class="b-planned">· planned</span></li>
+  </ul></div>
+
+  <div class="card"><h3>🗄️ Storage</h3><ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.92rem">
+    <li>Model commons (hash-verified) <span class="b-progress">· in progress</span></li>
+    <li>Object store <span class="b-planned">· planned</span></li>
+    <li>Backup &amp; archive <span class="b-planned">· planned</span></li>
+    <li>Artifact registry <span class="b-planned">· planned</span></li>
+  </ul></div>
+
+  <div class="card"><h3>📨 Data &amp; Messaging</h3><ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.92rem">
+    <li>Queues &amp; events <span class="b-planned">· planned</span></li>
+    <li>Key-value store <span class="b-planned">· planned</span></li>
+    <li>Time-series <span class="b-planned">· planned</span></li>
+    <li>Workflows <span class="b-planned">· planned</span></li>
+  </ul></div>
+
+  <div class="card"><h3>🌐 Networking</h3><ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.92rem">
+    <li>Gateway, load balancing &amp; failover <span class="b-live">· live</span></li>
+    <li>Encrypted mesh membership <span class="b-live">· live</span></li>
+    <li>Private overlay (cross-continent) <span class="b-planned">· planned</span></li>
+    <li>Internal naming <span class="b-planned">· planned</span></li>
+  </ul></div>
+
+  <div class="card"><h3>🔐 Security &amp; Identity</h3><ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.92rem">
+    <li>Members &amp; API keys <span class="b-live">· live</span></li>
+    <li>Cluster CA &amp; mutual TLS <span class="b-live">· live</span></li>
+    <li>Join tokens <span class="b-progress">· in progress</span></li>
+    <li>Encryption at rest + Data Guard <span class="b-planned">· planned</span></li>
+    <li>Signed audit log <span class="b-planned">· planned</span></li>
+  </ul></div>
+
+  <div class="card"><h3>📊 Management &amp; Governance</h3><ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.92rem">
+    <li>Web console (embedded, zero-install) <span class="b-live">· live</span></li>
+    <li>Monitoring &amp; health <span class="b-live">· live</span></li>
+    <li>Usage &amp; fair-use quotas <span class="b-live">· live</span></li>
+    <li>Contribution ledger <span class="b-live">· live</span></li>
+    <li>Cost calculator <span class="b-live">· live</span></li>
+    <li>Idle-capacity alerts <span class="b-live">· live</span></li>
+  </ul></div>
+
+  <div class="card"><h3>🚀 Onboarding</h3><ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.92rem">
+    <li>One-command mesh (<code>up</code>) <span class="b-live">· live</span></li>
+    <li>Auto runtime detection <span class="b-live">· live</span></li>
+    <li>Join links / QR from console <span class="b-planned">· planned</span></li>
+    <li>Signed release binaries <span class="b-planned">· planned</span></li>
+  </ul></div>
+
 </div>
 <h3 style="margin-top:2rem">Progress by area</h3>
 <div style="overflow-x:auto">
