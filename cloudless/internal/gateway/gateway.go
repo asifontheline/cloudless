@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"cloudless/internal/audit"
+	"cloudless/internal/inflight"
 	"cloudless/internal/keys"
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
@@ -69,6 +70,9 @@ type Gateway struct {
 	// drop from routing). RevokedList lists current revocations.
 	Revoke      func(name string) bool
 	RevokedList func() []revoke.Record
+
+	// Limiter, when set, applies backpressure to inference requests.
+	Limiter *inflight.Limiter
 }
 
 const routeLogSize = 20
@@ -214,6 +218,17 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Retry-After", retry.Round(time.Second).String())
 		http.Error(w, `{"error":"quota exceeded — group fair-use limit reached"}`, http.StatusTooManyRequests)
 		return
+	}
+	// Backpressure: bound concurrent in-flight requests. When saturated,
+	// tell the caller to retry instead of piling onto overloaded backends.
+	if g.Limiter != nil {
+		release, ok := g.Limiter.Acquire(r.Context())
+		if !ok {
+			w.Header().Set("Retry-After", strconv.Itoa(int(g.Limiter.RetryAfter().Seconds())+1))
+			http.Error(w, `{"error":"node busy — retry shortly (backpressure)"}`, http.StatusServiceUnavailable)
+			return
+		}
+		defer release()
 	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
 	if err != nil {
@@ -632,9 +647,13 @@ func (g *Gateway) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	routes := make([]RouteEntry, len(g.routes))
 	copy(routes, g.routes)
 	g.mu.Unlock()
+	inflightN, waiting := g.Limiter.Stats()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
 		"backends": g.reg.Ranked(),
 		"routes":   routes,
+		"load": map[string]any{
+			"inflight": inflightN, "waiting": waiting, "max_concurrent": g.Limiter.Capacity(),
+		},
 	})
 }

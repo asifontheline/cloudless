@@ -23,6 +23,7 @@ import (
 	"cloudless/internal/config"
 	"cloudless/internal/gateway"
 	"cloudless/internal/gossip"
+	"cloudless/internal/inflight"
 	"cloudless/internal/keys"
 	"cloudless/internal/pki"
 	"cloudless/internal/quota"
@@ -362,6 +363,13 @@ func runServe(cfg *config.Config) {
 		auditPath = filepath.Join(filepath.Dir(cfg.PKIDir), "audit.log")
 	}
 	gw.Audit = audit.Open(auditPath)
+	// Backpressure defaults: 8 concurrent, up to 64 waiting, 5s wait.
+	cc := cfg.Concurrency
+	if cc == nil {
+		cc = &config.Concurrency{MaxInFlight: 8, MaxQueue: 64, WaitSeconds: 5}
+	}
+	gw.Limiter = inflight.New(cc.MaxInFlight, cc.MaxQueue, time.Duration(cc.WaitSeconds)*time.Second)
+	log.Printf("backpressure: %d concurrent, %d queued, %ds wait", cc.MaxInFlight, cc.MaxQueue, cc.WaitSeconds)
 	if cfg.Quotas != nil {
 		gw.Quota = quota.New(quota.Limits{
 			RequestsPerMinute: cfg.Quotas.RequestsPerMinute,
@@ -846,10 +854,17 @@ func status(args []string) {
 	var out struct {
 		Backends []registry.BackendState `json:"backends"`
 		Routes   []gateway.RouteEntry    `json:"routes"`
+		Load     struct {
+			InFlight      int64 `json:"inflight"`
+			Waiting       int64 `json:"waiting"`
+			MaxConcurrent int   `json:"max_concurrent"`
+		} `json:"load"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("LOAD  %d in-flight, %d waiting (max concurrent %d)\n",
+		out.Load.InFlight, out.Load.Waiting, out.Load.MaxConcurrent)
 	fmt.Println("BACKENDS")
 	for _, b := range out.Backends {
 		state := "unhealthy"
