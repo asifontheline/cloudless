@@ -1,0 +1,39 @@
+name: Merge queue
+
+# Every 2 hours, merge into main any reviewed PR whose validation checks are
+# all green. "Reviewed" = carries the `ready-to-merge` label (added after
+# review). This keeps main continuously up to date without ever merging a
+# red build, and replaces long-lived direct commits to main.
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge green, reviewed PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          prs=$(gh pr list -R "$REPO" --state open --label ready-to-merge --json number --jq '.[].number')
+          if [ -z "$prs" ]; then echo "No PRs labelled ready-to-merge."; exit 0; fi
+          for pr in $prs; do
+            echo "::group::PR #$pr"
+            if gh pr checks "$pr" -R "$REPO"; then
+              echo "PR #$pr is green — squashing into main."
+              gh pr merge "$pr" -R "$REPO" --squash --delete-branch --admin
+            else
+              echo "PR #$pr has failing or pending checks — leaving for next cycle."
+            fi
+            echo "::endgroup::"
+          done

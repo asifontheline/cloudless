@@ -1,9 +1,9 @@
 package main
 
 import (
-	"crypto/tls"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"flag"

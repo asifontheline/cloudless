@@ -18,10 +18,10 @@ const (
 )
 
 type Limits struct {
-	CPUPercent  int    `json:"cpu_percent"`  // 0..70
-	DiskGB      int    `json:"disk_gb"`      // 0 = unlimited beyond store use
-	ShareWhen   string `json:"share_when"`   // "always" | "charging" | "idle"
-	MeteredOK   bool   `json:"metered_ok"`   // contribute on metered networks?
+	CPUPercent int    `json:"cpu_percent"` // 0..70
+	DiskGB     int    `json:"disk_gb"`     // 0 = unlimited beyond store use
+	ShareWhen  string `json:"share_when"`  // "always" | "charging" | "idle"
+	MeteredOK  bool   `json:"metered_ok"`  // contribute on metered networks?
 }
 
 func clamp(p int) int {

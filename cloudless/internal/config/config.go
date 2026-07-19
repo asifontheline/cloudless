@@ -14,12 +14,12 @@ type Backend struct {
 
 type Gossip struct {
 	NodeName   string   `json:"node_name"`
-	Bind       string   `json:"bind"`        // e.g. "0.0.0.0:7946"
-	Join       []string `json:"join"`        // seed peers, host:port
-	BackendURL string   `json:"backend_url"` // this node's local inference endpoint
-	RelayURL   string   `json:"relay_url"`   // mutual-TLS relay URL advertised to peers (preferred over backend_url)
+	Bind       string   `json:"bind"`               // e.g. "0.0.0.0:7946"
+	Join       []string `json:"join"`               // seed peers, host:port
+	BackendURL string   `json:"backend_url"`        // this node's local inference endpoint
+	RelayURL   string   `json:"relay_url"`          // mutual-TLS relay URL advertised to peers (preferred over backend_url)
 	Location   string   `json:"location,omitempty"` // continent/country/state/city/village
-	Secret     string   `json:"secret"`      // shared cluster key (16/24/32 bytes) encrypting gossip
+	Secret     string   `json:"secret"`             // shared cluster key (16/24/32 bytes) encrypting gossip
 }
 
 type Config struct {

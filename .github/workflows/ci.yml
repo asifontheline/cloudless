@@ -1,0 +1,42 @@
+name: CI validation
+
+# The validation engine: every check-in from anywhere in the world is built,
+# vetted, and tested before it can reach main. Runs on pull requests and on
+# any pushed branch except main itself.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: build · vet · test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cloudless/go.mod
+          cache-dependency-path: cloudless/go.sum
+      - name: Build
+        working-directory: cloudless
+        run: go build ./...
+      - name: Vet
+        working-directory: cloudless
+        run: go vet ./...
+      - name: Test
+        working-directory: cloudless
+        run: go test ./...
+      - name: gofmt check
+        working-directory: cloudless
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"; echo "$unformatted"; exit 1
+          fi
