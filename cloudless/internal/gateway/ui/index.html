@@ -94,7 +94,7 @@ const SECTIONS = [
     ["media","Media Transcode","Distributed audio/video conversion jobs.","planned"],
   ]},
   { id:"storage", label:"Cloud Storage", items:[
-    ["models","Model Commons","Content-addressed model registry; peers serve each other blobs.","progress"],
+    ["models","Model Commons","Hash-verified artifact store; safe formats only.","live"],
     ["objects","Object Store","Replicated content-addressed storage across trusted peers.","planned"],
     ["backup","Backup & Archive","Encrypted k-of-n replicated backups on community disks.","planned"],
     ["artifacts","Artifact Registry","Container images and build artifacts on the same blob store.","planned"],
@@ -165,6 +165,7 @@ function renderItem(sec, id) {
   if (sec.id === "security" && id === "members") return renderKeys();
   if (sec.id === "ops" && id === "savings") return renderSavings();
   if (sec.id === "ops" && id === "capacity") return renderCapacity();
+  if (sec.id === "storage" && id === "models") return renderModels();
   const it = sec.items.find(i => i[0] === id);
   if (!it) return renderSection(sec);
   const [, name, desc, st] = it;
@@ -333,6 +334,56 @@ function renderLedger() {
   load(); timer = setInterval(load, 3000);
 }
 
+// ---- model commons (live) ---------------------------------------------------
+function renderModels() {
+  main.innerHTML = `<p class="crumb"><a href="#/storage">Cloud Storage</a> / Model Commons</p>
+  <h1>Model Commons <span class="badge b-live">Live</span></h1>
+  <p>Content-addressed artifact store: everything is identified by SHA-256, verified on write and on
+  demand. Only safe tensor formats are admitted (<code>.gguf</code>, <code>.safetensors</code>,
+  <code>.onnx</code>) — pickle-based files are rejected because they can execute code.</p>
+  <p><input id="mfile" type="file" style="font-size:.9rem">
+  <button id="mup" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Add artifact</button>
+  <span class="muted">(admin key from the Members page is used)</span></p>
+  <p id="mmsg" class="principle" style="display:none"></p>
+  <table><thead><tr><th>Name</th><th>Format</th><th>Size</th><th>SHA-256</th><th></th><th></th></tr></thead>
+  <tbody id="mlist"></tbody></table>`;
+  const hdr = () => ({'Authorization': 'Bearer ' + (localStorage.getItem('adminKey') || '')});
+  const msg = (t, bad) => { const m = document.getElementById('mmsg'); m.style.display = 'block';
+    m.style.borderColor = bad ? 'var(--bad, #d64545)' : 'var(--accent)'; m.textContent = t; };
+  const load = async () => {
+    try {
+      const d = await (await fetch('/store')).json();
+      document.getElementById('mlist').innerHTML = (d.artifacts || []).map(e =>
+        `<tr><td>${esc(e.name)}</td><td>${esc(e.format)}</td><td>${(e.size/1048576).toFixed(1)} MB</td>` +
+        `<td><code>${esc(e.sha256.slice(0,16))}…</code></td>` +
+        `<td><a href="#" data-vf="${esc(e.name)}">verify</a></td>` +
+        `<td><a href="#" data-rm="${esc(e.name)}">delete</a></td></tr>`).join('')
+        || `<tr><td colspan="6" class="muted">No artifacts yet — add a model file above.</td></tr>`;
+      document.querySelectorAll('[data-vf]').forEach(a => a.onclick = async e => {
+        e.preventDefault();
+        const r = await (await fetch('/store/verify?name=' + encodeURIComponent(a.dataset.vf))).json();
+        msg(a.dataset.vf + (r.ok ? ' — hash verified ✓' : ' — VERIFICATION FAILED: ' + (r.error || 'hash mismatch')), !r.ok);
+      });
+      document.querySelectorAll('[data-rm]').forEach(a => a.onclick = async e => {
+        e.preventDefault();
+        await fetch('/store/' + encodeURIComponent(a.dataset.rm), {method: 'DELETE', headers: hdr()});
+        load();
+      });
+    } catch {}
+  };
+  document.getElementById('mup').onclick = async () => {
+    const f = document.getElementById('mfile').files[0];
+    if (!f) return;
+    msg('Uploading ' + f.name + '…', false);
+    const r = await fetch('/store?name=' + encodeURIComponent(f.name), {method: 'PUT', headers: hdr(), body: f});
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) msg('Added ' + f.name + ' (' + d.format + ', sha256 ' + d.sha256.slice(0,16) + '…)', false);
+    else msg(d.error || 'Upload rejected.', true);
+    load();
+  };
+  load();
+}
+
 // ---- cost calculator (live) -------------------------------------------------
 function renderSavings() {
   main.innerHTML = `<p class="crumb"><a href="#/ops">Operations</a> / Cost Calculator</p>
@@ -457,9 +508,9 @@ const FEATURES = [
   ["A · Secure Mesh","Mutual TLS between nodes",3,"done"],
   ["A · Secure Mesh","Node revocation",4,"planned"],
   ["A · Secure Mesh","Signed audit log",5,"planned"],
-  ["B · Model Commons","Content-addressed model store",6,"planned"],
+  ["B · Model Commons","Content-addressed model store",6,"done"],
   ["B · Model Commons","Mesh pull-through cache",7,"planned"],
-  ["B · Model Commons","Safe-format allowlist",8,"planned"],
+  ["B · Model Commons","Safe-format allowlist",8,"done"],
   ["B · Model Commons","Model registry in console",9,"planned"],
   ["B · Model Commons","Runtime supervisor",10,"planned"],
   ["C · Accounts","Per-user API keys",11,"done"],

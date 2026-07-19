@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
 	"cloudless/internal/relay"
+	"cloudless/internal/store"
 	"cloudless/internal/usage"
 )
 
@@ -51,6 +53,8 @@ func main() {
 		savingsCmd(os.Args[2:])
 	case "capacity":
 		capacityCmd(os.Args[2:])
+	case "models":
+		modelsCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -280,6 +284,11 @@ func runServe(cfg *config.Config) {
 	}
 	gw.Usage = usage.Open(usagePath)
 	gw.Keys = keys.Open(strings.TrimSuffix(usagePath, "usage.json") + "keys.json")
+	if st, err := store.Open(strings.TrimSuffix(usagePath, "usage.json") + "models"); err == nil {
+		gw.Models = st
+	} else {
+		log.Printf("store: %v", err)
+	}
 	if cfg.Quotas != nil {
 		gw.Quota = quota.New(quota.Limits{
 			RequestsPerMinute: cfg.Quotas.RequestsPerMinute,
@@ -401,6 +410,93 @@ func keysCmd(args []string) {
 		}
 	default:
 		log.Fatal("usage: cloudless keys [list|create <name>|revoke <prefix>]")
+	}
+}
+
+// modelsCmd manages the content-addressed model store:
+// list | add <file> [name] | verify <name> | rm <name>
+func modelsCmd(args []string) {
+	fs := flag.NewFlagSet("models", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	fs.Parse(args)
+	if *adminKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*adminKey = cfg.APIKey
+			}
+		}
+	}
+	sub := "list"
+	if fs.NArg() > 0 {
+		sub = fs.Arg(0)
+	}
+	switch sub {
+	case "list":
+		resp, err := http.Get(*addr + "/store")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var out struct {
+			Artifacts []store.Entry `json:"artifacts"`
+		}
+		json.NewDecoder(resp.Body).Decode(&out)
+		fmt.Printf("%-28s %-12s %10s  %s\n", "NAME", "FORMAT", "SIZE", "SHA256")
+		for _, e := range out.Artifacts {
+			fmt.Printf("%-28s %-12s %10d  %s\n", e.Name, e.Format, e.Size, e.SHA256[:16]+"…")
+		}
+	case "add":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless models add <file> [name]")
+		}
+		path := fs.Arg(1)
+		name := filepath.Base(path)
+		if fs.NArg() > 2 {
+			name = fs.Arg(2)
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		req, _ := http.NewRequest("PUT", *addr+"/store?name="+name, f)
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("add failed: %s", body)
+		}
+		fmt.Printf("added: %s\n", body)
+	case "verify":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless models verify <name>")
+		}
+		resp, err := http.Get(*addr + "/store/verify?name=" + fs.Arg(1))
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Println(string(body))
+	case "rm":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless models rm <name>")
+		}
+		req, _ := http.NewRequest("DELETE", *addr+"/store/"+fs.Arg(1), nil)
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		resp.Body.Close()
+		fmt.Println("status:", resp.StatusCode)
+	default:
+		log.Fatal("usage: cloudless models [list|add <file> [name]|verify <name>|rm <name>]")
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"cloudless/internal/keys"
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
+	"cloudless/internal/store"
 	"cloudless/internal/usage"
 )
 
@@ -50,6 +51,9 @@ type Gateway struct {
 
 	// Keys, when set, holds per-user API keys (cluster key stays admin).
 	Keys *keys.Store
+
+	// Models, when set, is the content-addressed model store.
+	Models *store.Store
 }
 
 const routeLogSize = 20
@@ -77,6 +81,10 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /ledger", g.handleLedger)
 	mux.HandleFunc("GET /savings", g.handleSavings)
 	mux.HandleFunc("GET /capacity", g.handleCapacity)
+	mux.HandleFunc("GET /store", g.handleStoreList)
+	mux.HandleFunc("PUT /store", g.adminOnly(g.handleStoreAdd))
+	mux.HandleFunc("GET /store/verify", g.handleStoreVerify)
+	mux.HandleFunc("DELETE /store/{name}", g.adminOnly(g.handleStoreDelete))
 	mux.HandleFunc("GET /keys", g.adminOnly(g.handleKeysList))
 	mux.HandleFunc("POST /keys", g.adminOnly(g.handleKeysCreate))
 	mux.HandleFunc("DELETE /keys/{prefix}", g.adminOnly(g.handleKeysRevoke))
@@ -243,6 +251,46 @@ func (g *Gateway) logRoute(path, backend string, status, retries int) {
 	if len(g.routes) > routeLogSize {
 		g.routes = g.routes[len(g.routes)-routeLogSize:]
 	}
+}
+
+func (g *Gateway) handleStoreList(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"artifacts": g.Models.List()})
+}
+
+func (g *Gateway) handleStoreAdd(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, `{"error":"name query parameter required"}`, http.StatusBadRequest)
+		return
+	}
+	e, err := g.Models.Add(name, r.Body)
+	if err != nil {
+		log.Printf("store: rejected %q: %v", name, err)
+		http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusUnprocessableEntity)
+		return
+	}
+	log.Printf("store: added %s (%s, %d bytes, sha256 %s…)", e.Name, e.Format, e.Size, e.SHA256[:12])
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(e)
+}
+
+func (g *Gateway) handleStoreVerify(w http.ResponseWriter, r *http.Request) {
+	ok, err := g.Models.Verify(r.URL.Query().Get("name"))
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]any{"ok": ok})
+}
+
+func (g *Gateway) handleStoreDelete(w http.ResponseWriter, r *http.Request) {
+	if !g.Models.Delete(r.PathValue("name")) {
+		http.Error(w, `{"error":"unknown artifact"}`, http.StatusNotFound)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // adminOnly gates key management behind the cluster (admin) key.
