@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -74,6 +75,7 @@ func (g *Gateway) Handler() http.Handler {
 		mux.HandleFunc("POST /enroll", g.EnrollHandler)
 	}
 	mux.HandleFunc("GET /ledger", g.handleLedger)
+	mux.HandleFunc("GET /savings", g.handleSavings)
 	mux.HandleFunc("GET /keys", g.adminOnly(g.handleKeysList))
 	mux.HandleFunc("POST /keys", g.adminOnly(g.handleKeysCreate))
 	mux.HandleFunc("DELETE /keys/{prefix}", g.adminOnly(g.handleKeysRevoke))
@@ -286,6 +288,36 @@ func (g *Gateway) handleKeysRevoke(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("keys: revoked %s…", prefix)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleSavings estimates what the mesh's served tokens would have cost on a
+// metered hosted API. Reference rates are generic (USD per 1M tokens),
+// overridable via query params — no provider is named or implied.
+func (g *Gateway) handleSavings(w http.ResponseWriter, r *http.Request) {
+	promptRate, completionRate := 0.50, 1.50 // typical hosted small-model class, USD/1M tokens
+	if v, err := strconv.ParseFloat(r.URL.Query().Get("prompt_per_1m"), 64); err == nil && v >= 0 {
+		promptRate = v
+	}
+	if v, err := strconv.ParseFloat(r.URL.Query().Get("completion_per_1m"), 64); err == nil && v >= 0 {
+		completionRate = v
+	}
+	var prompt, completion, requests int64
+	for _, rec := range g.Usage.Snapshot() {
+		prompt += rec.PromptTokens
+		completion += rec.CompletionTokens
+		requests += rec.Requests
+	}
+	hosted := float64(prompt)/1e6*promptRate + float64(completion)/1e6*completionRate
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"requests":              requests,
+		"prompt_tokens":         prompt,
+		"completion_tokens":     completion,
+		"reference_rates_usd":   map[string]float64{"prompt_per_1m": promptRate, "completion_per_1m": completionRate},
+		"hosted_equivalent_usd": hosted,
+		"mesh_marginal_usd":     0.0,
+		"note":                  "Mesh marginal cost is zero by design; real costs are electricity and owned hardware. Reference rates are generic hosted-API figures — adjust to your comparison point.",
+	})
 }
 
 // LedgerLine is one party's side of the cooperative ledger.

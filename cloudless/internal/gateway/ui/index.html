@@ -122,6 +122,7 @@ const SECTIONS = [
     ["logs","Logs","Centralized log collection across nodes.","planned"],
     ["usage","Usage & Credits","Per-key accounting — the seed of cooperative credits.","live"],
     ["ledger","Contribution Ledger","Who gave compute and who consumed it — the fairness view.","live"],
+    ["savings","Cost Calculator","What the mesh's work would have cost on a metered hosted API.","live"],
     ["dr","Replication & Recovery","k-of-n redundancy and automatic failover policy.","progress"],
   ]},
 ];
@@ -159,6 +160,7 @@ function renderItem(sec, id) {
   if (sec.id === "ops" && id === "usage") return renderUsage();
   if (sec.id === "ops" && id === "ledger") return renderLedger();
   if (sec.id === "security" && id === "members") return renderKeys();
+  if (sec.id === "ops" && id === "savings") return renderSavings();
   const it = sec.items.find(i => i[0] === id);
   if (!it) return renderSection(sec);
   const [, name, desc, st] = it;
@@ -269,6 +271,36 @@ function renderLedger() {
   load(); timer = setInterval(load, 3000);
 }
 
+// ---- cost calculator (live) -------------------------------------------------
+function renderSavings() {
+  main.innerHTML = `<p class="crumb"><a href="#/ops">Operations</a> / Cost Calculator</p>
+  <h1>Cost Calculator <span class="badge b-live">Live</span></h1>
+  <p>What the work this mesh has served would have cost on a metered hosted API.
+  Rates are generic reference figures — set your own comparison point.</p>
+  <p>
+    Prompt $/1M <input id="rp" type="number" step="0.05" value="0.50" style="width:5.5rem;padding:.3rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+    &nbsp;Completion $/1M <input id="rc" type="number" step="0.05" value="1.50" style="width:5.5rem;padding:.3rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+  </p>
+  <div class="grid">
+    <div class="card"><h3 style="margin:0">Hosted equivalent</h3><p style="font-size:1.6rem;margin:.2rem 0" id="hosted">—</p></div>
+    <div class="card"><h3 style="margin:0">Mesh marginal cost</h3><p style="font-size:1.6rem;margin:.2rem 0;color:var(--ok)">$0.00</p></div>
+  </div>
+  <p class="muted" id="sdetail"></p>
+  <p class="muted">Zero marginal cost by design — real costs are electricity and hardware the group already owns.</p>`;
+  const load = async () => {
+    try {
+      const rp = document.getElementById('rp').value, rc = document.getElementById('rc').value;
+      const d = await (await fetch(`/savings?prompt_per_1m=${rp}&completion_per_1m=${rc}`)).json();
+      document.getElementById('hosted').textContent = '$' + (d.hosted_equivalent_usd||0).toFixed(4);
+      document.getElementById('sdetail').textContent =
+        `${d.requests||0} requests · ${d.prompt_tokens||0} prompt + ${d.completion_tokens||0} completion tokens served by the mesh.`;
+    } catch {}
+  };
+  document.getElementById('rp').oninput = load;
+  document.getElementById('rc').oninput = load;
+  load(); timer = setInterval(load, 3000);
+}
+
 // ---- members & api keys (live) ----------------------------------------------
 function renderKeys() {
   main.innerHTML = `<p class="crumb"><a href="#/security">Security</a> / Members &amp; API Keys</p>
@@ -374,7 +406,7 @@ const FEATURES = [
   ["G · Encryption & Data Guard","Crypto-shredding delete",42,"planned"],
   ["G · Encryption & Data Guard","k-of-n root key recovery",43,"planned"],
   ["H · Billing Freedom","Contribution and consumption ledger",44,"done"],
-  ["H · Billing Freedom","Cost-comparison calculator",45,"planned"],
+  ["H · Billing Freedom","Cost-comparison calculator",45,"done"],
   ["H · Billing Freedom","Idle-capacity surfacing",46,"planned"],
 ];
 const FBADGE = { done:["Implemented","b-live"], progress:["In progress","b-progress"], planned:["Not implemented","b-planned"] };

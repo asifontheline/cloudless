@@ -47,6 +47,8 @@ func main() {
 		ledgerCmd(os.Args[2:])
 	case "keys":
 		keysCmd(os.Args[2:])
+	case "savings":
+		savingsCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -395,6 +397,31 @@ func keysCmd(args []string) {
 	default:
 		log.Fatal("usage: cloudless keys [list|create <name>|revoke <prefix>]")
 	}
+}
+
+func savingsCmd(args []string) {
+	fs := flag.NewFlagSet("savings", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	rp := fs.String("prompt-rate", "0.50", "reference USD per 1M prompt tokens")
+	rc := fs.String("completion-rate", "1.50", "reference USD per 1M completion tokens")
+	fs.Parse(args)
+	resp, err := http.Get(*addr + "/savings?prompt_per_1m=" + *rp + "&completion_per_1m=" + *rc)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Requests         int64   `json:"requests"`
+		PromptTokens     int64   `json:"prompt_tokens"`
+		CompletionTokens int64   `json:"completion_tokens"`
+		Hosted           float64 `json:"hosted_equivalent_usd"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("mesh served: %d requests · %d prompt + %d completion tokens\n",
+		out.Requests, out.PromptTokens, out.CompletionTokens)
+	fmt.Printf("hosted-API equivalent: $%.4f    mesh marginal cost: $0.00\n", out.Hosted)
 }
 
 func ledgerCmd(args []string) {
