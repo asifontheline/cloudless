@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync/atomic"
 
 	"cloudless/internal/pki"
 )
@@ -36,11 +37,16 @@ type Server struct {
 	backendURL string // local runtime base, e.g. http://127.0.0.1:11434/v1
 	list       func() []storeEntry
 	path       func(string) (string, bool)
+	slots      func() int // shared-work concurrency budget (0 = not sharing)
+	inflight   atomic.Int64
 	client     *http.Client
 }
 
-func NewServer(backendURL string, list func() []storeEntry, path func(string) (string, bool)) *Server {
-	return &Server{backendURL: backendURL, list: list, path: path, client: &http.Client{}}
+func NewServer(backendURL string, list func() []storeEntry, path func(string) (string, bool), slots func() int) *Server {
+	if slots == nil {
+		slots = func() int { return 1 }
+	}
+	return &Server{backendURL: backendURL, list: list, path: path, slots: slots, client: &http.Client{}}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -78,6 +84,20 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"node has no local runtime"}`, http.StatusServiceUnavailable)
 		return
 	}
+	// Enforce the owner's share limit: shared (peer-served) work may occupy
+	// only the declared CPU budget. 0 slots = not sharing right now.
+	budget := s.slots()
+	if budget <= 0 {
+		http.Error(w, `{"error":"node is not sharing capacity right now"}`, http.StatusServiceUnavailable)
+		return
+	}
+	if s.inflight.Add(1) > int64(budget) {
+		s.inflight.Add(-1)
+		w.Header().Set("Retry-After", "1")
+		http.Error(w, `{"error":"node at its shared-capacity limit"}`, http.StatusServiceUnavailable)
+		return
+	}
+	defer s.inflight.Add(-1)
 	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
 	if err != nil {
 		http.Error(w, `{"error":"read body"}`, http.StatusBadRequest)
@@ -122,12 +142,12 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 
 // ListenAndServe runs the relay with mutual TLS from the cluster PKI.
 // list/path (may be nil) expose the local model store to peers for pulls.
-func ListenAndServe(addr, pkiDir, backendURL string, list func() []storeEntry, path func(string) (string, bool)) error {
+func ListenAndServe(addr, pkiDir, backendURL string, list func() []storeEntry, path func(string) (string, bool), slots func() int) error {
 	tlsCfg, err := pki.ServerTLS(pkiDir)
 	if err != nil {
 		return err
 	}
-	srv := &http.Server{Addr: addr, Handler: NewServer(backendURL, list, path).Handler(), TLSConfig: tlsCfg}
+	srv := &http.Server{Addr: addr, Handler: NewServer(backendURL, list, path, slots).Handler(), TLSConfig: tlsCfg}
 	log.Printf("relay: mutual-TLS peer endpoint on %s", addr)
 	return srv.ListenAndServeTLS("", "")
 }

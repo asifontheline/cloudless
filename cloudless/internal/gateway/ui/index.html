@@ -112,6 +112,7 @@ const SECTIONS = [
     ["naming","Internal Naming","Stable names for nodes and services inside the mesh.","planned"],
   ]},
   { id:"security", label:"Security", items:[
+    ["share","Resource Sharing","Set how much of this machine to share — 5% default, up to 70%.","live"],
     ["members","Members & API Keys","Per-user keys, roles, and access control.","live"],
     ["join","Join Tokens","Invite new nodes from the browser; encrypted membership.","progress"],
     ["secrets","Secrets","Encrypted replicated secrets unlocked by the cluster key.","planned"],
@@ -163,6 +164,7 @@ function renderItem(sec, id) {
   if (sec.id === "ops" && id === "usage") return renderUsage();
   if (sec.id === "ops" && id === "ledger") return renderLedger();
   if (sec.id === "security" && id === "members") return renderKeys();
+  if (sec.id === "security" && id === "share") return renderShare();
   if (sec.id === "ops" && id === "savings") return renderSavings();
   if (sec.id === "ops" && id === "capacity") return renderCapacity();
   if (sec.id === "storage" && id === "models") return renderModels();
@@ -458,6 +460,43 @@ function renderCapacity() {
   load(); timer = setInterval(load, 3000);
 }
 
+// ---- resource sharing (live) ------------------------------------------------
+function renderShare() {
+  main.innerHTML = `<p class="crumb"><a href="#/security">Security</a> / Resource Sharing</p>
+  <h1>Resource Sharing <span class="badge b-live">Live</span></h1>
+  <p>How much of <em>this</em> machine to contribute. Starts at a safe <strong>5%</strong> and tunes up to a
+  <strong>70%</strong> ceiling — never 100%, so the device stays responsive and cool. Your discretion; instantly
+  reversible.</p>
+  <p>CPU share: <strong id="cpuval">–</strong>%
+    <input id="cpu" type="range" min="0" max="70" step="5" style="width:60%;vertical-align:middle">
+    <span class="muted">(0 = don't share · 70 = max)</span></p>
+  <p>Share when:
+    <select id="when" style="padding:.35rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+      <option value="charging">while charging</option><option value="always">always</option><option value="idle">when idle</option>
+    </select>
+    <button id="save" style="padding:.4rem .9rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Apply</button>
+    <span class="muted">(admin key from Members page)</span></p>
+  <p id="smsg" class="principle" style="display:none"></p>
+  <p class="muted" id="scores"></p>`;
+  const cpu = document.getElementById('cpu'), lab = document.getElementById('cpuval');
+  cpu.oninput = () => lab.textContent = cpu.value;
+  const load = async () => {
+    const d = await (await fetch('/share')).json();
+    cpu.value = d.limits.cpu_percent; lab.textContent = d.limits.cpu_percent;
+    document.getElementById('when').value = d.limits.share_when || 'charging';
+    document.getElementById('scores').textContent =
+      `Right now: ${d.shared_cores} core(s) offered to the mesh (of ${'this machine'}); ceiling ${d.ceiling}%.`;
+  };
+  document.getElementById('save').onclick = async () => {
+    const body = {cpu_percent: +cpu.value, share_when: document.getElementById('when').value};
+    const r = await fetch('/share', {method:'PUT', headers:{'Authorization':'Bearer '+(localStorage.getItem('adminKey')||''),'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const m = document.getElementById('smsg'); m.style.display='block';
+    if (r.ok) { const d = await r.json(); m.textContent = `Applied: ${d.limits.cpu_percent}% CPU · ${d.shared_cores} shared core(s) · ${d.limits.share_when}.`; load(); }
+    else m.textContent = 'Need the admin key (set it on the Members page).';
+  };
+  load();
+}
+
 // ---- members & api keys (live) ----------------------------------------------
 function renderKeys() {
   main.innerHTML = `<p class="crumb"><a href="#/security">Security</a> / Members &amp; API Keys</p>
@@ -565,7 +604,7 @@ const FEATURES = [
   ["H · Billing Freedom","Contribution and consumption ledger",44,"done"],
   ["H · Billing Freedom","Cost-comparison calculator",45,"done"],
   ["H · Billing Freedom","Idle-capacity surfacing",46,"done"],
-  ["I · Community Fabric","Per-node resource share controls",47,"planned"],
+  ["I · Community Fabric","Per-node resource share controls",47,"done"],
   ["I · Community Fabric","Reciprocity: contribution-based entitlement",48,"planned"],
   ["I · Community Fabric","Geo network map",49,"progress"],
   ["I · Community Fabric","Locality-aware redundancy and routing",50,"planned"],

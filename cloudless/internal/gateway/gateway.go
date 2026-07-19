@@ -17,6 +17,7 @@ import (
 	"cloudless/internal/keys"
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
+	"cloudless/internal/share"
 	"cloudless/internal/store"
 	"cloudless/internal/usage"
 )
@@ -54,6 +55,9 @@ type Gateway struct {
 
 	// Models, when set, is the content-addressed model store.
 	Models *store.Store
+
+	// Share, when set, holds this node's resource-sharing limits.
+	Share *share.Store
 }
 
 const routeLogSize = 20
@@ -81,6 +85,45 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /ledger", g.handleLedger)
 	mux.HandleFunc("GET /savings", g.handleSavings)
 	mux.HandleFunc("GET /capacity", g.handleCapacity)
+	mux.HandleFunc("GET /share", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"limits": g.Share.Get(), "ceiling": share.Ceiling, "default": share.Default,
+			"shared_cores": g.Share.MaxProcs(),
+		})
+	})
+	mux.HandleFunc("PUT /share", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
+		// Partial update: only fields present in the body change; omitted
+		// fields keep their current value (so setting CPU alone doesn't
+		// silently zero everything else).
+		var body struct {
+			CPUPercent *int    `json:"cpu_percent"`
+			DiskGB     *int    `json:"disk_gb"`
+			ShareWhen  *string `json:"share_when"`
+			MeteredOK  *bool   `json:"metered_ok"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil {
+			http.Error(w, `{"error":"bad request"}`, http.StatusBadRequest)
+			return
+		}
+		cur := g.Share.Get()
+		if body.CPUPercent != nil {
+			cur.CPUPercent = *body.CPUPercent
+		}
+		if body.DiskGB != nil {
+			cur.DiskGB = *body.DiskGB
+		}
+		if body.ShareWhen != nil {
+			cur.ShareWhen = *body.ShareWhen
+		}
+		if body.MeteredOK != nil {
+			cur.MeteredOK = *body.MeteredOK
+		}
+		applied := g.Share.Set(cur)
+		log.Printf("share: limits set to %d%% CPU (ceiling %d%%), when=%s", applied.CPUPercent, share.Ceiling, applied.ShareWhen)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"limits": applied, "ceiling": share.Ceiling, "shared_cores": g.Share.MaxProcs()})
+	}))
 	mux.HandleFunc("GET /store", g.handleStoreList)
 	mux.HandleFunc("PUT /store", g.adminOnly(g.handleStoreAdd))
 	mux.HandleFunc("POST /store/pull", g.adminOnly(g.handleStorePull))

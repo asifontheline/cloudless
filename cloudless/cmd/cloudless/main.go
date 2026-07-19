@@ -27,6 +27,7 @@ import (
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
 	"cloudless/internal/relay"
+	"cloudless/internal/share"
 	"cloudless/internal/store"
 	"cloudless/internal/usage"
 )
@@ -55,6 +56,8 @@ func main() {
 		capacityCmd(os.Args[2:])
 	case "models":
 		modelsCmd(os.Args[2:])
+	case "share":
+		shareCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -230,15 +233,23 @@ func runServe(cfg *config.Config) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Model store is opened early so the relay can serve blobs to peers.
+	// Model store and share limits are opened early so the relay can serve
+	// blobs and enforce the owner's share budget on peer traffic.
 	var modelStore *store.Store
+	var shareStore *share.Store
 	if cfg.PKIDir != "" {
-		if st, err := store.Open(filepath.Join(filepath.Dir(cfg.PKIDir), "models")); err == nil {
+		base := filepath.Dir(cfg.PKIDir)
+		if st, err := store.Open(filepath.Join(base, "models")); err == nil {
 			modelStore = st
 		} else {
 			log.Printf("store: %v", err)
 		}
+		shareStore = share.Open(filepath.Join(base, "share.json"))
+	} else {
+		shareStore = share.Open("share.json")
 	}
+	log.Printf("share: %d%% CPU (%d shared core(s)); ceiling %d%%",
+		shareStore.Get().CPUPercent, shareStore.MaxProcs(), share.Ceiling)
 
 	// A3: with PKI present, start the mutual-TLS relay and dial peers with
 	// the node certificate; peer traffic is never plaintext.
@@ -267,7 +278,7 @@ func runServe(cfg *config.Config) {
 			path = modelStore.Path
 		}
 		go func() {
-			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL, list, path); err != nil {
+			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL, list, path, shareStore.MaxProcs); err != nil {
 				log.Fatalf("relay: %v", err)
 			}
 		}()
@@ -314,6 +325,7 @@ func runServe(cfg *config.Config) {
 		}
 	}
 	gw.Models = modelStore
+	gw.Share = shareStore
 	if cfg.Quotas != nil {
 		gw.Quota = quota.New(quota.Limits{
 			RequestsPerMinute: cfg.Quotas.RequestsPerMinute,
@@ -540,6 +552,72 @@ func modelsCmd(args []string) {
 	default:
 		log.Fatal("usage: cloudless models [list|add <file> [name]|verify <name>|rm <name>]")
 	}
+}
+
+// shareCmd shows or sets this node's resource-share limits (5% default,
+// tunable up to a 70% ceiling): share [show] | share set -cpu N [-when charging]
+func shareCmd(args []string) {
+	// Pull the subcommand out first so flags can appear in any position
+	// (Go's flag parser otherwise stops at the "set"/"show" positional).
+	sub := "show"
+	rest := make([]string, 0, len(args))
+	for _, a := range args {
+		if a == "set" || a == "show" {
+			sub = a
+			continue
+		}
+		rest = append(rest, a)
+	}
+	fs := flag.NewFlagSet("share", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	cpu := fs.Int("cpu", -1, "CPU share percent (0..70)")
+	when := fs.String("when", "", "share when: always | charging | idle")
+	fs.Parse(rest)
+	if *adminKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*adminKey = cfg.APIKey
+			}
+		}
+	}
+	if sub == "set" {
+		body := map[string]any{}
+		if *cpu >= 0 {
+			body["cpu_percent"] = *cpu
+		}
+		if *when != "" {
+			body["share_when"] = *when
+		}
+		b, _ := json.Marshal(body)
+		req, _ := http.NewRequest("PUT", *addr+"/share", strings.NewReader(string(b)))
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer resp.Body.Close()
+		out, _ := io.ReadAll(resp.Body)
+		fmt.Printf("applied: %s\n", out)
+		return
+	}
+	resp, err := http.Get(*addr + "/share")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var d struct {
+		Limits struct {
+			CPUPercent int    `json:"cpu_percent"`
+			ShareWhen  string `json:"share_when"`
+		} `json:"limits"`
+		Ceiling     int `json:"ceiling"`
+		SharedCores int `json:"shared_cores"`
+	}
+	json.NewDecoder(resp.Body).Decode(&d)
+	fmt.Printf("CPU share: %d%% (ceiling %d%%) · %d shared core(s) · when: %s\n",
+		d.Limits.CPUPercent, d.Ceiling, d.SharedCores, d.Limits.ShareWhen)
 }
 
 func capacityCmd(args []string) {
