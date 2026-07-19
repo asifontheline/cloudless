@@ -78,6 +78,14 @@
                color: color-mix(in srgb, currentColor 80%, transparent); }
   pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem;
         overflow-x: auto; font-size: .88rem; }
+  .os-tabs { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0 0; }
+  .os-tabs button { font: inherit; font-weight: 600; padding: .45rem 1rem; cursor: pointer;
+        border: 1px solid var(--line); border-radius: 8px 8px 0 0; background: none; color: inherit; }
+  .os-tabs button.active { background: var(--card); border-bottom-color: transparent; color: var(--accent); }
+  .os-pane { border: 1px solid var(--line); border-radius: 0 8px 8px 8px; padding: .8rem 1rem;
+        background: color-mix(in srgb, currentColor 2%, transparent); }
+  kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 .35rem;
+        font-size: .85em; background: var(--card); }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--line); }
   th { color: var(--plan); font-size: .78rem; text-transform: uppercase; }
@@ -381,13 +389,84 @@ services ride the same mesh next.</p>
 Features tab of every node's built-in console.</p>
 
 <h2 id="start">Run a node</h2>
-<p>One command, three steps, about a minute. Your computer joins the community mesh, shares only what you
-allow, and earns you service in return.</p>
+<p>Three steps. Your computer joins the community mesh, shares only what you allow, and earns you service
+in return.</p>
 
-<p><strong>Step 1 — Run one command.</strong></p>
-<pre>$ cloudless up</pre>
-<p>It prints a link — <strong>open it in your browser</strong>. That's your control panel: private to you,
-on your own machine.</p>
+<p><strong>Step 1 — Get Cloudless running.</strong> Pick your system — we've highlighted the one you seem
+to be on:</p>
+
+<div class="os-tabs" id="os-tabs">
+  <button data-os="mac">🍎 macOS</button>
+  <button data-os="win">🪟 Windows</button>
+  <button data-os="nix">🐧 Linux / Unix</button>
+</div>
+
+<div class="os-pane" data-os="mac">
+  <ol style="padding-left:1.2rem">
+    <li><strong>Open Terminal</strong> — press <kbd>⌘</kbd>+<kbd>Space</kbd>, type <em>Terminal</em>, press
+      Return. A window appears where you can type commands — that's all it is.</li>
+    <li><strong>Install Go</strong> (one-time) — download the macOS installer from
+      <a href="https://go.dev/dl/" target="_blank" rel="noopener">go.dev/dl</a> and run it, like any app.</li>
+    <li><strong>Copy-paste this into Terminal</strong> and press Return:
+<pre>git clone https://github.com/asifontheline/cloudless
+cd cloudless/cloudless
+go build -o cloudless ./cmd/cloudless
+./cloudless up</pre>
+      If your Mac offers to install "command line developer tools" the first time, click Install and re-run
+      the first line.</li>
+  </ol>
+</div>
+
+<div class="os-pane" data-os="win">
+  <ol style="padding-left:1.2rem">
+    <li><strong>Open PowerShell</strong> — press the <kbd>⊞ Windows</kbd> key, type <em>PowerShell</em>,
+      press Enter. A window appears where you can type commands — that's all it is.</li>
+    <li><strong>Install the tools</strong> (one-time) — paste this and press Enter, then close and reopen
+      PowerShell:
+<pre>winget install Git.Git GoLang.Go</pre></li>
+    <li><strong>Copy-paste this</strong> and press Enter:
+<pre>git clone https://github.com/asifontheline/cloudless
+cd cloudless\cloudless
+go build -o cloudless.exe ./cmd/cloudless
+.\cloudless.exe up</pre></li>
+  </ol>
+</div>
+
+<div class="os-pane" data-os="nix">
+  <ol style="padding-left:1.2rem">
+    <li><strong>Open a terminal</strong> — <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> on most desktops,
+      or find <em>Terminal</em> in your applications.</li>
+    <li><strong>Install the tools</strong> (one-time, Go 1.22+):
+<pre>sudo apt install golang-go git     # Debian / Ubuntu
+sudo dnf install golang git        # Fedora / RHEL</pre></li>
+    <li><strong>Copy-paste this</strong> and press Enter:
+<pre>git clone https://github.com/asifontheline/cloudless
+cd cloudless/cloudless
+go build -o cloudless ./cmd/cloudless
+./cloudless up</pre></li>
+  </ol>
+</div>
+
+<p>When it starts, it <strong>prints a link — open it in your browser</strong>. That's your control panel:
+private to you, on your own machine.</p>
+<p class="muted" style="font-size:.9rem">Today this is a one-time copy-paste build (~2 minutes). One-click
+downloads with signed installers are
+<a href="https://github.com/asifontheline/cloudless/issues/23" target="_blank" rel="noopener">in-build (#23)</a>
+— this step will become a single download.</p>
+
+<script>
+(function(){
+  const tabs = document.getElementById('os-tabs');
+  const panes = document.querySelectorAll('.os-pane');
+  function show(os){
+    tabs.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.os === os));
+    panes.forEach(p => p.style.display = (p.dataset.os === os) ? 'block' : 'none');
+  }
+  tabs.addEventListener('click', e => { const b = e.target.closest('button'); if (b) show(b.dataset.os); });
+  const ua = navigator.userAgent;
+  show(/Windows/i.test(ua) ? 'win' : /Mac|iPhone|iPad/i.test(ua) ? 'mac' : 'nix');
+})();
+</script>
 
 <p><strong>Step 2 — Choose how much to share.</strong> It starts at a <strong>safe 5%</strong> — you won't
 notice it, your machine stays cool and responsive. Got an idle spare box? Slide it up in the panel, to a
