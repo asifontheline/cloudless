@@ -24,6 +24,7 @@ import (
 	"cloudless/internal/gateway"
 	"cloudless/internal/gossip"
 	"cloudless/internal/keys"
+	"cloudless/internal/passkey"
 	"cloudless/internal/pki"
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
@@ -362,6 +363,18 @@ func runServe(cfg *config.Config) {
 		auditPath = filepath.Join(filepath.Dir(cfg.PKIDir), "audit.log")
 	}
 	gw.Audit = audit.Open(auditPath)
+	// Passwordless (passkey) console sign-in. RPID must be a registrable
+	// suffix of the origin; localhost works for the local console. Remote
+	// access needs HTTPS and a real domain (configurable later).
+	pkPath := "passkeys.json"
+	if cfg.PKIDir != "" {
+		pkPath = filepath.Join(filepath.Dir(cfg.PKIDir), "passkeys.json")
+	}
+	if pm, err := passkey.New(pkPath, "localhost", []string{"http://localhost" + portOf(cfg.Listen), "http://localhost:8080"}); err == nil {
+		gw.Passkey = pm
+	} else {
+		log.Printf("passkey: disabled (%v)", err)
+	}
 	if cfg.Quotas != nil {
 		gw.Quota = quota.New(quota.Limits{
 			RequestsPerMinute: cfg.Quotas.RequestsPerMinute,
