@@ -72,6 +72,7 @@ document.head.appendChild(fav);
 const SECTIONS = [
   { id:"dashboard", label:"Dashboard" },
   { id:"about", label:"About" },
+  { id:"features", label:"Features" },
   { id:"contribute", label:"Contribute" },
   { id:"ai", label:"Cloud AI", items:[
     ["chat","Chat & Completions","Standard chat-completions API served by the mesh with routing and failover.","live"],
@@ -136,6 +137,7 @@ function route() {
   nav.querySelectorAll("a").forEach(a => a.classList.toggle("active", a.dataset.id === sec.id));
   if (sec.id === "dashboard") return renderDashboard();
   if (sec.id === "about") return renderAbout();
+  if (sec.id === "features") return renderFeatures();
   if (sec.id === "contribute") return renderContribute();
   if (parts[1]) return renderItem(sec, parts[1]);
   renderSection(sec);
@@ -320,8 +322,79 @@ function renderKeys() {
   load();
 }
 
-// ---- contribute -------------------------------------------------------------
+// ---- features status --------------------------------------------------------
 const REPO = "https://github.com/asifontheline/cloudless";
+// [epic, feature, issue# (0 = core, no tracker item), status]
+const FEATURES = [
+  ["Core platform","One-command onboarding (up)",0,"done"],
+  ["Core platform","Encrypted gossip mesh membership",0,"done"],
+  ["Core platform","Gateway: routing, health, failover",0,"done"],
+  ["Core platform","Embedded web console",0,"done"],
+  ["A · Secure Mesh","Cluster CA at init/up",1,"done"],
+  ["A · Secure Mesh","Single-use expiring join tokens",2,"progress"],
+  ["A · Secure Mesh","Mutual TLS between nodes",3,"done"],
+  ["A · Secure Mesh","Node revocation",4,"planned"],
+  ["A · Secure Mesh","Signed audit log",5,"planned"],
+  ["B · Model Commons","Content-addressed model store",6,"planned"],
+  ["B · Model Commons","Mesh pull-through cache",7,"planned"],
+  ["B · Model Commons","Safe-format allowlist",8,"planned"],
+  ["B · Model Commons","Model registry in console",9,"planned"],
+  ["B · Model Commons","Runtime supervisor",10,"planned"],
+  ["C · Accounts","Per-user API keys",11,"done"],
+  ["C · Accounts","Usage accounting",12,"done"],
+  ["C · Accounts","Quotas and rate limits",13,"done"],
+  ["C · Accounts","Request queueing",14,"planned"],
+  ["C · Accounts","Mid-stream failover retry",15,"planned"],
+  ["D · Evaluation","Churn test harness",16,"planned"],
+  ["D · Evaluation","Latency/throughput benchmarks",17,"planned"],
+  ["D · Evaluation","Telemetry export",18,"planned"],
+  ["D · Evaluation","Paper §8 experiments",19,"planned"],
+  ["E · Network","Bundled encrypted overlay",20,"planned"],
+  ["E · Network","Join links/QR from console",21,"planned"],
+  ["E · Network","Internal naming",22,"planned"],
+  ["E · Network","Signed release binaries",23,"planned"],
+  ["F · Services","Embeddings endpoint",24,"planned"],
+  ["F · Services","Speech-to-text",25,"planned"],
+  ["F · Services","Text-to-speech",26,"planned"],
+  ["F · Services","Image generation",27,"planned"],
+  ["F · Services","Batch jobs",28,"planned"],
+  ["F · Services","Scheduled jobs",29,"planned"],
+  ["F · Services","Object store",30,"planned"],
+  ["F · Services","Backup and archive",31,"planned"],
+  ["F · Services","Queues and events",32,"planned"],
+  ["F · Services","Vector search",33,"planned"],
+  ["F · Services","Anomaly quarantine",34,"planned"],
+  ["F · Services","k-of-n result validation",35,"planned"],
+  ["G · Encryption & Data Guard","Key hierarchy and rotation",36,"planned"],
+  ["G · Encryption & Data Guard","Encryption at rest",37,"planned"],
+  ["G · Encryption & Data Guard","Zero-plaintext transit audit",38,"planned"],
+  ["G · Encryption & Data Guard","Data classification and locality",39,"planned"],
+  ["G · Encryption & Data Guard","Workload egress guard",40,"planned"],
+  ["G · Encryption & Data Guard","Movement audit and leak detection",41,"planned"],
+  ["G · Encryption & Data Guard","Crypto-shredding delete",42,"planned"],
+  ["G · Encryption & Data Guard","k-of-n root key recovery",43,"planned"],
+  ["H · Billing Freedom","Contribution and consumption ledger",44,"done"],
+  ["H · Billing Freedom","Cost-comparison calculator",45,"planned"],
+  ["H · Billing Freedom","Idle-capacity surfacing",46,"planned"],
+];
+const FBADGE = { done:["Implemented","b-live"], progress:["In progress","b-progress"], planned:["Not implemented","b-planned"] };
+function renderFeatures() {
+  stopPolling();
+  const groups = [...new Set(FEATURES.map(f => f[0]))];
+  const counts = FEATURES.reduce((a,f) => (a[f[3]]=(a[f[3]]||0)+1, a), {});
+  main.innerHTML = `<h1>Features &amp; implementation status</h1>
+  <p>${counts.done||0} implemented · ${counts.progress||0} in progress · ${counts.planned||0} planned —
+  every tracked feature links to its item on the
+  <a href="${REPO}/issues" target="_blank" rel="noopener">open issue tracker ↗</a>.</p>` +
+  groups.map(gr => `<h2>${esc(gr)}</h2>
+  <table><thead><tr><th>Feature</th><th>Status</th><th>Tracker</th></tr></thead><tbody>` +
+    FEATURES.filter(f => f[0] === gr).map(([,name,issue,st]) =>
+      `<tr><td>${esc(name)}</td><td class="${FBADGE[st][1]}">${FBADGE[st][0]}</td>` +
+      `<td>${issue ? `<a href="${REPO}/issues/${issue}" target="_blank" rel="noopener">#${issue} ↗</a>`
+                   : `<span class="muted">core</span>`}</td></tr>`).join('') +
+  `</tbody></table>`).join('');
+}
+
 function renderContribute() {
   stopPolling();
   main.innerHTML = `<h1>Contribute</h1>
