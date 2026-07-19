@@ -27,13 +27,20 @@ jobs:
           set -euo pipefail
           prs=$(gh pr list -R "$REPO" --state open --label ready-to-merge --json number --jq '.[].number')
           if [ -z "$prs" ]; then echo "No PRs labelled ready-to-merge."; exit 0; fi
+          merged_any=false
           for pr in $prs; do
             echo "::group::PR #$pr"
             if gh pr checks "$pr" -R "$REPO"; then
               echo "PR #$pr is green — squashing into main."
               gh pr merge "$pr" -R "$REPO" --squash --delete-branch --admin
+              merged_any=true
             else
               echo "PR #$pr has failing or pending checks — leaving for next cycle."
             fi
             echo "::endgroup::"
           done
+          # A merge done with the default token does not trigger other
+          # workflows, so kick the website deploy explicitly after merging.
+          if [ "$merged_any" = true ]; then
+            gh workflow run "Deploy website to MilesWeb" -R "$REPO" || true
+          fi
