@@ -17,6 +17,7 @@ import (
 
 	"cloudless/internal/audit"
 	"cloudless/internal/keys"
+	"cloudless/internal/passkey"
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
 	"cloudless/internal/revoke"
@@ -65,6 +66,9 @@ type Gateway struct {
 	// Audit, when set, records administrative actions in a hash-chained log.
 	Audit *audit.Log
 
+	// Passkey, when set, provides passwordless (WebAuthn) console sign-in.
+	Passkey *passkey.Manager
+
 	// Revoke, when set, evicts a node from the mesh (persist + broadcast +
 	// drop from routing). RevokedList lists current revocations.
 	Revoke      func(name string) bool
@@ -96,6 +100,16 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /ledger", g.handleLedger)
 	mux.HandleFunc("GET /savings", g.handleSavings)
 	mux.HandleFunc("GET /capacity", g.handleCapacity)
+	if g.Passkey != nil {
+		mux.HandleFunc("GET /auth/status", func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"has_users": g.Passkey.HasUsers()})
+		})
+		mux.HandleFunc("POST /auth/register/begin", g.passkeyBegin(g.Passkey.BeginRegister))
+		mux.HandleFunc("POST /auth/register/finish", g.passkeyRegisterFinish)
+		mux.HandleFunc("POST /auth/login/begin", g.passkeyBegin(g.Passkey.BeginLogin))
+		mux.HandleFunc("POST /auth/login/finish", g.passkeyLoginFinish)
+	}
 	mux.HandleFunc("GET /audit", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ok, at := true, int64(0)
@@ -438,12 +452,57 @@ func (g *Gateway) handleStoreDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// passkeyBegin wraps a Begin{Register,Login} call: reads ?name= and returns
+// the browser credential options.
+func (g *Gateway) passkeyBegin(begin func(string) (any, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := r.URL.Query().Get("name")
+		if name == "" {
+			http.Error(w, `{"error":"name required"}`, http.StatusBadRequest)
+			return
+		}
+		opts, err := begin(name)
+		if err != nil {
+			http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(opts)
+	}
+}
+
+func (g *Gateway) passkeyRegisterFinish(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	if err := g.Passkey.FinishRegister(name, r); err != nil {
+		http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusBadRequest)
+		return
+	}
+	g.Audit.Append("passkey", "auth.register", name, "")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (g *Gateway) passkeyLoginFinish(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	tok, err := g.Passkey.FinishLogin(name, r)
+	if err != nil {
+		http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusUnauthorized)
+		return
+	}
+	g.Audit.Append("passkey", "auth.login", name, "")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"token": tok, "name": name})
+}
+
 // adminOnly gates key management behind the cluster (admin) key.
 func (g *Gateway) adminOnly(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		want := "Bearer " + g.apiKey
-		if g.apiKey == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte(want)) != 1 {
-			http.Error(w, `{"error":"admin key required"}`, http.StatusForbidden)
+		got := r.Header.Get("Authorization")
+		adminKey := g.apiKey != "" && subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
+		// A valid passkey session token is admin-equivalent for the console.
+		passkeyOK := g.Passkey != nil && g.Passkey.Session(strings.TrimPrefix(got, "Bearer ")) != ""
+		if !adminKey && !passkeyOK {
+			http.Error(w, `{"error":"admin key or passkey session required"}`, http.StatusForbidden)
 			return
 		}
 		next(w, r)
