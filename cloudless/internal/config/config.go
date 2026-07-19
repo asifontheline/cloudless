@@ -23,19 +23,26 @@ type Gossip struct {
 }
 
 type Config struct {
-	Listen                string    `json:"listen"`
-	APIKey                string    `json:"api_key"`
-	HealthIntervalSeconds int       `json:"health_interval_seconds"`
-	Backends              []Backend `json:"backends"`
-	Gossip                *Gossip   `json:"gossip,omitempty"`
-	PKIDir                string    `json:"pki_dir,omitempty"` // cluster PKI directory; enables the mTLS relay
-	Relay                 string    `json:"relay,omitempty"`   // relay listen address (default :9443 when PKI present)
-	Quotas                *Quotas   `json:"quotas,omitempty"`  // per-key fair-use limits (0 = unlimited)
+	Listen                string       `json:"listen"`
+	APIKey                string       `json:"api_key"`
+	HealthIntervalSeconds int          `json:"health_interval_seconds"`
+	Backends              []Backend    `json:"backends"`
+	Gossip                *Gossip      `json:"gossip,omitempty"`
+	PKIDir                string       `json:"pki_dir,omitempty"`     // cluster PKI directory; enables the mTLS relay
+	Relay                 string       `json:"relay,omitempty"`       // relay listen address (default :9443 when PKI present)
+	Quotas                *Quotas      `json:"quotas,omitempty"`      // per-key fair-use limits (0 = unlimited)
+	Concurrency           *Concurrency `json:"concurrency,omitempty"` // gateway backpressure (nil = defaults)
 }
 
 type Quotas struct {
 	RequestsPerMinute int   `json:"requests_per_minute"`
 	TokensPerDay      int64 `json:"tokens_per_day"`
+}
+
+type Concurrency struct {
+	MaxInFlight int `json:"max_in_flight"` // concurrent requests served (0 = unlimited)
+	MaxQueue    int `json:"max_queue"`     // requests allowed to wait for a slot
+	WaitSeconds int `json:"wait_seconds"`  // how long a request waits before 503
 }
 
 func Load(path string) (*Config, error) {

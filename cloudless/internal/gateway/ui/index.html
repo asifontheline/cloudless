@@ -101,6 +101,7 @@ const SECTIONS = [
   ]},
   { id:"data", label:"Cloud Data", items:[
     ["queues","Queues & Events","Durable message queues and event routing inside the mesh.","planned"],
+    ["queueing","Request Queueing","Backpressure under load — bounded concurrency, 503+Retry-After when full.","live"],
     ["kv","Key-Value Store","Replicated key-value data with eventual consistency.","planned"],
     ["telemetry","Time-series","Metrics storage — also used by the mesh's own monitoring.","planned"],
     ["sql","Ad-hoc SQL","Query files stored in the mesh with embedded analytics engines.","planned"],
@@ -703,6 +704,7 @@ function renderDashboard() {
   stopPolling();
   main.innerHTML = `<h1>Mesh dashboard</h1>
   <p id="err">Cannot reach gateway.</p>
+  <p id="load" class="muted"></p>
   <h2>Nodes</h2>
   <table><thead><tr><th>Name</th><th>Backend</th><th>State</th><th>Latency</th></tr></thead><tbody id="nodes"></tbody></table>
   <h2>Recent routes</h2>
@@ -714,6 +716,8 @@ async function tick() {
   try {
     const r = await fetch('/status'); const d = await r.json();
     document.getElementById('err').style.display = 'none';
+    const L = d.load || {}; const le = document.getElementById('load');
+    if (le) le.textContent = `Load: ${L.inflight||0} in-flight · ${L.waiting||0} waiting · max concurrent ${L.max_concurrent||0} (backpressure returns 503 + Retry-After when saturated)`;
     document.getElementById('nodes').innerHTML = (d.backends || []).map(b =>
       `<tr><td>${esc(b.Backend.name)}</td><td><code>${esc(b.Backend.base_url)}</code></td>` +
       `<td class="${b.Healthy ? 'ok' : 'bad'}">${b.Healthy ? 'healthy' : 'unhealthy'}</td>` +
