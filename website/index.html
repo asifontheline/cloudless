@@ -78,6 +78,14 @@
                color: color-mix(in srgb, currentColor 80%, transparent); }
   pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem;
         overflow-x: auto; font-size: .88rem; }
+  .os-tabs { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0 0; }
+  .os-tabs button { font: inherit; font-weight: 600; padding: .45rem 1rem; cursor: pointer;
+        border: 1px solid var(--line); border-radius: 8px 8px 0 0; background: none; color: inherit; }
+  .os-tabs button.active { background: var(--card); border-bottom-color: transparent; color: var(--accent); }
+  .os-pane { border: 1px solid var(--line); border-radius: 0 8px 8px 8px; padding: .8rem 1rem;
+        background: color-mix(in srgb, currentColor 2%, transparent); }
+  kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 .35rem;
+        font-size: .85em; background: var(--card); }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--line); }
   th { color: var(--plan); font-size: .78rem; text-transform: uppercase; }
@@ -381,48 +389,115 @@ services ride the same mesh next.</p>
 Features tab of every node's built-in console.</p>
 
 <h2 id="start">Run a node</h2>
-<p>You don't need to know anyone. Run a node, tell it <em>how much of your machine you're willing to share</em>,
-and it joins the community mesh — contributing only what you allow, and earning you service in return. Here's
-how, in plain steps.</p>
+<p>Three steps. Your computer joins the community mesh, shares only what you allow, and earns you service
+in return.</p>
 
-<p><strong>Step 1 — Start your node.</strong></p>
-<pre>$ cloudless up
-  Console:  http://127.0.0.1:8080/     # your private control panel, in a browser</pre>
-<p class="muted" style="font-size:.9rem"><code>127.0.0.1</code> just means "this computer" — it's your own
-admin page, only you can open it. It is <em>not</em> the address others use.</p>
+<p><strong>Step 1 — Get Cloudless running.</strong> Pick your system — we've highlighted the one you seem
+to be on:</p>
 
-<p><strong>Step 2 — Find your public address.</strong> Every machine on the internet has a public IP — the
-number the outside world sees. To find yours, open a terminal and run:</p>
-<pre>$ curl ifconfig.me
-203.0.113.9        # ← that's your public IP (yours will be different)</pre>
-<p class="muted" style="font-size:.9rem">No terminal? Just search "what is my IP" in any browser — the first
-result shows it.</p>
+<div class="os-tabs" id="os-tabs">
+  <button data-os="mac">🍎 macOS</button>
+  <button data-os="win">🪟 Windows</button>
+  <button data-os="nix">🐧 Linux / Unix</button>
+</div>
 
-<p><strong>Step 3 — Publish your node (make it reachable).</strong> Your node listens on a port
-(<code>7946</code>). For others to reach it, that port has to be open to the internet. Pick the path that fits you:</p>
-<ul>
-  <li><strong>Easiest — cloud VPS or a machine with a real public IP:</strong> nothing to do. It's already reachable at the IP from Step 2.</li>
-  <li><strong>Home internet — port forwarding:</strong> open your router's admin page (usually
-    <code>192.168.0.1</code> in a browser), find <em>Port Forwarding</em>, and forward port <code>7946</code>
-    to your computer. This tells your router "send mesh traffic to this machine." A 3-minute, one-time setup.</li>
-  <li><strong>Can't forward (mobile data / shared building internet):</strong> those connections hide you behind
-    the provider. Use the <strong>one-click overlay</strong> —
-    <a href="https://github.com/asifontheline/cloudless/issues/20" target="_blank" rel="noopener">in-build (#20)</a> —
-    which connects nodes across any network with no router setup at all.</li>
-</ul>
+<div class="os-pane" data-os="mac">
+  <ol style="padding-left:1.2rem">
+    <li><strong>Open Terminal</strong> — press <kbd>⌘</kbd>+<kbd>Space</kbd>, type <em>Terminal</em>, press
+      Return. A window appears where you can type commands — that's all it is.</li>
+    <li><strong>Install Go</strong> (one-time) — download the macOS installer from
+      <a href="https://go.dev/dl/" target="_blank" rel="noopener">go.dev/dl</a> and run it, like any app.</li>
+    <li><strong>Copy-paste this into Terminal</strong> and press Return:
+<pre>git clone https://github.com/asifontheline/cloudless
+cd cloudless/cloudless
+go build -o cloudless ./cmd/cloudless
+./cloudless up</pre>
+      If your Mac offers to install "command line developer tools" the first time, click Install and re-run
+      the first line.</li>
+  </ol>
+</div>
 
-<p><strong>Step 4 — Set how much you share.</strong> Your machine, your rules — entirely your discretion. Every
-node <strong>starts at a safe 5%</strong> (barely noticeable, never hot, nothing like a resource-gulping virus),
-and you can <strong>tune it up to 70%</strong>. Got an idle spare box? Turn it up. Personal phone? Leave it low.</p>
-<pre>$ cloudless up                       # 5% — safe default, any device
-$ cloudless up -share-cpu 70%        # dedicated / idle machine: turn it up (70% max)</pre>
-<p class="muted" style="font-size:.9rem">The ceiling is 70%, never 100% — your machine always stays responsive and
-cool. On phones a thermal &amp; battery guard pauses sharing if it warms up or runs low (charging-only by default).
-Contribution is metered on the ledger and earns you service in return. Tunable share controls are <span style="color:var(--ok)">live</span>; the mobile thermal/battery guard is <a href="https://github.com/asifontheline/cloudless/issues/54" target="_blank" rel="noopener">in-build (#54)</a>.</p>
+<div class="os-pane" data-os="win">
+  <ol style="padding-left:1.2rem">
+    <li><strong>Open PowerShell</strong> — press the <kbd>⊞ Windows</kbd> key, type <em>PowerShell</em>,
+      press Enter. A window appears where you can type commands — that's all it is.</li>
+    <li><strong>Install the tools</strong> (one-time) — paste this and press Enter, then close and reopen
+      PowerShell:
+<pre>winget install Git.Git GoLang.Go</pre></li>
+    <li><strong>Copy-paste this</strong> and press Enter:
+<pre>git clone https://github.com/asifontheline/cloudless
+cd cloudless\cloudless
+go build -o cloudless.exe ./cmd/cloudless
+.\cloudless.exe up</pre></li>
+  </ol>
+</div>
 
-<p><strong>That's it.</strong> Your node is now part of the mesh, serving up to your limits and earning you
-access to everyone else's. Point any standard chat app at <code>http://localhost:8080/v1</code> to use it;
-if any node drops mid-request, another takes over automatically.</p>
+<div class="os-pane" data-os="nix">
+  <ol style="padding-left:1.2rem">
+    <li><strong>Open a terminal</strong> — <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> on most desktops,
+      or find <em>Terminal</em> in your applications.</li>
+    <li><strong>Install the tools</strong> (one-time, Go 1.22+):
+<pre>sudo apt install golang-go git     # Debian / Ubuntu
+sudo dnf install golang git        # Fedora / RHEL</pre></li>
+    <li><strong>Copy-paste this</strong> and press Enter:
+<pre>git clone https://github.com/asifontheline/cloudless
+cd cloudless/cloudless
+go build -o cloudless ./cmd/cloudless
+./cloudless up</pre></li>
+  </ol>
+</div>
+
+<p>When it starts, it <strong>prints a link — open it in your browser</strong>. That's your control panel:
+private to you, on your own machine.</p>
+<p class="muted" style="font-size:.9rem">Today this is a one-time copy-paste build (~2 minutes). One-click
+downloads with signed installers are
+<a href="https://github.com/asifontheline/cloudless/issues/23" target="_blank" rel="noopener">in-build (#23)</a>
+— this step will become a single download.</p>
+
+<script>
+(function(){
+  const tabs = document.getElementById('os-tabs');
+  const panes = document.querySelectorAll('.os-pane');
+  function show(os){
+    tabs.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.os === os));
+    panes.forEach(p => p.style.display = (p.dataset.os === os) ? 'block' : 'none');
+  }
+  tabs.addEventListener('click', e => { const b = e.target.closest('button'); if (b) show(b.dataset.os); });
+  const ua = navigator.userAgent;
+  show(/Windows/i.test(ua) ? 'win' : /Mac|iPhone|iPad/i.test(ua) ? 'mac' : 'nix');
+})();
+</script>
+
+<p><strong>Step 2 — Choose how much to share.</strong> It starts at a <strong>safe 5%</strong> — you won't
+notice it, your machine stays cool and responsive. Got an idle spare box? Slide it up in the panel, to a
+maximum of 70% (never 100%). Personal phone? Leave it low.</p>
+
+<p><strong>Step 3 — Use it.</strong> That's it — you're on the mesh. Chat with AI right in the panel, or
+point any standard chat app at the address shown there. If any node drops mid-request, another takes over
+automatically.</p>
+
+<details style="margin:1rem 0">
+  <summary style="cursor:pointer;font-weight:600">Optional — open your node to the wider internet</summary>
+  <p style="margin-top:.6rem">You only need this if machines <em>outside your home or office</em> should reach
+  your node directly. Skip it otherwise — everything above works without it.</p>
+  <ul>
+    <li><strong>Machine with a public address (e.g. a rented server):</strong> nothing to do — it's already
+      reachable.</li>
+    <li><strong>Home internet:</strong> in your router's settings, forward port <code>7946</code> to your
+      computer — a one-time, ~3-minute setup. (Router pages usually live at <code>192.168.0.1</code>;
+      to learn your public address, search "what is my IP".)</li>
+    <li><strong>Mobile data or shared-building internet:</strong> those networks can't forward ports. The
+      <strong>one-click overlay</strong> — <a href="https://github.com/asifontheline/cloudless/issues/20"
+      target="_blank" rel="noopener">in-build (#20)</a> — will connect nodes across any network with no
+      router setup at all.</li>
+  </ul>
+</details>
+
+<p class="muted" style="font-size:.9rem">Fine print: the share ceiling is 70%, never 100%, so your machine
+always stays responsive. On phones a thermal &amp; battery guard pauses sharing if the device warms up or runs
+low (<a href="https://github.com/asifontheline/cloudless/issues/54" target="_blank" rel="noopener">in-build
+(#54)</a>). Contribution is metered on the ledger and earns you service in return. Prefer the command line?
+<code>cloudless up -share-cpu 70%</code> sets your share directly.</p>
 
 <h3 id="signin" style="scroll-margin-top:4.5rem">Sign in — no passwords to remember</h3>
 <p>When you open your console the first time, you register in one tap using a <strong>passkey</strong> — your
