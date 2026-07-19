@@ -21,6 +21,7 @@ import (
 	"cloudless/internal/config"
 	"cloudless/internal/gateway"
 	"cloudless/internal/gossip"
+	"cloudless/internal/keys"
 	"cloudless/internal/pki"
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
@@ -44,6 +45,8 @@ func main() {
 		usageCmd(os.Args[2:])
 	case "ledger":
 		ledgerCmd(os.Args[2:])
+	case "keys":
+		keysCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -269,6 +272,7 @@ func runServe(cfg *config.Config) {
 		usagePath = filepath.Join(filepath.Dir(cfg.PKIDir), "usage.json")
 	}
 	gw.Usage = usage.Open(usagePath)
+	gw.Keys = keys.Open(strings.TrimSuffix(usagePath, "usage.json") + "keys.json")
 	if cfg.Quotas != nil {
 		gw.Quota = quota.New(quota.Limits{
 			RequestsPerMinute: cfg.Quotas.RequestsPerMinute,
@@ -321,6 +325,75 @@ func usageCmd(args []string) {
 		out.Limits.RequestsPerMinute, out.Limits.TokensPerDay)
 	for _, q := range out.Quotas {
 		fmt.Printf("  %-12s %d req last min · %d tokens today\n", q.Key, q.RequestsLastMin, q.TokensToday)
+	}
+}
+
+// keysCmd manages per-user API keys: list | create <name> | revoke <prefix>.
+func keysCmd(args []string) {
+	fs := flag.NewFlagSet("keys", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	fs.Parse(args)
+	if *adminKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*adminKey = cfg.APIKey
+			}
+		}
+	}
+	do := func(method, path string, body string) *http.Response {
+		req, _ := http.NewRequest(method, *addr+path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return resp
+	}
+	sub := "list"
+	if fs.NArg() > 0 {
+		sub = fs.Arg(0)
+	}
+	switch sub {
+	case "list":
+		resp := do("GET", "/keys", "")
+		defer resp.Body.Close()
+		var out struct {
+			Keys []keys.Public `json:"keys"`
+		}
+		json.NewDecoder(resp.Body).Decode(&out)
+		fmt.Printf("%-20s %-12s %-10s %s\n", "NAME", "KEY", "STATE", "CREATED")
+		for _, k := range out.Keys {
+			state := "active"
+			if k.Revoked {
+				state = "revoked"
+			}
+			fmt.Printf("%-20s %-12s %-10s %s\n", k.Name, k.Key, state, k.Created.Format("2006-01-02 15:04"))
+		}
+	case "create":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless keys create <name>")
+		}
+		body, _ := json.Marshal(map[string]string{"name": fs.Arg(1)})
+		resp := do("POST", "/keys", string(body))
+		defer resp.Body.Close()
+		var out map[string]string
+		json.NewDecoder(resp.Body).Decode(&out)
+		fmt.Printf("created key for %s (save it — shown only once):\n  %s\n", out["name"], out["key"])
+	case "revoke":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless keys revoke <key-prefix>")
+		}
+		resp := do("DELETE", "/keys/"+strings.TrimSuffix(fs.Arg(1), "…"), "")
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusNoContent {
+			fmt.Println("revoked")
+		} else {
+			log.Fatalf("revoke failed (%d)", resp.StatusCode)
+		}
+	default:
+		log.Fatal("usage: cloudless keys [list|create <name>|revoke <prefix>]")
 	}
 }
 

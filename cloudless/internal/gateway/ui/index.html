@@ -110,7 +110,7 @@ const SECTIONS = [
     ["naming","Internal Naming","Stable names for nodes and services inside the mesh.","planned"],
   ]},
   { id:"security", label:"Security", items:[
-    ["members","Members & API Keys","Per-user keys, roles, and access control.","progress"],
+    ["members","Members & API Keys","Per-user keys, roles, and access control.","live"],
     ["join","Join Tokens","Invite new nodes from the browser; encrypted membership.","progress"],
     ["secrets","Secrets","Encrypted replicated secrets unlocked by the cluster key.","planned"],
     ["certs","Certificates","Cluster CA with per-node certificates and mutual TLS.","progress"],
@@ -156,6 +156,7 @@ function renderItem(sec, id) {
   stopPolling();
   if (sec.id === "ops" && id === "usage") return renderUsage();
   if (sec.id === "ops" && id === "ledger") return renderLedger();
+  if (sec.id === "security" && id === "members") return renderKeys();
   const it = sec.items.find(i => i[0] === id);
   if (!it) return renderSection(sec);
   const [, name, desc, st] = it;
@@ -264,6 +265,59 @@ function renderLedger() {
     } catch {}
   };
   load(); timer = setInterval(load, 3000);
+}
+
+// ---- members & api keys (live) ----------------------------------------------
+function renderKeys() {
+  main.innerHTML = `<p class="crumb"><a href="#/security">Security</a> / Members &amp; API Keys</p>
+  <h1>Members &amp; API Keys <span class="badge b-live">Live</span></h1>
+  <p>Each member gets a named key; usage, quotas, and the ledger attribute per key.
+  Management requires the cluster admin key (kept only in your browser).</p>
+  <p><input id="adm" type="password" placeholder="admin key" style="padding:.4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+  <button id="save" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:inherit;cursor:pointer">Use key</button></p>
+  <p><input id="kname" placeholder="member name" style="padding:.4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+  <button id="mk" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Create key</button></p>
+  <p id="newkey" class="principle" style="display:none"></p>
+  <table><thead><tr><th>Name</th><th>Key</th><th>State</th><th>Created</th><th></th></tr></thead>
+  <tbody id="klist"></tbody></table>
+  <p id="kerr" class="muted"></p>`;
+  const adm = document.getElementById('adm');
+  adm.value = localStorage.getItem('adminKey') || '';
+  const hdr = () => ({'Authorization': 'Bearer ' + adm.value, 'Content-Type': 'application/json'});
+  const load = async () => {
+    try {
+      const r = await fetch('/keys', {headers: hdr()});
+      if (!r.ok) { document.getElementById('kerr').textContent = 'Enter the admin key to manage members.'; return; }
+      document.getElementById('kerr').textContent = '';
+      const d = await r.json();
+      document.getElementById('klist').innerHTML = (d.keys||[]).map(k =>
+        `<tr><td>${esc(k.name)}</td><td><code>${esc(k.key)}</code></td>` +
+        `<td class="${k.revoked?'bad':'ok'}">${k.revoked?'revoked':'active'}</td>` +
+        `<td>${esc((k.created||'').slice(0,16).replace('T',' '))}</td>` +
+        `<td>${k.revoked?'':`<a href="#" data-rv="${esc(k.key)}">revoke</a>`}</td></tr>`).join('')
+        || `<tr><td colspan="5" class="muted">No member keys yet.</td></tr>`;
+      document.querySelectorAll('[data-rv]').forEach(a => a.onclick = async e => {
+        e.preventDefault();
+        await fetch('/keys/' + encodeURIComponent(a.dataset.rv.replace('…','')), {method:'DELETE', headers: hdr()});
+        load();
+      });
+    } catch {}
+  };
+  document.getElementById('save').onclick = () => { localStorage.setItem('adminKey', adm.value); load(); };
+  document.getElementById('mk').onclick = async () => {
+    const name = document.getElementById('kname').value.trim();
+    if (!name) return;
+    const r = await fetch('/keys', {method:'POST', headers: hdr(), body: JSON.stringify({name})});
+    if (r.ok) {
+      const d = await r.json();
+      const nk = document.getElementById('newkey');
+      nk.style.display = 'block';
+      nk.innerHTML = `Key for <strong>${esc(d.name)}</strong> (shown once — save it): <code>${esc(d.key)}</code>`;
+      document.getElementById('kname').value = '';
+      load();
+    }
+  };
+  load();
 }
 
 // ---- contribute -------------------------------------------------------------

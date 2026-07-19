@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"cloudless/internal/keys"
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
 	"cloudless/internal/usage"
@@ -45,6 +46,9 @@ type Gateway struct {
 
 	// Quota, when set, enforces per-key fair-use limits.
 	Quota *quota.Limiter
+
+	// Keys, when set, holds per-user API keys (cluster key stays admin).
+	Keys *keys.Store
 }
 
 const routeLogSize = 20
@@ -70,6 +74,9 @@ func (g *Gateway) Handler() http.Handler {
 		mux.HandleFunc("POST /enroll", g.EnrollHandler)
 	}
 	mux.HandleFunc("GET /ledger", g.handleLedger)
+	mux.HandleFunc("GET /keys", g.adminOnly(g.handleKeysList))
+	mux.HandleFunc("POST /keys", g.adminOnly(g.handleKeysCreate))
+	mux.HandleFunc("DELETE /keys/{prefix}", g.adminOnly(g.handleKeysRevoke))
 	mux.HandleFunc("GET /usage", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		limits, quotas := g.Quota.Snapshot()
@@ -93,7 +100,8 @@ func (g *Gateway) auth(next http.HandlerFunc) http.HandlerFunc {
 		if g.apiKey != "" {
 			got := r.Header.Get("Authorization")
 			want := "Bearer " + g.apiKey
-			if subtle.ConstantTimeCompare([]byte(got), []byte(want)) != 1 {
+			admin := subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
+			if !admin && !g.Keys.Active(strings.TrimPrefix(got, "Bearer ")) {
 				http.Error(w, `{"error":"invalid api key"}`, http.StatusUnauthorized)
 				return
 			}
@@ -232,6 +240,52 @@ func (g *Gateway) logRoute(path, backend string, status, retries int) {
 	if len(g.routes) > routeLogSize {
 		g.routes = g.routes[len(g.routes)-routeLogSize:]
 	}
+}
+
+// adminOnly gates key management behind the cluster (admin) key.
+func (g *Gateway) adminOnly(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		want := "Bearer " + g.apiKey
+		if g.apiKey == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte(want)) != 1 {
+			http.Error(w, `{"error":"admin key required"}`, http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
+func (g *Gateway) handleKeysList(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"keys": g.Keys.List()})
+}
+
+func (g *Gateway) handleKeysCreate(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
+		http.Error(w, `{"error":"name required"}`, http.StatusBadRequest)
+		return
+	}
+	key, err := g.Keys.Create(strings.TrimSpace(req.Name))
+	if err != nil {
+		http.Error(w, `{"error":"key generation failed"}`, http.StatusInternalServerError)
+		return
+	}
+	log.Printf("keys: created key for %q", req.Name)
+	w.Header().Set("Content-Type", "application/json")
+	// The full secret is returned exactly once, at creation.
+	json.NewEncoder(w).Encode(map[string]string{"name": req.Name, "key": key})
+}
+
+func (g *Gateway) handleKeysRevoke(w http.ResponseWriter, r *http.Request) {
+	prefix := r.PathValue("prefix")
+	if !g.Keys.Revoke(prefix) {
+		http.Error(w, `{"error":"no matching active key"}`, http.StatusNotFound)
+		return
+	}
+	log.Printf("keys: revoked %s…", prefix)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // LedgerLine is one party's side of the cooperative ledger.
