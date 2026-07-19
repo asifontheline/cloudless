@@ -172,7 +172,7 @@
   <span class="wordmark"><s>Cloud</s>Less</span>
   <a class="inbuild-top" href="https://github.com/asifontheline/cloudless" title="In-build — come be part of it">🚧 In-build — join us</a>
   <nav>
-    <a href="#why">Why</a><a href="#features">Features</a><a href="#start">Run a node</a>
+    <a href="#why">Why</a><a href="#features">Features</a><a href="#releases">Releases</a><a href="#start">Run a node</a>
     <a href="#contribute">Contribute</a>
     <a href="docs.html">Docs</a><a href="protocol.html">API</a>
     <a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a>
@@ -391,6 +391,40 @@ services ride the same mesh next.</p>
 </div>
 <p style="color:var(--plan);font-size:.85rem">Per-feature detail with individual issue links lives on the
 Features tab of every node's built-in console.</p>
+
+<h2 id="releases">Release tracker</h2>
+<p>What's landing in the project, straight from the merge queue — latest on top, updated the moment a
+change merges. Every entry links to the full change and review discussion.</p>
+<div style="overflow-x:auto">
+<table><thead><tr><th>Merged</th><th>Change</th><th></th></tr></thead>
+<tbody id="rel-body"><tr><td colspan="3" class="muted" style="padding:1rem">Loading latest merges…</td></tr></tbody></table>
+</div>
+<p class="muted" style="font-size:.85rem" id="rel-more"></p>
+<script>
+(async function(){
+  const tb = document.getElementById('rel-body');
+  try {
+    const r = await fetch('https://api.github.com/repos/asifontheline/cloudless/pulls?state=closed&sort=updated&direction=desc&per_page=40');
+    if (!r.ok) throw new Error(r.status);
+    const prs = (await r.json()).filter(p => p.merged_at)
+      .sort((a,b) => b.merged_at.localeCompare(a.merged_at)).slice(0, 15);
+    const fmt = iso => { const d = new Date(iso), m = (Date.now()-d)/60000;
+      if (m < 60) return Math.max(1, m|0) + ' min ago';
+      if (m < 1440) return (m/60|0) + ' h ago';
+      return d.toLocaleDateString(undefined, {month:'short', day:'numeric'}); };
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    tb.innerHTML = prs.map(p =>
+      `<tr><td style="white-space:nowrap">${fmt(p.merged_at)}</td><td>${esc(p.title)}</td>` +
+      `<td><a href="${esc(p.html_url)}" target="_blank" rel="noopener">#${p.number} ↗</a></td></tr>`).join('')
+      || '<tr><td colspan="3" class="muted">No merges yet.</td></tr>';
+    document.getElementById('rel-more').innerHTML =
+      'Full history: <a href="https://github.com/asifontheline/cloudless/pulls?q=is%3Apr+is%3Amerged" target="_blank" rel="noopener">all merged changes ↗</a> · every merge passed CI validation and the pre-merge gate before landing.';
+  } catch {
+    tb.innerHTML = '<tr><td colspan="3" class="muted" style="padding:1rem">Could not load right now — see ' +
+      '<a href="https://github.com/asifontheline/cloudless/pulls?q=is%3Apr+is%3Amerged" target="_blank" rel="noopener">merged changes ↗</a>.</td></tr>';
+  }
+})();
+</script>
 
 <h2 id="start">Run a node</h2>
 <p>Three steps. Your computer joins the community mesh, shares only what you allow, and earns you service
