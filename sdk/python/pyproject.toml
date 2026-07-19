@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloudless"
+version = "0.1.0"
+description = "Python SDK for Cloudless — the community mesh alternative to commercial cloud"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "Apache-2.0" }
+keywords = ["cloudless", "mesh", "ai", "inference", "decentralized"]
+dependencies = []  # standard library only — installs and runs anywhere
+
+[project.urls]
+Homepage = "https://cldless.com"
+Source = "https://github.com/asifontheline/cloudless"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cloudless*"]
