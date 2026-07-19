@@ -203,7 +203,8 @@
   <div class="chips">
     <span class="chip"><b>$0</b> metered billing</span>
     <span class="chip"><b>0</b> data centres</span>
-    <span class="chip"><b>1</b> command to join</span>
+    <span class="chip"><b>5%</b> safe default share</span>
+    <span class="chip"><b>📱</b> phones &amp; laptops</span>
     <span class="chip"><b>100%</b> yours</span>
   </div>
   <div>
@@ -365,14 +366,15 @@ result shows it.</p>
     which connects nodes across any network with no router setup at all.</li>
 </ul>
 
-<p><strong>Step 4 — Set how much you share.</strong> Your machine, your rules. Declare the limits and the node
-never exceeds them:</p>
-<pre>$ cloudless up -share-cpu 40% -share-disk 20GB -share-when charging
-  Sharing: up to 40% CPU · 20 GB disk · only while plugged in</pre>
-<p class="muted" style="font-size:.9rem">Contribution is metered on the ledger, and you get service back in
-proportion to what you give. Share-limit controls are
-<a href="https://github.com/asifontheline/cloudless/issues/47" target="_blank" rel="noopener">in-build (#47)</a>;
-today the node shares whatever the machine has spare.</p>
+<p><strong>Step 4 — Set how much you share.</strong> Your machine, your rules. Every device <strong>starts at a
+safe 5% cap</strong> — barely noticeable, never hot, nothing like a resource-gulping virus. Raise it only if you
+want to:</p>
+<pre>$ cloudless up                          # starts at 5% — safe default
+$ cloudless up -share-cpu 40% -share-when charging   # opt in to more, anytime</pre>
+<p class="muted" style="font-size:.9rem">On phones and tablets a thermal &amp; battery guard pauses sharing if the
+device warms up or runs low, and defaults to charging-only. Contribution is metered on the ledger and you get
+service back in proportion. Safe defaults &amp; share controls are
+<a href="https://github.com/asifontheline/cloudless/issues/47" target="_blank" rel="noopener">in-build (#47, #47/J3)</a>.</p>
 
 <p><strong>That's it.</strong> Your node is now part of the mesh, serving up to your limits and earning you
 access to everyone else's. Point any standard chat app at <code>http://localhost:8080/v1</code> to use it;
@@ -392,6 +394,12 @@ device's fingerprint, face, or PIN. There's no password to invent, forget, or ha
 <p class="muted" style="font-size:.9rem">Passkeys are the phishing-resistant standard (WebAuthn) built into every
 modern phone and browser — the same thing banks use. Passwordless sign-in is
 <a href="https://github.com/asifontheline/cloudless/issues/52" target="_blank" rel="noopener">in-build (#52)</a>.</p>
+
+<div class="principle"><strong>One portal for everything.</strong> Once you're signed in, your console
+<em>is</em> your control panel — the single place to both <strong>use</strong> the mesh (call AI, manage keys,
+see what you saved vs a cloud bill) and <strong>contribute</strong> to it (set your share limits, watch your
+contribution and earned service on the ledger, see the live network map). Same portal on your laptop and your
+phone. Nothing else to install, nowhere else to go.</div>
 
 <h2 id="community">Community</h2>
 <p>The code, the board, and the roadmap are all public. CloudLess is community-owned by design.</p>
@@ -445,6 +453,10 @@ const F = {
     demo:CON+'<div class="msg u">$ cloudless up</div><div class="msg a">Console: http://127.0.0.1:8080/<br>Invite: cloudless up -join K7f…q2@…:7946</div>'},
   passkey:{t:"Passwordless sign-in", s:"in progress", d:"Sign in with your fingerprint, face, or device PIN — no passwords to remember, nothing to steal. Built on passkeys (WebAuthn), the phishing-resistant standard in every modern browser and phone.",
     demo:CON+'<div class="msg u">Register → [ Touch fingerprint ]</div><div class="msg a">✓ Signed in. No password created.<br><span class="muted">key never leaves your device</span></div>'},
+  mobile:{t:"Mobile devices as nodes", s:"planned", d:"Phones and tablets are the most common hand-carried hardware — they join the mesh too, with a thermal & battery guard so a device never overheats or drains. Manage everything from a passkey mobile portal.",
+    demo:CON+'<div class="row"><span>📱 phone (charging)</span><span class="ok">sharing 5%</span></div><div class="row"><span>🌡️ getting warm</span><span class="b-progress">paused — cooling</span></div><div class="row"><span>🔋 battery 18%</span><span class="bad">stopped</span></div>'},
+  share:{t:"Resource share controls", s:"planned", d:"You decide how much of your machine to give — and it starts at a safe 5% so it's never disruptive. Raise it only if you want; instantly reversible. What you contribute earns you service in return.",
+    demo:CON+'<div class="row"><span>CPU share</span><span>5% <span class="muted">(default)</span></span></div><div class="row"><span>Only while</span><span>charging</span></div><div class="row"><span>Your earned service</span><span class="ok">↑ grows with contribution</span></div>'},
 };
 const PLANNED = {
   embeddings:"Embeddings",speech:"Speech to/from text",vision:"Vision & OCR",images:"Image generation",vectors:"Vector search",

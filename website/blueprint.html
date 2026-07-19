@@ -241,22 +241,41 @@ a { color: var(--accent); }
 <li>Add optional redundancy by assigning duplicate tasks to trusted nodes for best-in-class reliability</li>
 </ul>
 
-<h3>10.0 Mobile Devices as Nodes</h3>
-<p>Phones and tablets are community hardware too. The node agent must run on mobile devices with roles scaled to their limits:</p>
+<h3>10.0 Mobile Devices as Nodes (Epic J)</h3>
+<p>Phones and tablets are the most common, hand-carried commodity hardware — first-class nodes, not an afterthought:</p>
 <ul>
 <li>Lightweight roles first: mesh relay, blob cache, telemetry, small quantized-model inference</li>
 <li>Battery/network aware: contribute only while charging and on unmetered networks by default (user-controlled)</li>
-<li>Same security model: enrolled certificate, mutual TLS, share declarations like any node</li>
-<li>Delivery path: the agent cross-compiles to mobile architectures; packaged builds for phone terminals first, then native apps</li>
+<li>Thermal &amp; battery safety guard: pause or scale down on rising temperature or low battery; hard stop on thermal thresholds — a device must never overheat or feel like a virus gulping resources</li>
+<li>Same security model: enrolled certificate, mutual TLS, passkey portal, share declarations like any node</li>
+<li>Mobile portal: manage share limits, usage, and earned service from the phone after passkey sign-in (PWA, no app store needed to start)</li>
+<li>Delivery path: the Go agent cross-compiles to android/arm64 and ios/arm64; PWA and sideload first, store submissions later</li>
+</ul>
+
+<h3>10.0.1 Safe Resource Defaults (hard rule)</h3>
+<p>Contribution must never be disruptive:</p>
+<ul>
+<li>Every device — mobile and desktop — starts capped at **5%** of CPU/IO/memory</li>
+<li>Using more requires explicit, per-resource user consent, and is instantly reversible from the portal</li>
+<li>Conservative by default protects the owner&#x27;s experience and trust; generosity is opt-in, never assumed</li>
 </ul>
 
 <h3>10.1 Resource Sharing Controls and Reciprocity</h3>
 <p>Members stay in control of what they give, and what they give determines what they get:</p>
 <ul>
+<li>Default cap is 5% (see 10.0.1); raising it is explicit and reversible</li>
 <li>Each node declares share limits: CPU cores/percent, IO bandwidth, disk quota, network bandwidth, and share hours (e.g. nights only)</li>
 <li>The agent enforces declared limits locally; the scheduler never exceeds a node&#x27;s declaration</li>
 <li>Contribution is metered (the ledger) and reciprocated: members earn service capacity proportional to what their nodes contribute, with community-configurable floors so small contributors are never locked out</li>
 <li>Changing a share declaration is a one-click console action, effective immediately</li>
+</ul>
+
+<h3>10.1.1 The Portal — one stop to use and contribute</h3>
+<p>After passwordless (passkey) sign-in, the embedded web console is the member&#x27;s single portal:</p>
+<ul>
+<li>Use: call AI and other services, manage API keys, see usage and cost saved</li>
+<li>Contribute: set share limits (starting at the 5% default), see contribution and earned service on the ledger, view the network map</li>
+<li>Same portal on desktop and mobile; everything a member can do lives in one authenticated place, backed by the same HTTP API the CLI uses</li>
 </ul>
 
 <h3>10.2 Community Node Tracking and the Network Map</h3>

@@ -187,19 +187,34 @@ Community and low-cost hardware are the backbone of this plan. Key design choice
 - Align incentives with cooperative use, such as shared access, reputational rewards, or cost offsetting
 - Add optional redundancy by assigning duplicate tasks to trusted nodes for best-in-class reliability
 
-## 10.0 Mobile Devices as Nodes
-Phones and tablets are community hardware too. The node agent must run on mobile devices with roles scaled to their limits:
+## 10.0 Mobile Devices as Nodes (Epic J)
+Phones and tablets are the most common, hand-carried commodity hardware — first-class nodes, not an afterthought:
 - Lightweight roles first: mesh relay, blob cache, telemetry, small quantized-model inference
 - Battery/network aware: contribute only while charging and on unmetered networks by default (user-controlled)
-- Same security model: enrolled certificate, mutual TLS, share declarations like any node
-- Delivery path: the agent cross-compiles to mobile architectures; packaged builds for phone terminals first, then native apps
+- Thermal & battery safety guard: pause or scale down on rising temperature or low battery; hard stop on thermal thresholds — a device must never overheat or feel like a virus gulping resources
+- Same security model: enrolled certificate, mutual TLS, passkey portal, share declarations like any node
+- Mobile portal: manage share limits, usage, and earned service from the phone after passkey sign-in (PWA, no app store needed to start)
+- Delivery path: the Go agent cross-compiles to android/arm64 and ios/arm64; PWA and sideload first, store submissions later
+
+## 10.0.1 Safe Resource Defaults (hard rule)
+Contribution must never be disruptive:
+- Every device — mobile and desktop — starts capped at **5%** of CPU/IO/memory
+- Using more requires explicit, per-resource user consent, and is instantly reversible from the portal
+- Conservative by default protects the owner's experience and trust; generosity is opt-in, never assumed
 
 ## 10.1 Resource Sharing Controls and Reciprocity
 Members stay in control of what they give, and what they give determines what they get:
+- Default cap is 5% (see 10.0.1); raising it is explicit and reversible
 - Each node declares share limits: CPU cores/percent, IO bandwidth, disk quota, network bandwidth, and share hours (e.g. nights only)
 - The agent enforces declared limits locally; the scheduler never exceeds a node's declaration
 - Contribution is metered (the ledger) and reciprocated: members earn service capacity proportional to what their nodes contribute, with community-configurable floors so small contributors are never locked out
 - Changing a share declaration is a one-click console action, effective immediately
+
+## 10.1.1 The Portal — one stop to use and contribute
+After passwordless (passkey) sign-in, the embedded web console is the member's single portal:
+- Use: call AI and other services, manage API keys, see usage and cost saved
+- Contribute: set share limits (starting at the 5% default), see contribution and earned service on the ledger, view the network map
+- Same portal on desktop and mobile; everything a member can do lives in one authenticated place, backed by the same HTTP API the CLI uses
 
 ## 10.2 Community Node Tracking and the Network Map
 Every node in the community mesh is tracked and visible:
