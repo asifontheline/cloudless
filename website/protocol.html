@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Protocol — CloudLess</title>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="%234a7dbd" stroke-width="7"/><line x1="16" y1="72" x2="84" y2="12" stroke="%23d64545" stroke-width="8" stroke-linecap="round"/></svg>'>
+<style>
+:root { color-scheme: light dark; --line: color-mix(in srgb, currentColor 14%, transparent);
+  --card: color-mix(in srgb, currentColor 4%, transparent); --accent:#4a7dbd; --plan:#8a8f98; }
+body { font: 16px/1.65 system-ui, sans-serif; max-width: 860px; margin: 0 auto; padding: 1rem 1rem 4rem; }
+h2 { font-size: 1.6rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }
+h3 { font-size: 1.2rem; margin-top: 2rem; } h4 { font-size: 1.02rem; }
+pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.4; }
+a { color: var(--accent); }
+.nav { position: sticky; top: 0; background: color-mix(in srgb, Canvas 88%, transparent);
+  backdrop-filter: blur(8px); padding: .7rem 0; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+</style></head><body>
+<div class="nav"><a href="index.html">← CloudLess home</a> &nbsp;·&nbsp;
+<a href="blueprint.html">Blueprint</a> &nbsp;·&nbsp; <a href="whitepaper.html">White Paper</a> &nbsp;·&nbsp;
+<a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a></div>
+<h2>Cloudless Open Protocol</h2>
+
+<p>The platform is defined by its HTTP API, not by any one language. Anything you can send an</p>
+<p>HTTP request from can use and extend Cloudless. This document is the contract; a formal</p>
+<p>OpenAPI spec is tracked in [#58](../../issues/58).</p>
+
+<p>All management endpoints accept the cluster admin key or a member API key as</p>
+<p>`Authorization: Bearer &lt;key&gt;`. Base URL is `http://&lt;node&gt;:8080`.</p>
+
+<h3>Inference (standard chat-completions wire format)</h3>
+
+<pre>
+POST /v1/chat/completions      # streaming or non-streaming; routed + failed over across the mesh
+POST /v1/embeddings            # (planned)
+GET  /v1/models
+</pre>
+
+<p>Point any existing chat-completions client at any node — a base-URL swap is the whole</p>
+<p>integration.</p>
+
+<h3>Platform API (language-agnostic)</h3>
+
+<p>| Area | Endpoint | Purpose |</p>
+<p>|---|---|---|</p>
+<p>| Status | `GET /status` | Nodes, health, recent routes |</p>
+<p>| Model commons | `GET /store`, `PUT /store?name=`, `POST /store/pull?name=`, `GET /store/verify?name=` | Hash-verified model store + mesh pull |</p>
+<p>| Usage | `GET /usage` | Per-key/node requests and tokens |</p>
+<p>| Ledger | `GET /ledger` | Contribution vs consumption |</p>
+<p>| Cost | `GET /savings` | Hosted-API equivalent of mesh work |</p>
+<p>| Capacity | `GET /capacity` | Idle-node surfacing |</p>
+<p>| Members | `GET/POST /keys`, `DELETE /keys/{prefix}` | Per-user API keys (admin) |</p>
+<p>| Sharing | `GET /share`, `PUT /share` | Resource share limits (5%–70%) |</p>
+<p>| Membership | `POST /revoke/{name}`, `GET /revocations` | Node revocation (admin) |</p>
+<p>| Map | `GET /status` + `location` field | Geo topology (continent/country/state/city/village) |</p>
+
+<h3>Extending in your language</h3>
+
+<p>**As a client / SDK** — wrap these endpoints idiomatically. Example (Python):</p>
+
+<pre>
+import requests
+r = requests.post(&quot;http://localhost:8080/v1/chat/completions&quot;,
+                  headers={&quot;Authorization&quot;: &quot;Bearer &quot; + KEY},
+                  json={&quot;model&quot;: &quot;your-model&quot;, &quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}]})
+print(r.json()[&quot;choices&quot;][0][&quot;message&quot;][&quot;content&quot;])
+</pre>
+
+<p>**As a new service / workload** — a node can dispatch work to an extension that speaks this</p>
+<p>API over a subprocess, or run it as a sandboxed WASM module. No Go required; the extension</p>
+<p>model is [#61](../../issues/61).</p>
+
+<p>**As a runtime backend** — a backend (e.g. a Python worker serving a model) that exposes the</p>
+<p>`/v1` wire format can sit behind a node&#x27;s Runtime interface just like the built-in ones</p>
+<p>([#62](../../issues/62)).</p>
+
+<p>The contract is stable and versioned; breaking changes go through a new version, never a</p>
+<p>silent change. Build freely.</p>
+
+<p>_Contributions welcome in any language — see CONTRIBUTING.md._</p>
+
+<p style="color:var(--plan);font-size:.85rem;margin-top:3rem">CloudLess · Apache-2.0 · published from the
+open repository — this page auto-updates when the source document changes.</p>
+</body></html>

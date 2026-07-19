@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contributing — CloudLess</title>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="%234a7dbd" stroke-width="7"/><line x1="16" y1="72" x2="84" y2="12" stroke="%23d64545" stroke-width="8" stroke-linecap="round"/></svg>'>
+<style>
+:root { color-scheme: light dark; --line: color-mix(in srgb, currentColor 14%, transparent);
+  --card: color-mix(in srgb, currentColor 4%, transparent); --accent:#4a7dbd; --plan:#8a8f98; }
+body { font: 16px/1.65 system-ui, sans-serif; max-width: 860px; margin: 0 auto; padding: 1rem 1rem 4rem; }
+h2 { font-size: 1.6rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }
+h3 { font-size: 1.2rem; margin-top: 2rem; } h4 { font-size: 1.02rem; }
+pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.4; }
+a { color: var(--accent); }
+.nav { position: sticky; top: 0; background: color-mix(in srgb, Canvas 88%, transparent);
+  backdrop-filter: blur(8px); padding: .7rem 0; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+</style></head><body>
+<div class="nav"><a href="index.html">← CloudLess home</a> &nbsp;·&nbsp;
+<a href="blueprint.html">Blueprint</a> &nbsp;·&nbsp; <a href="whitepaper.html">White Paper</a> &nbsp;·&nbsp;
+<a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a></div>
+<h2>Contributing to Cloudless</h2>
+
+<p>Cloudless is community-owned by design. **You do not need to know Go to contribute** —</p>
+<p>the platform is an open, language-agnostic API, and that API is the extension surface.</p>
+<p>Build in whatever language you already use.</p>
+
+<h3>Contribute in any language</h3>
+
+<p>| You want to… | Do it in | How |</p>
+<p>|---|---|---|</p>
+<p>| Use the mesh from an app | Any language | Call the standard chat-completions API at `http://&lt;node&gt;:8080/v1` |</p>
+<p>| Add a new service / workload | Any language | Register with a node over the open API (subprocess) or ship a sandboxed WASM module |</p>
+<p>| Add an inference/compute backend | Python, C++, Go, … | Implement the runtime contract; a Python worker is as valid as a Go one |</p>
+<p>| Improve the node agent itself | Go | The core binary is Go, but this is only one of many ways in |</p>
+<p>| Build an SDK / tooling | Any language | The API contract is public (see [PROTOCOL.md](PROTOCOL.md)); Python and JS SDKs are first-class |</p>
+
+<p>Python is treated as a first-class citizen because it&#x27;s the dominant language for AI/ML —</p>
+<p>if something is awkward from Python, that&#x27;s a bug we want to hear about.</p>
+
+<h3>The check-in flow (how code reaches `main`)</h3>
+
+<p>We do **not** commit directly to `main`. Every change — from anyone, anywhere — goes</p>
+<p>through validation and review:</p>
+
+<p>1. **Branch** off `main`: `git checkout -b your-feature`</p>
+<p>2. **Commit** your work on that branch.</p>
+<p>3. **Open a pull request** to `main`.</p>
+<p>4. **Validation runs automatically** (the CI workflow): build, `go vet`, `go test`, and</p>
+<p>   `gofmt`. A red build cannot be merged.</p>
+<p>5. **Review**: a maintainer reviews the PR. When it&#x27;s approved, it gets the</p>
+<p>   `ready-to-merge` label.</p>
+<p>6. **Merge queue**: every 2 hours, a scheduled job merges all `ready-to-merge` PRs whose</p>
+<p>   checks are green — squashed into `main`. Main is always green; nobody&#x27;s half-finished</p>
+<p>   work blocks anyone else&#x27;s.</p>
+
+<p>This means the world can push in parallel and everything lands cleanly, on a predictable</p>
+<p>cadence, without breaking `main`.</p>
+
+<h3>Ground rules (non-negotiable)</h3>
+
+<p>These are project principles, enforced in review:</p>
+
+<ul>
+<li>**Open-source licenses only** — OSI-approved (Apache-2.0/MIT/BSD/MPL) or public domain.</li>
+</ul>
+<p>  No BUSL/source-available, no proprietary control planes, no restricted-license model weights.</p>
+<ul>
+<li>**Own vocabulary** — we replicate cloud *capabilities*, never cloud *branding*. No</li>
+</ul>
+<p>  third-party product names in product/feature naming or UI.</p>
+<ul>
+<li>**One surface** — a feature ships its web console page, HTTP API, and CLI together.</li>
+<li>**Security is part of &quot;done&quot;** — not a later pass. Encrypt in transit and at rest;</li>
+</ul>
+<p>  verify artifacts; least privilege.</p>
+<ul>
+<li>**Safe by default** — a contributed node shares 5% by default (tunable to 70%, never</li>
+</ul>
+<p>  100%); nothing should ever make a machine hot or feel like a virus.</p>
+
+<h3>Getting set up</h3>
+
+<pre>
+git clone https://github.com/asifontheline/cloudless
+cd cloudless/cloudless
+go build ./... &amp;&amp; go test ./...   # or just run: cloudless up
+</pre>
+
+<p>The open board is our roadmap: [issues](../../issues) · [milestones](../../milestones) ·</p>
+<p>[BACKLOG.md](BACKLOG.md). Pick anything labelled `P1`, or open an issue proposing something new.</p>
+
+<p>Licensed under Apache-2.0. By contributing you agree your contribution is licensed the same way.</p>
+
+<p style="color:var(--plan);font-size:.85rem;margin-top:3rem">CloudLess · Apache-2.0 · published from the
+open repository — this page auto-updates when the source document changes.</p>
+</body></html>
