@@ -15,6 +15,7 @@
   header { border-bottom: 1px solid var(--line); padding: 0 1rem; position: sticky; top: 0;
            backdrop-filter: blur(8px); background: color-mix(in srgb, Canvas 85%, transparent); }
   .brand { font-weight: 700; padding: .8rem .4rem .2rem; display: flex; align-items: center; gap: .5rem; }
+  .brand a.home { display: flex; align-items: center; gap: .5rem; color: inherit; text-decoration: none; }
   .brand small { color: var(--plan); font-weight: 400; }
   .brand .logo svg { height: 26px; width: auto; display: block; }
   .brand .wordmark s { color: var(--plan); text-decoration-color: var(--strike, #d64545); text-decoration-thickness: 2.5px; }
@@ -43,7 +44,7 @@
 </head>
 <body>
 <header>
-  <div class="brand"><span class="logo" id="logo"></span><span class="wordmark"><s>Cloud</s>Less</span> <small>· cheap hardware, networked to beat the cloud (prototype)</small></div>
+  <div class="brand"><a class="home" href="/" title="Home"><span class="logo" id="logo"></span><span class="wordmark"><s>Cloud</s>Less</span></a> <small>· cheap hardware, networked to beat the cloud (prototype)</small></div>
   <nav id="nav"></nav>
 </header>
 <main id="main"></main>
