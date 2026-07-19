@@ -26,8 +26,8 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #11 C1 | Per-user API keys | ✅ |
 | #12 C2 | Usage accounting | ✅ |
 | #13 C3 | Quotas & rate limits | ✅ |
-| #14 C4 | Request queueing | ⬜ |
-| #15 C5 | Mid-stream failover retry | ⬜ |
+| #14 C4 | Request queueing | ✅ |
+| #15 C5 | Mid-stream failover retry | ✅ |
 
 ## EPIC D — Evaluation & Paper
 | #16 D1 | Churn test harness | ⬜ |

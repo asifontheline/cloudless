@@ -60,6 +60,14 @@ print(mesh.chat("Explain the mesh in one line"))
 
 Requests route to the best healthy node and fail over automatically if one drops.
 
+**Failover semantics (exact):** the gateway retries the next-best node on any failure
+that happens *before the first byte reaches you* — connection errors, 5xx responses,
+streams that die before their first token, and buffered responses that fail mid-read.
+You either get one clean, complete answer or one clean error; never a stitched-together
+response. Once bytes have started flowing, a mid-stream node loss ends that stream
+(re-issue the request — standard clients handle this as a normal retry); the `Retries`
+column on the console's Recent Routes table shows how often failover saved a request.
+
 ## 4. The console — one place for everything
 
 Open `http://127.0.0.1:8080/`. Tabs:
