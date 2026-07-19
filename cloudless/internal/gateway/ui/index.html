@@ -706,12 +706,23 @@ function renderDashboard() {
   main.innerHTML = `<h1>Mesh dashboard</h1>
   <p id="err">Cannot reach gateway.</p>
   <p id="load" class="muted"></p>
-  <h2>Nodes</h2>
+  <h2>Nodes <button id="mint" style="font:inherit;font-size:.78rem;margin-left:.6rem;padding:.15rem .7rem;border:1px solid var(--line);border-radius:6px;background:none;color:var(--accent);cursor:pointer">+ mint join token</button></h2>
+  <p id="minted" class="muted" style="display:none;font-size:.85rem"></p>
   <table><thead><tr><th>Name</th><th>Backend</th><th>State</th><th>Latency</th></tr></thead><tbody id="nodes"></tbody></table>
   <h2>Recent routes</h2>
   <table><thead><tr><th>Time</th><th>Path</th><th>Routed to</th><th>Status</th></tr></thead><tbody id="routes"></tbody></table>
   <p class="muted">Auto-refreshes every 2s · API: <code>POST /v1/chat/completions</code> · Explore capability sections in the menu above.</p>`;
   tick(); timer = setInterval(tick, 2000);
+  document.getElementById('mint').onclick = async () => {
+    const r = await fetch('/join-tokens', {method:'POST',
+      headers:{'Authorization':'Bearer '+(localStorage.getItem('adminKey')||''),'Content-Type':'application/json'},
+      body:'{"ttl_minutes":15}'});
+    const el = document.getElementById('minted'); el.style.display = 'block';
+    if (!r.ok) { el.textContent = r.status === 404 ? 'Only the founding (CA-holding) node can mint join tokens.' : 'Mint failed — set the admin key on the Members page.'; return; }
+    const d = await r.json();
+    el.innerHTML = `Single-use join token (expires ${esc(new Date(d.expires).toLocaleTimeString())}): <code>${esc(d.token)}</code><br>` +
+      `New machine: <code>cloudless up -join &lt;secret&gt;@&lt;host:port&gt; -join-token ${esc(d.token)}</code>`;
+  };
 }
 async function tick() {
   try {

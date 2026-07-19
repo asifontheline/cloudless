@@ -24,6 +24,7 @@ import (
 	"cloudless/internal/gateway"
 	"cloudless/internal/gossip"
 	"cloudless/internal/inflight"
+	"cloudless/internal/jointoken"
 	"cloudless/internal/keys"
 	"cloudless/internal/pki"
 	"cloudless/internal/quota"
@@ -65,6 +66,8 @@ func main() {
 		nodesCmd(os.Args[2:])
 	case "audit":
 		auditCmd(os.Args[2:])
+	case "token":
+		tokenCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -92,6 +95,7 @@ func up(args []string) {
 	relayAddr := fs.String("relay", ":9443", "mutual-TLS relay listen address")
 	seedAPI := fs.String("seed-api", "", "seed node gateway URL for enrollment (default http://<join-host>:8080)")
 	location := fs.String("location", "", "node locality: continent/country/state/city/village")
+	joinToken := fs.String("join-token", "", "single-use join token minted on the seed (console or 'cloudless token')")
 	fs.Parse(args)
 
 	home, err := os.UserHomeDir()
@@ -131,7 +135,7 @@ func up(args []string) {
 					api = "http://" + seedHost + ":8080"
 				}
 			}
-			if err := relay.Enroll(api, cfg.PKIDir, cfg.Gossip.NodeName, []byte(cfg.Gossip.Secret)); err != nil {
+			if err := relay.Enroll(api, cfg.PKIDir, cfg.Gossip.NodeName, []byte(cfg.Gossip.Secret), *joinToken); err != nil {
 				log.Fatal(err)
 			}
 			log.Printf("pki: enrolled with %s; certificate received", api)
@@ -380,7 +384,20 @@ func runServe(cfg *config.Config) {
 	}
 	if secure && cfg.Gossip != nil {
 		if _, err := os.Stat(filepath.Join(cfg.PKIDir, "ca.key")); err == nil {
-			gw.EnrollHandler = relay.EnrollHandler(cfg.PKIDir, []byte(cfg.Gossip.Secret))
+			// A2: single-use expiring join tokens — minted here (the CA
+			// node), burned on first enrollment, persisted across restarts.
+			secret := []byte(cfg.Gossip.Secret)
+			used := jointoken.OpenUsed(filepath.Join(cfg.PKIDir, "join-tokens-used.json"))
+			gw.EnrollHandler = relay.EnrollHandler(cfg.PKIDir, secret, func(tok string) error {
+				id, exp, err := jointoken.Parse(secret, tok)
+				if err != nil {
+					return err
+				}
+				return used.Burn(id, exp)
+			})
+			gw.MintJoinToken = func(ttl time.Duration) (string, time.Time, error) {
+				return jointoken.New(secret, ttl)
+			}
 		}
 	}
 	srv := &http.Server{Addr: cfg.Listen, Handler: gw.Handler()}
@@ -839,6 +856,44 @@ func ledgerCmd(args []string) {
 		fmt.Printf("  %-30s %6d reqs %8d tokens %5.1f%%\n", l.Party, l.Requests, l.Tokens, l.Share)
 	}
 	fmt.Printf("TOTAL tokens exchanged: %d\n", out.TotalTokens)
+}
+
+// tokenCmd mints a single-use expiring join token on the CA node (A2).
+func tokenCmd(args []string) {
+	fs := flag.NewFlagSet("token", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	ttl := fs.Int("ttl", 15, "token validity in minutes")
+	fs.Parse(args)
+	if *adminKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*adminKey = cfg.APIKey
+			}
+		}
+	}
+	body := fmt.Sprintf(`{"ttl_minutes":%d}`, *ttl)
+	req, _ := http.NewRequest(http.MethodPost, *addr+"/join-tokens", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+*adminKey)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		log.Fatalf("mint failed: %s", strings.TrimSpace(string(b)))
+	}
+	var out struct {
+		Token   string    `json:"token"`
+		Expires time.Time `json:"expires"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("JOIN TOKEN (single-use, expires %s)\n%s\n\nOn the new machine:\n  cloudless up -join <secret>@<host:port> -join-token %s\n",
+		out.Expires.Local().Format(time.RFC1123), out.Token, out.Token)
 }
 
 func status(args []string) {

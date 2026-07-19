@@ -160,9 +160,10 @@ type Entry = storeEntry
 // itself never travels and a tampered pubkey fails verification.
 
 type EnrollRequest struct {
-	Name string `json:"name"`
-	Pub  string `json:"pub"` // base64 PKIX DER
-	MAC  string `json:"mac"` // base64 HMAC-SHA256(secret, name|pub)
+	Name  string `json:"name"`
+	Pub   string `json:"pub"`             // base64 PKIX DER
+	MAC   string `json:"mac"`             // base64 HMAC-SHA256(secret, name|pub)
+	Token string `json:"token,omitempty"` // single-use expiring join token (A2)
 }
 
 type EnrollResponse struct {
@@ -178,8 +179,10 @@ func Sign(secret []byte, name string, pub []byte) string {
 	return base64.StdEncoding.EncodeToString(m.Sum(nil))
 }
 
-// EnrollHandler serves POST /enroll on the CA-holding node.
-func EnrollHandler(pkiDir string, secret []byte) http.HandlerFunc {
+// EnrollHandler serves POST /enroll on the CA-holding node. checkToken (may
+// be nil) validates and burns a single-use join token (A2); when set and the
+// request carries a token, a bad/expired/reused token rejects enrollment.
+func EnrollHandler(pkiDir string, secret []byte, checkToken func(string) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req EnrollRequest
 		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
@@ -194,6 +197,13 @@ func EnrollHandler(pkiDir string, secret []byte) http.HandlerFunc {
 		if !hmac.Equal([]byte(req.MAC), []byte(Sign(secret, req.Name, pub))) {
 			http.Error(w, `{"error":"enrollment rejected"}`, http.StatusUnauthorized)
 			return
+		}
+		if req.Token != "" && checkToken != nil {
+			if err := checkToken(req.Token); err != nil {
+				log.Printf("enroll: token rejected for %s: %v", req.Name, err)
+				http.Error(w, `{"error":"join token rejected — mint a fresh one from the console or 'cloudless token'"}`, http.StatusUnauthorized)
+				return
+			}
 		}
 		certDER, err := pki.SignPubKey(pkiDir, req.Name, pub)
 		if err != nil {
@@ -211,16 +221,18 @@ func EnrollHandler(pkiDir string, secret []byte) http.HandlerFunc {
 	}
 }
 
-// Enroll runs the joiner side against the seed's gateway.
-func Enroll(seedAPI, pkiDir, name string, secret []byte) error {
+// Enroll runs the joiner side against the seed's gateway. token (may be
+// empty) is a single-use join token minted on the seed.
+func Enroll(seedAPI, pkiDir, name string, secret []byte, token string) error {
 	pub, err := pki.NewNodeKey(pkiDir)
 	if err != nil {
 		return err
 	}
 	body, _ := json.Marshal(EnrollRequest{
-		Name: name,
-		Pub:  base64.StdEncoding.EncodeToString(pub),
-		MAC:  Sign(secret, name, pub),
+		Name:  name,
+		Pub:   base64.StdEncoding.EncodeToString(pub),
+		MAC:   Sign(secret, name, pub),
+		Token: token,
 	})
 	resp, err := http.Post(seedAPI+"/enroll", "application/json", bytes.NewReader(body))
 	if err != nil {
