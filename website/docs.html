@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docs — Blueprint & White Paper — CloudLess</title>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="%234a7dbd" stroke-width="7"/><line x1="16" y1="72" x2="84" y2="12" stroke="%23d64545" stroke-width="8" stroke-linecap="round"/></svg>'>
+<style>
+:root { color-scheme: light dark; --line: color-mix(in srgb, currentColor 14%, transparent);
+  --card: color-mix(in srgb, currentColor 4%, transparent); --accent:#4a7dbd; --plan:#8a8f98; }
+body { font: 16px/1.65 system-ui, sans-serif; max-width: 880px; margin: 0 auto; padding: 1rem 1rem 4rem; }
+h3 { font-size: 1.5rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; margin-top: 2rem; }
+h4 { font-size: 1.15rem; margin-top: 1.6rem; } h5 { font-size: 1rem; }
+pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.4; }
+a { color: var(--accent); }
+.nav { position: sticky; top: 0; background: color-mix(in srgb, Canvas 88%, transparent);
+  backdrop-filter: blur(8px); padding: .7rem 0; border-bottom: 1px solid var(--line); margin-bottom: 1rem; z-index:2; }
+.tabs { display:flex; gap:.4rem; margin-top:.5rem; }
+.tabs button { padding:.4rem 1rem; border:1px solid var(--line); background:var(--card); color:inherit; border-radius:8px; cursor:pointer; font-weight:600; }
+.tabs button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+section { display:none; } section.on { display:block; }
+</style></head><body>
+<div class="nav"><a href="index.html">← CloudLess home</a> &nbsp;·&nbsp;
+<a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a>
+<div class="tabs"><button id="tb" class="on" onclick="show('blueprint')">📘 Blueprint</button>
+<button id="tw" onclick="show('paper')">📄 White Paper</button></div></div>
+<section id="blueprint" class="on"><h3>Cloudless Blueprint</h3>
+
+<h4>1. Goal</h4>
+<p>Build a decentralized platform where independent systems share compute, storage, and network resources over the internet so the system can offer cloud-style services without relying on a single commercial cloud provider. AI should be part of the platform’s capabilities, but not part of the name.</p>
+
+<p>This system is not just an intranet, extranet, or community network. It is a shared infrastructure platform that combines distributed compute, model hosting, orchestration, replication, and trust across community hardware.</p>
+
+<h4>1.1 Alternate Names</h4>
+<ul>
+<li>Community Mesh</li>
+<li>Decentralized Fabric</li>
+<li>Edge Federation</li>
+<li>Peer Grid</li>
+<li>Distributed Commons</li>
+<li>Open Mesh</li>
+<li>Collaborative Network</li>
+<li>Community Cloud</li>
+<li>Federated Network</li>
+<li>Local Grid</li>
+<li>Mesh Platform</li>
+<li>Edge Intelligence Network</li>
+<li>Cooperative Fabric</li>
+<li>Autonomous Fabric</li>
+</ul>
+
+<h4>2. Core Principles</h4>
+<ul>
+<li>Decentralized federation: no central vendor controls the system</li>
+<li>No masters: as the network grows there are no privileged or central nodes — coordination is by gossip among equals; information is scattered across the mesh and retrievable from anywhere; there is no single point to capture, fail, or shut down</li>
+<li>Open protocols: common APIs and data formats</li>
+<li>Open architecture, polyglot by design: a stable language-agnostic API is the extension surface; users and contributors build and extend in any language — Python first-class alongside Go, plus JS/TS and WASM/subprocess plugins — never locked to one language</li>
+<li>Resource sharing: participants contribute CPU/GPU, storage, and bandwidth</li>
+<li>Open-source software: avoid proprietary lock-in</li>
+<li>Privacy and security: encrypt data in transit and at rest</li>
+<li>Incentive alignment: voluntary or credit-based cooperation</li>
+</ul>
+
+<h4>2.1 Governing and Guiding Principles</h4>
+<ul>
+<li>Manageable via web: every node embeds a web console; all administration possible from a browser</li>
+<li>Zero-friction setup: onboarding a node is one command with auto-detection and generated defaults; setup time is a first-class cost to minimize</li>
+<li>Prioritize low-cost community compute over rented infrastructure</li>
+<li>Keep sensitive data local and enforce privacy-first processing</li>
+<li>Design for community-native participation and cooperative ownership</li>
+<li>Replicate only what matters to stay efficient and lightweight</li>
+<li>Optimize workloads for heterogeneous, low-cost hardware</li>
+<li>Use reputation and trust to reward reliable nodes and services</li>
+<li>Build resilience through decentralization, redundancy, and automatic failover</li>
+<li>Maintain open interoperability with standard model formats and APIs</li>
+<li>Serve customers who value cost control, privacy, and decentralized infrastructure</li>
+</ul>
+
+<h4>3. Architecture</h4>
+
+<h5>A. Node federation</h5>
+<ul>
+<li>Each participant runs a local node agent</li>
+<li>Nodes discover each other through:</li>
+<li>Distributed hash table (DHT)</li>
+<li>Bootstrap/rendezvous peers</li>
+<li>Optional lightweight directory service</li>
+<li>Nodes advertise:</li>
+<li>available CPU/GPU</li>
+<li>memory</li>
+<li>storage</li>
+<li>network bandwidth</li>
+<li>supported AI runtimes</li>
+</ul>
+
+<h5>B. Work orchestration</h5>
+<ul>
+<li>A decentralized scheduler assigns tasks to available nodes</li>
+<li>Tasks include:</li>
+<li>model inference</li>
+<li>training/fine-tuning</li>
+<li>data preprocessing</li>
+<li>Use containerized workloads or sandboxed processes</li>
+<li>Lightweight orchestration alternatives:</li>
+<li>Nomad / HashiCorp ecosystem</li>
+<li>custom P2P scheduler</li>
+<li>edge-focused orchestrators</li>
+</ul>
+
+<h5>C. Model distribution</h5>
+<ul>
+<li>Store models in a distributed content-addressed network</li>
+<li>Use open models in interoperable formats:</li>
+<li>ONNX</li>
+<li>GGUF</li>
+<li>open weights from community repositories</li>
+<li>Nodes cache models locally to reduce repeated downloads</li>
+<li>Large models can be split into shards or served from nearby peers</li>
+</ul>
+
+<h5>D. Storage and data</h5>
+<ul>
+<li>Use decentralized storage for shared artifacts:</li>
+<li>IPFS / libp2p file system</li>
+<li>peer-to-peer object stores</li>
+<li>Keep private data local unless explicit permission is granted</li>
+<li>Share only computed outputs or sanitized summaries</li>
+</ul>
+
+<h5>E. Network layer</h5>
+<ul>
+<li>Peer-to-peer communications with:</li>
+<li>TLS encryption</li>
+<li>NAT traversal / hole punching</li>
+<li>VPN or mesh overlay if needed</li>
+<li>Optimize for low bandwidth:</li>
+<li>model quantization</li>
+<li>delta updates</li>
+<li>local caching</li>
+</ul>
+
+<h4>4. Governance and Agreements</h4>
+<ul>
+<li>Define an agreed protocol for:</li>
+<li>node onboarding</li>
+<li>resource advertising</li>
+<li>task acceptance</li>
+<li>failure handling</li>
+<li>Establish trust via:</li>
+<li>node reputation</li>
+<li>signed identities</li>
+<li>mutually agreed policies</li>
+<li>Use a simple credit or reputation system to prevent abuse</li>
+<li>Optionally use a distributed ledger or signed logs for audit</li>
+</ul>
+
+<h4>5. Security and Trust</h4>
+<ul>
+<li>Human sign-in is passwordless by default: passkeys (WebAuthn/FIDO2) — device fingerprint/face/PIN, credential never leaves the device, phishing-resistant, with multi-device enrollment, per-device revocation, and a one-time recovery code (the cluster key remains for automation only)</li>
+<li>Authenticate nodes before tasks are accepted</li>
+<li>Run untrusted workloads in sandboxes / containers</li>
+<li>Encrypt all communication (membership, service, and overlay layers)</li>
+<li>Encrypt all data at rest on every node with a rotating key hierarchy (root → cluster → node → artifact)</li>
+<li>Data Guard: classify data (private/group/public, private by default), enforce locality (private data never leaves its node, group data never leaves the mesh), default-deny workload egress, audit every data movement, crypto-shred on delete</li>
+<li>Limit access to local data</li>
+<li>Accept only vetted open-source AI models in safe formats</li>
+<li>Monitor and revoke nodes that misbehave</li>
+<li>Group-held k-of-n key recovery — no single member or outsider can unlock alone</li>
+</ul>
+
+<h4>6. Suggested Implementation Stack</h4>
+<p>Licensing rule: only OSI-approved open-source components (Apache-2.0/MIT/BSD/MPL/GPL) — no BUSL or source-available software (excludes Nomad, Consul, Vault, ZeroTier) and no proprietary SaaS control planes (excludes Tailscale coordination).</p>
+<ul>
+<li>Networking: libp2p, WireGuard, Headscale, open mesh overlays</li>
+<li>Orchestration: custom P2P scheduler, Ray, Docker (Engine), Podman</li>
+<li>Model runtime: ONNX Runtime, PyTorch, TensorFlow Lite, llama.cpp</li>
+<li>Storage: IPFS, syncthing, rsync-style sync, local disk caches</li>
+<li>Coordination: metadata registry, DHT, small bootstrap servers</li>
+<li>Models: Apache-2.0/MIT open weights only as defaults (e.g. Mistral, Qwen2.5, OLMo); restricted-license weights (e.g. Meta Llama) never bundled or redistributed</li>
+</ul>
+
+<h4>7. Practical Phases</h4>
+<p>1. Prototype</p>
+<ul>
+<li>Set up 2–3 trusted machines</li>
+<li>Share model inference tasks</li>
+<li>Use open models and local caching</li>
+</ul>
+<p>2. Add discovery</p>
+<ul>
+<li>Implement peer discovery over the internet</li>
+<li>Handle NAT traversal</li>
+</ul>
+<p>3. Expand</p>
+<ul>
+<li>Add more volunteer nodes</li>
+<li>Add distributed storage for models/data</li>
+<li>Add task scheduling and failover</li>
+</ul>
+<p>4. Governance</p>
+<ul>
+<li>Add identity and reputation</li>
+<li>Define sharing policies</li>
+<li>Add credit / resource accounting</li>
+</ul>
+
+<h4>8. Reality Check</h4>
+<ul>
+<li>This is not literally “zero cost”:</li>
+<li>hardware, electricity, and network usage still matter</li>
+<li>true “no cost” only exists if participants willingly donate resources</li>
+<li>It is possible to avoid commercial cloud fees by sharing existing machines and bandwidth</li>
+<li>The system will be slower and harder to manage than a centralized cloud, but it can still deliver many cloud-like AI services</li>
+</ul>
+
+<h4>9. Cloud Feature Replication</h4>
+<p>To make this the cheapest ever solution while still matching public cloud capabilities, the plan must replicate these cloud principles:</p>
+<ul>
+<li>Compute as a service</li>
+<li>dynamic task scheduling across nodes</li>
+<li>support for CPU, GPU, and accelerator workloads</li>
+<li>Object and model storage</li>
+<li>distributed caching and content-addressed storage</li>
+<li>tiered persistence: local disk, peer caches, archival nodes</li>
+<li>Networking and service gateway</li>
+<li>API gateway for user access</li>
+<li>encrypted P2P tunnels and mesh networking</li>
+<li>Automation and self-service</li>
+<li>command / API-driven provisioning</li>
+<li>node onboarding and resource discovery automation</li>
+<li>Monitoring and observability</li>
+<li>distributed metrics collection</li>
+<li>health checks, logging, and SLA-based routing</li>
+<li>Security and identity</li>
+<li>node identity and service authentication</li>
+<li>data encryption, sandboxing, and policy enforcement</li>
+<li>Resilience and failover</li>
+<li>redundant task execution</li>
+<li>automatic rerouting around unavailable nodes</li>
+</ul>
+
+<h4>10. Community Hardware Strategy</h4>
+<p>Community and low-cost hardware are the backbone of this plan. Key design choices:</p>
+<ul>
+<li>Treat every participant as a “community node” rather than a cloud instance</li>
+<li>Accept heterogeneity: different CPU types, GPUs, and memory sizes</li>
+<li>Use lightweight runtimes and model quantization to fit cheap hardware</li>
+<li>Cache models locally to reduce repeated downloads and network cost</li>
+<li>Implement reputation and credit so reliable nodes are preferred</li>
+<li>Align incentives with cooperative use, such as shared access, reputational rewards, or cost offsetting</li>
+<li>Add optional redundancy by assigning duplicate tasks to trusted nodes for best-in-class reliability</li>
+</ul>
+
+<h4>10.0 Mobile Devices as Nodes (Epic J)</h4>
+<p>Phones and tablets are the most common, hand-carried commodity hardware — first-class nodes, not an afterthought:</p>
+<ul>
+<li>Lightweight roles first: mesh relay, blob cache, telemetry, small quantized-model inference</li>
+<li>Battery/network aware: contribute only while charging and on unmetered networks by default (user-controlled)</li>
+<li>Thermal &amp; battery safety guard: pause or scale down on rising temperature or low battery; hard stop on thermal thresholds — a device must never overheat or feel like a virus gulping resources</li>
+<li>Same security model: enrolled certificate, mutual TLS, passkey portal, share declarations like any node</li>
+<li>Mobile portal: manage share limits, usage, and earned service from the phone after passkey sign-in (PWA, no app store needed to start)</li>
+<li>Delivery path: the Go agent cross-compiles to android/arm64 and ios/arm64; PWA and sideload first, store submissions later</li>
+</ul>
+
+<h4>10.0.1 Resource Cap — Safe Default, User&#x27;s Discretion (hard rule)</h4>
+<p>Contribution must never be disruptive, and how much to give is always the contributor&#x27;s choice:</p>
+<ul>
+<li>Every node — mobile and standalone — starts at a safe **5%** default of CPU/IO/memory</li>
+<li>Fully **tunable up to a 70% ceiling**: a dedicated or idle machine can be set high; a personal phone or laptop stays low</li>
+<li>The cap never reaches 100% — 70% max leaves headroom so the device stays responsive, cool, and safe even when contributing hard</li>
+<li>Raising the cap is explicit, per-resource, and instantly reversible from the portal</li>
+<li>On mobile, a thermal/battery guard sits on top of the cap; the cap itself applies to all nodes</li>
+</ul>
+
+<h4>10.1 Resource Sharing Controls and Reciprocity</h4>
+<p>Members stay in control of what they give, and what they give determines what they get:</p>
+<ul>
+<li>Default cap is 5% (see 10.0.1); raising it is explicit and reversible</li>
+<li>Each node declares share limits: CPU cores/percent, IO bandwidth, disk quota, network bandwidth, and share hours (e.g. nights only)</li>
+<li>The agent enforces declared limits locally; the scheduler never exceeds a node&#x27;s declaration</li>
+<li>Contribution is metered (the ledger) and reciprocated: members earn service capacity proportional to what their nodes contribute, with community-configurable floors so small contributors are never locked out</li>
+<li>Changing a share declaration is a one-click console action, effective immediately</li>
+</ul>
+
+<h4>10.1.1 The Portal — one stop to use and contribute</h4>
+<p>After passwordless (passkey) sign-in, the embedded web console is the member&#x27;s single portal:</p>
+<ul>
+<li>Use: call AI and other services, manage API keys, see usage and cost saved</li>
+<li>Contribute: set share limits (starting at the 5% default), see contribution and earned service on the ledger, view the network map</li>
+<li>Same portal on desktop and mobile; everything a member can do lives in one authenticated place, backed by the same HTTP API the CLI uses</li>
+</ul>
+
+<h4>10.2 Community Node Tracking and the Network Map</h4>
+<p>Every node in the community mesh is tracked and visible:</p>
+<ul>
+<li>Nodes carry an optional hierarchical location label: continent / country / state / city / village</li>
+<li>The console renders a live network map: green dots for healthy nodes, red for down, grouped by location and expandable level by level</li>
+<li>The map is the community&#x27;s shared operational picture — who is up, where capacity lives, where coverage is thin</li>
+</ul>
+
+<h4>10.3 Locality-Aware Redundancy</h4>
+<p>Failure tolerance is built around geography:</p>
+<ul>
+<li>Replicas are placed across localities: at least one copy in another city/region when the mesh spans them</li>
+<li>Requests prefer nearby nodes for latency; failover widens outward (village → city → state → country → continent)</li>
+<li>Local clusters keep serving their locality even when cut off from the wider mesh</li>
+</ul>
+
+<h4>11. Rule Engine Rules</h4>
+<p>The rule engine should enforce replication, monitoring, and failover for reliable services on community hardware.</p>
+<ul>
+<li>Replicate each compute task to multiple nodes when needed:</li>
+<li>primary/secondary pairs for critical work</li>
+<li>k-of-n redundancy for higher confidence</li>
+<li>Prefer nodes with higher reputation and recent success history</li>
+<li>Track node health with heartbeats, status updates, and health checks</li>
+<li>Mark nodes unhealthy after missed heartbeats or repeated failures</li>
+<li>Reroute failed or slow tasks automatically to alternate nodes</li>
+<li>Use local or nearby cached model copies to minimize network overhead</li>
+<li>Retry failed executions transparently and checkpoint long-running work</li>
+<li>Validate results before returning them for critical or non-idempotent tasks</li>
+<li>Use selective redundancy so high-priority jobs get stronger protection while low-priority jobs stay cheap</li>
+</ul>
+
+<h4>12. Example Outcome</h4>
+<p>A working “cloudless AI” system can provide:</p>
+<ul>
+<li>distributed AI inference</li>
+<li>collaborative model hosting</li>
+<li>decentralized data indexing</li>
+<li>edge-based AI services</li>
+<li>private compute on shared infrastructure</li>
+</ul>
+
+<h4>12. Architecture Diagram</h4>
+<pre>
+                 +---------------------------+
+                 |    Client / API Layer     |
+                 |  - User apps              |
+                 |  - Web/mobile UI          |
+                 |  - External integration   |
+                 +------------+--------------+
+                              |
+                              v
+                 +---------------------------+
+                 |   Federation Gateway      |
+                 |  - Request routing        |
+                 |  - Task validation        |
+                 |  - Policy enforcement     |
+                 +------------+--------------+
+                              |
+          +-------------------+-------------------+
+          |                                       |
+          v                                       v
++----------------------+               +----------------------+
+|  Node Discovery      |               |   Task Orchestration |
+|  - DHT / bootstrap   |               |  - Scheduler         |
+|  - Peer discovery    |               |  - Work assignment   |
+|  - Node registry     |               |  - Failure retry     |
++----------+-----------+               +----------+-----------+
+           |                                      |
+           v                                      v
++-------------------------------------------------------------+
+|                       Federated Node Mesh                    |
+|  +----------------+   +----------------+   +----------------+ |
+|  | Node A         |   | Node B         |   | Node C         | |
+|  | - Agent        |   | - Agent        |   | - Agent        | |
+|  | - Local cache  |   | - Local cache  |   | - Local cache  | |
+|  | - AI runtimes  |   | - AI runtimes  |   | - AI runtimes  | |
+|  | - Storage      |   | - Storage      |   | - Storage      | |
+|  +-------+--------+   +-------+--------+   +-------+--------+ |
+|          |                    |                    |          |
+|          +-----+    +---------+----+    +----------+          |
+|                |    |              |    |                     |
++-------------------------------------------------------------+
+           |                    |                    |
+           |                    |                    |
+           v                    v                    v
++----------------+   +----------------+   +----------------+
+| Model Storage  |   | Data Storage   |   | Security /     |
+| - IPFS / DHT   |   | - P2P cache    |   |   Identity     |
+| - Model shards |   | - Local sync   |   | - TLS / mTLS   |
++----------------+   +----------------+   +----------------+
+</pre>
+</section>
+<section id="paper"><h3>Cloudless: A Community-Powered Decentralized Infrastructure</h3>
+
+<h4>Abstract</h4>
+<p>This paper proposes a decentralized platform that uses community-contributed compute, storage, and network resources to deliver cloud-like services, including AI, without relying on a centralized public cloud provider. The platform prioritizes privacy, low-cost hardware, and cooperative governance, while providing replication, failover, and orchestration for best-in-class reliability.</p>
+
+<h4>1. Introduction</h4>
+<p>Public cloud providers offer scalable services, but they are often expensive, proprietary, and raise privacy concerns. We present a new alternative: a federated compute infrastructure built from community hardware and shared systems. This platform is not an intranet, extranet, or traditional community network; it is a general-purpose distributed fabric with AI as one first-class capability, integrating model hosting, task scheduling, data caching, and trusted execution.</p>
+
+<h5>1.1 Problem Statement</h5>
+<ul>
+<li>Cloud services are costly for continuous or large-scale workloads.</li>
+<li>Proprietary clouds centralize data and compute control.</li>
+<li>Existing distributed systems lack integrated orchestration, replication, and trust for general compute and AI workloads.</li>
+</ul>
+
+<h5>1.2 Contribution</h5>
+<ul>
+<li>Define a decentralized compute architecture that replicates cloud features on community hardware.</li>
+<li>Explain how AI becomes a key built-in service within this broader platform.</li>
+<li>Propose a rule engine for replication, monitoring, and failover.</li>
+<li>Describe a governing model for trust, reputation, and low-cost participation.</li>
+<li>Identify a practical path for prototype deployment on heterogeneous hardware.</li>
+</ul>
+
+<h4>2. Related Work</h4>
+<h5>2.1 Public Cloud AI</h5>
+<ul>
+<li>AWS, Azure, GCP AI services</li>
+<li>Centralized management, elasticity, service abstraction</li>
+</ul>
+
+<h5>2.2 Federated Learning and Distributed AI</h5>
+<ul>
+<li>TensorFlow Federated</li>
+<li>OpenMined</li>
+<li>Flower</li>
+</ul>
+
+<h5>2.3 Decentralized Compute and Storage</h5>
+<ul>
+<li>IPFS, Filecoin</li>
+<li>Golem, iExec, Akash</li>
+<li>Community networks and edge compute</li>
+</ul>
+
+<h5>2.4 Distinction</h5>
+<p>This work differs by combining distributed compute, model distribution, and AI service orchestration into a single community-driven platform with built-in failover and privacy-first processing.</p>
+
+<h4>3. System Architecture</h4>
+<p>A high-level architecture of the platform includes:</p>
+<ul>
+<li>Client / API Layer</li>
+<li>Federation Gateway</li>
+<li>Node Discovery and Task Orchestration</li>
+<li>Federated Node Mesh</li>
+<li>Distributed Model and Data Storage</li>
+<li>Security and Identity services</li>
+</ul>
+
+<h5>3.1 Node Federation</h5>
+<p>Each participant runs an agent that advertises compute, storage, and AI runtimes. Discovery is handled through DHT, bootstrap peers, and optional directories.</p>
+
+<h5>3.2 Work Orchestration</h5>
+<p>A decentralized scheduler assigns inference, training, and preprocessing tasks. Containerized or sandboxed workloads run on nodes with local caching and lightweight runtime support.</p>
+
+<h5>3.3 Model Distribution</h5>
+<p>Models are shared via a content-addressed distributed network. Nodes cache models locally and may store sharded or replicated copies to reduce bandwidth.</p>
+
+<h5>3.4 Storage and Data</h5>
+<p>Shared artifacts are stored in peer-to-peer storage systems. Sensitive user data remains local unless explicit consent is granted.</p>
+
+<h5>3.5 Network Layer</h5>
+<p>The platform uses encrypted P2P communication, NAT traversal, and optional mesh overlays to connect nodes securely.</p>
+
+<h4>4. Governing and Guiding Principles</h4>
+<ul>
+<li>Prioritize low-cost community compute over rented infrastructure.</li>
+<li>Keep sensitive data local and enforce privacy-first processing.</li>
+<li>Design for cooperative and community-native participation.</li>
+<li>Replicate only what matters to remain efficient.</li>
+<li>Optimize for heterogeneous, low-cost hardware.</li>
+<li>Reward reliable nodes through reputation and trust.</li>
+<li>Build resilience with decentralized redundancy and failover.</li>
+<li>Maintain open interoperability with standard model formats and APIs.</li>
+<li>Serve customers who value cost control, privacy, and decentralization.</li>
+</ul>
+
+<h4>5. Rule Engine</h4>
+<p>The rule engine enforces service behavior:</p>
+<ul>
+<li>Replicate critical tasks across multiple nodes.</li>
+<li>Prefer trusted nodes with strong success histories.</li>
+<li>Monitor node health via heartbeats and status checks.</li>
+<li>Mark unhealthy nodes and reroute tasks automatically.</li>
+<li>Use local caches and nearby replicas to minimize network overhead.</li>
+<li>Retry failed tasks transparently and checkpoint long-running work.</li>
+<li>Validate critical outputs before they are returned.</li>
+<li>Apply dynamic redundancy based on priority and cost.</li>
+</ul>
+
+<h4>6. Replication and Failover Strategy</h4>
+<h5>6.1 Compute Replication</h5>
+<ul>
+<li>Primary/secondary task assignment</li>
+<li>k-of-n redundancy for critical jobs</li>
+<li>Speculative execution on backup nodes</li>
+</ul>
+
+<h5>6.2 Data and Model Replication</h5>
+<ul>
+<li>Distributed model storage via IPFS/DHT</li>
+<li>Local caching for frequently used artifacts</li>
+<li>Multiple replicas of popular models and shards</li>
+</ul>
+
+<h5>6.3 Failure Handling</h5>
+<ul>
+<li>Automatic rerouting when nodes fail or become slow</li>
+<li>Transparent retries and checkpoint resume</li>
+<li>Quorum or majority validation for critical results</li>
+</ul>
+
+<h4>7. Community Hardware Strategy</h4>
+<p>The platform is designed for heterogeneous, inexpensive hardware. Key aspects include:</p>
+<ul>
+<li>Support for mixed CPU/GPU resources</li>
+<li>Lightweight runtimes and quantized model execution</li>
+<li>Local caching to reduce repeated downloads</li>
+<li>Incentive structures for node reliability</li>
+<li>Optional redundancy through task duplication</li>
+</ul>
+
+<h4>7.1 Resource Governance and Reciprocity</h4>
+<p>Participation is voluntary and bounded: each member declares how much CPU, IO, disk, and bandwidth their node shares, and when. The agent enforces these declarations locally. Contribution is metered in a cooperative ledger, and service entitlement is reciprocal — proportional to contribution, with community-set minimum floors to keep the mesh inclusive. This replaces cloud billing with a balance of give and take.</p>
+
+<h4>7.2 Geo-Hierarchical Topology and Observability</h4>
+<p>Nodes carry hierarchical locality labels (continent/country/state/city/village). The platform maintains a live network map — healthy and failed nodes visible at every level — giving the community a shared operational picture across continents without any central NOC.</p>
+
+<h4>7.3 Locality-Aware Redundancy</h4>
+<p>Replication and routing are locality-aware: requests prefer nearby nodes, replicas are spread across localities, and failover widens outward through the hierarchy. Partitioned localities continue to serve locally, rejoining the wider mesh when connectivity returns.</p>
+
+<h4>8. Evaluation Plan</h4>
+<p>A strong paper requires evaluation. Suggested experiments:</p>
+<ul>
+<li>Prototype deployment on 2–5 community nodes</li>
+<li>Measure latency, throughput, and cost against cloud baselines</li>
+<li>Test replication and failover under node churn</li>
+<li>Evaluate privacy benefits for local data handling</li>
+<li>Analyze reliability when using low-cost hardware</li>
+</ul>
+
+<h4>9. Conclusion</h4>
+<p>This paper outlines a practical path toward a community-powered AI infrastructure that matches core cloud capabilities while avoiding centralized dependency. The platform aims to deliver low-cost, private, reliable AI services using distributed, cooperative hardware.</p>
+
+<h4>10. Future Work</h4>
+<ul>
+<li>Build a reference implementation</li>
+<li>Develop reputation and incentive mechanisms</li>
+<li>Explore formal security and privacy guarantees</li>
+<li>Add support for broader AI model lifecycle management</li>
+<li>Evaluate real-world community deployments</li>
+</ul>
+
+<h4>References</h4>
+<ul>
+<li>Placeholder for prior work citations on cloud computing, federated learning, decentralized storage, and distributed systems.</li>
+</ul>
+</section>
+<p style="color:var(--plan);font-size:.85rem;margin-top:3rem">CloudLess · Apache-2.0 · published from the open repository.</p>
+<script>
+function show(id){
+  for(const s of document.querySelectorAll('section')) s.classList.toggle('on', s.id===id);
+  document.getElementById('tb').classList.toggle('on', id==='blueprint');
+  document.getElementById('tw').classList.toggle('on', id==='paper');
+  location.hash = id; window.scrollTo(0,0);
+}
+if(location.hash==='#paper') show('paper');
+</script>
+</body></html>
