@@ -302,15 +302,30 @@ services ride the same mesh next.</p>
 Features tab of every node's built-in console.</p>
 
 <h2 id="start">Get started</h2>
-<p>Two machines, two commands, one private AI cloud:</p>
-<pre>machine-1 $ cloudless up
-  Console:  http://127.0.0.1:8080/
-  API:      http://&lt;this-ip&gt;:8080/v1/chat/completions
-  Add a node: cloudless up -join &lt;secret&gt;@&lt;this-ip&gt;:7946
+<p><strong>Scenario:</strong> you're in Bengaluru, a friend is in Berlin. You want one shared, private AI
+service running on both your machines — no cloud account, no bill. Here's the whole thing.</p>
 
-machine-2 $ cloudless up -join &lt;secret&gt;@&lt;machine-1-ip&gt;:7946   # that's it</pre>
-<p>Point any standard chat-completions client at any node. Kill a machine mid-request — the mesh
-reroutes and keeps answering.</p>
+<p><strong>1 — You start the mesh.</strong> On your machine:</p>
+<pre>you@bengaluru $ cloudless up
+  Console:  http://127.0.0.1:8080/          # manage YOUR node in a browser (local only, just for you)
+  Invite:   cloudless up -join K7f…q2@203.0.113.9:7946    # share this line with your friend</pre>
+<p class="muted" style="font-size:.9rem"><code>127.0.0.1</code> is only your private admin page — it's not
+the mesh address. The <strong>invite line</strong> carries the shared secret and how to reach you.</p>
+
+<p><strong>2 — Your friend joins</strong> from anywhere on earth — they paste the invite line:</p>
+<pre>friend@berlin $ cloudless up -join K7f…q2@203.0.113.9:7946
+  Enrolled. Serving as part of the mesh.</pre>
+
+<p><strong>3 — Use it.</strong> Either of you points any standard chat-completions app at your own node
+(<code>http://localhost:8080/v1</code>). Requests route to whichever machine is free; if one drops
+offline mid-answer, the other takes over. That's a private, two-continent AI cloud.</p>
+
+<div class="principle"><strong>Reachability, honestly:</strong> for a global join today, the first node needs
+to be reachable — a public IP, a forwarded port, or a small VPN between you (WireGuard/Tailscale-style).
+On the same office or home network it just works with no setup. A <strong>one-click global overlay</strong>
+(join across any NAT, no networking knowledge) and <strong>QR-code invites</strong> are
+<a href="https://github.com/asifontheline/cloudless/issues/20" target="_blank" rel="noopener">in-build (#20, #21)</a> —
+this is exactly the kind of thing to help build.</p>
 
 <h2 id="community">Community</h2>
 <p>The code, the board, and the roadmap are all public. CloudLess is community-owned by design.</p>
