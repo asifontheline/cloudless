@@ -1,0 +1,9 @@
+# Alternative pull-based deployment: cPanel "Git Version Control".
+# If you prefer MilesWeb to pull from GitHub instead of Actions pushing:
+# cPanel -> Git Version Control -> Create -> clone the repo, then this file
+# copies the site into the document root on each "Deploy HEAD Commit".
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/$USER/public_html/
+    - /bin/cp -f website/index.html $DEPLOYPATH

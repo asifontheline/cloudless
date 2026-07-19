@@ -1,0 +1,33 @@
+name: Deploy website to MilesWeb
+
+# CI/CD for the public site: any push to main that touches website/
+# uploads it to the MilesWeb document root over FTPS.
+#
+# One-time setup (repo Settings -> Secrets and variables -> Actions):
+#   FTP_SERVER    e.g. ftp.yourdomain.com  (from MilesWeb cPanel -> FTP Accounts)
+#   FTP_USERNAME  the FTP account username
+#   FTP_PASSWORD  the FTP account password
+
+on:
+  push:
+    branches: [main]
+    paths: ["website/**"]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy over FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: website/
+          server-dir: public_html/
+          exclude: |
+            **/UPLOAD-TO-MILESWEB.md
