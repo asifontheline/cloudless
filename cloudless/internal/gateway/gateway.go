@@ -225,6 +225,7 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/ui", http.StatusTemporaryRedirect)
 	})
+	mux.HandleFunc("POST /v1/batch", g.auth(g.handleBatch))
 	mux.HandleFunc("/v1/", g.auth(g.handleProxy))
 	return mux
 }

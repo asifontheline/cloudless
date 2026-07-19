@@ -11,9 +11,15 @@ All management endpoints accept the cluster admin key or a member API key as
 
 ```
 POST /v1/chat/completions      # streaming or non-streaming; routed + failed over across the mesh
+POST /v1/batch                 # parallel fan-out: many independent requests, divided across nodes
 POST /v1/embeddings            # (planned)
 GET  /v1/models
 ```
+
+Batch fan-out: `{"path": "/v1/chat/completions", "requests": [ {...}, ... ]}` (1–64 items)
+returns `{"results": [ {"status", "backend", "body"}, ... ]}` in submission order. Items are
+processed concurrently across healthy nodes; each item keeps single-request semantics —
+failover before a complete response, backpressure, quota and usage metering.
 
 Point any existing chat-completions client at any node — a base-URL swap is the whole
 integration.
