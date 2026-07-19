@@ -28,6 +28,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           local-dir: website/
-          server-dir: public_html/
+          # The cldless-deploy FTP account lands directly in the cldless.com
+          # document root, so deploy to the account root.
+          server-dir: ./
           exclude: |
             **/UPLOAD-TO-MILESWEB.md
