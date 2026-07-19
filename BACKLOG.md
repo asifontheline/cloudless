@@ -82,6 +82,22 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #89 L6 | Browser test cases — console & website smoke tests | ⬜ |
 | #90 L7 | Security regression test cases | ⬜ |
 
+## EPIC M — Data Durability & Recovery (MUST-DO)
+Node churn must never mean lost or breached data. Prerequisite for Epic N recruitment.
+| #92 M1 | N-copy replication across failure domains | ⬜ P1 |
+| #93 M2 | Self-healing re-replication on node loss | ⬜ P1 |
+| #94 M3 | Encrypt before data leaves the owner's machine (breach containment) | ⬜ P1 |
+| #95 M4 | Restore lost data — owner-initiated recovery flow | ⬜ P1 |
+| #96 M5 | Off-mesh backup export & re-import (escape hatch) | ⬜ P1 |
+| #97 M6 | Measured durability guarantees on the console | ⬜ P2 |
+
+## EPIC N — Mesh Expansion & Node Hosting (PRIMARY growth path)
+The primary path to expand the mesh: recruit free and willing node hosts. Gated on M1–M3.
+| #98 N1 | **PRIMARY** — recruit homelab & self-hosting communities | ⬜ P1 |
+| #99 N2 | Always-free cloud tier seed nodes | ⬜ P2 |
+| #100 N3 | Grant-funded and OSS-credit seed hosting | ⬜ P2 |
+| #101 N4 | Universities, hackerspaces & computer clubs | ⬜ P3 |
+
 ## Cross-cutting infrastructure (shipped)
 - One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
 - CI validation engine + branch-protected `main` + 2-hourly review-gated merge queue ✅
