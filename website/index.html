@@ -184,7 +184,7 @@
     <li><button class="feat" data-f="cost">Cost calculator</button> <span class="b-live">●</span></li>
     <li><button class="feat" data-f="idle">Idle alerts</button> <span class="b-live">●</span></li></ul></details>
   <details><summary>🤝 Community</summary><ul>
-    <li><button class="feat" data-f="share">Share controls</button></li>
+    <li><button class="feat" data-f="share">Share controls</button> <span class="b-live">●</span></li>
     <li><button class="feat" data-f="reciprocity">Reciprocity</button></li>
     <li><button class="feat" data-f="geomap">Geo map</button> <span class="b-progress">◐</span></li>
     <li><button class="feat" data-f="mobile">Mobile nodes</button></li></ul></details>
@@ -378,8 +378,7 @@ and you can <strong>tune it up to 70%</strong>. Got an idle spare box? Turn it u
 $ cloudless up -share-cpu 70%        # dedicated / idle machine: turn it up (70% max)</pre>
 <p class="muted" style="font-size:.9rem">The ceiling is 70%, never 100% — your machine always stays responsive and
 cool. On phones a thermal &amp; battery guard pauses sharing if it warms up or runs low (charging-only by default).
-Contribution is metered on the ledger and earns you service in return. Tunable share controls are
-<a href="https://github.com/asifontheline/cloudless/issues/47" target="_blank" rel="noopener">in-build (#47, J3)</a>.</p>
+Contribution is metered on the ledger and earns you service in return. Tunable share controls are <span style="color:var(--ok)">live</span>; the mobile thermal/battery guard is <a href="https://github.com/asifontheline/cloudless/issues/54" target="_blank" rel="noopener">in-build (#54)</a>.</p>
 
 <p><strong>That's it.</strong> Your node is now part of the mesh, serving up to your limits and earning you
 access to everyone else's. Point any standard chat app at <code>http://localhost:8080/v1</code> to use it;
@@ -460,7 +459,7 @@ const F = {
     demo:CON+'<div class="msg u">Register → [ Touch fingerprint ]</div><div class="msg a">✓ Signed in. No password created.<br><span class="muted">key never leaves your device</span></div>'},
   mobile:{t:"Mobile devices as nodes", s:"planned", d:"Phones and tablets are the most common hand-carried hardware — they join the mesh too, with a thermal & battery guard so a device never overheats or drains. Manage everything from a passkey mobile portal.",
     demo:CON+'<div class="row"><span>📱 phone (charging)</span><span class="ok">sharing 5%</span></div><div class="row"><span>🌡️ getting warm</span><span class="b-progress">paused — cooling</span></div><div class="row"><span>🔋 battery 18%</span><span class="bad">stopped</span></div>'},
-  share:{t:"Resource share controls", s:"planned", d:"You decide how much of your machine to give. It starts at a safe 5% and tunes up to a 70% ceiling — idle machines can go high, personal devices stay low. Never 100%, so your device stays responsive. Instantly reversible; what you contribute earns you service back.",
+  share:{t:"Resource share controls", s:"live", d:"You decide how much of your machine to give. It starts at a safe 5% and tunes up to a 70% ceiling — idle machines can go high, personal devices stay low. Never 100%, so your device stays responsive. Enforced at the node: shared work is capped to your budget and refused at 0%. Instantly reversible; what you contribute earns you service back.",
     demo:CON+'<div class="row"><span>CPU share</span><span>5% ──●──────── 70%</span></div><div class="row"><span>Ceiling</span><span>70% <span class="muted">(never 100%)</span></span></div><div class="row"><span>Earned service</span><span class="ok">↑ grows with contribution</span></div>'},
   polyglot:{t:"Build in any language", s:"planned", d:"The whole platform is an open, versioned API — the extension surface. Build and extend in any language: a first-class Python SDK (the AI/ML default), JavaScript/TypeScript, or plug in services as sandboxed WASM or subprocesses. Never locked to one language.",
     demo:CON+'<div class="msg u">import cloudless   # Python, first-class</div><div class="msg a">mesh.chat("hi")  →  answered by the mesh<br><span class="muted">same open API from JS, Go, or any language</span></div>'},
