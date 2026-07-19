@@ -100,7 +100,8 @@
   .inbuild-top { padding: .12rem .6rem; border: 1px dashed var(--warn); border-radius: 999px;
                  font-size: .68rem; font-weight: 700; color: var(--warn); white-space: nowrap;
                  animation: blink 1.2s step-end infinite; text-decoration: none; }
-  @media (max-width: 560px) { .inbuild-top { display: none; } }
+  /* on phones the nav wraps below; keep the blinker on the first row, full-width if needed */
+  @media (max-width: 560px) { .inbuild-top { order: 3; margin-left: auto; } }
   @media (max-width: 900px) { .layout { display: block; } .side { position: static; width: auto;
     max-height: none; border-right: none; border-bottom: 1px solid var(--line); } }
 </style>
