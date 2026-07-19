@@ -1,27 +1,172 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Docs — Blueprint & White Paper — CloudLess</title>
+<title>Docs — User Guide, Blueprint & White Paper — CloudLess</title>
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="%234a7dbd" stroke-width="7"/><line x1="16" y1="72" x2="84" y2="12" stroke="%23d64545" stroke-width="8" stroke-linecap="round"/></svg>'>
 <style>
 :root { color-scheme: light dark; --line: color-mix(in srgb, currentColor 14%, transparent);
   --card: color-mix(in srgb, currentColor 4%, transparent); --accent:#4a7dbd; --plan:#8a8f98; }
-body { font: 16px/1.65 system-ui, sans-serif; max-width: 880px; margin: 0 auto; padding: 1rem 1rem 4rem; }
+body { font: 16px/1.65 system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 1rem 1rem 4rem; }
 h3 { font-size: 1.5rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; margin-top: 2rem; }
 h4 { font-size: 1.15rem; margin-top: 1.6rem; } h5 { font-size: 1rem; }
 pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.4; }
-a { color: var(--accent); }
+a { color: var(--accent); } td { font-size:.92rem; }
 .nav { position: sticky; top: 0; background: color-mix(in srgb, Canvas 88%, transparent);
   backdrop-filter: blur(8px); padding: .7rem 0; border-bottom: 1px solid var(--line); margin-bottom: 1rem; z-index:2; }
-.tabs { display:flex; gap:.4rem; margin-top:.5rem; }
+.tabs { display:flex; gap:.4rem; margin-top:.5rem; flex-wrap:wrap; }
 .tabs button { padding:.4rem 1rem; border:1px solid var(--line); background:var(--card); color:inherit; border-radius:8px; cursor:pointer; font-weight:600; }
 .tabs button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
 section { display:none; } section.on { display:block; }
 </style></head><body>
 <div class="nav"><a href="index.html">← CloudLess home</a> &nbsp;·&nbsp;
 <a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a>
-<div class="tabs"><button id="tb" class="on" onclick="show('blueprint')">📘 Blueprint</button>
+<div class="tabs"><button id="tu" class="on" onclick="show('guide')">📖 User Guide</button>
+<button id="tb" onclick="show('blueprint')">📘 Blueprint</button>
 <button id="tw" onclick="show('paper')">📄 White Paper</button></div></div>
-<section id="blueprint" class="on"><h3>Cloudless Blueprint</h3>
+<section id="guide" class="on"><h3>Cloudless User Guide</h3>
+
+<p>A practical how-to for everything you can do with Cloudless today. If you can run one</p>
+<p>command and open a browser, you can run a private mesh cloud.</p>
+
+<h4>1. Install &amp; start your first node</h4>
+
+<pre>
+# build from source (Go 1.22+)
+git clone https://github.com/asifontheline/cloudless
+cd cloudless/cloudless &amp;&amp; go build -o cloudless ./cmd/cloudless
+
+# start — detects a local model runtime, generates keys, prints an invite
+./cloudless up
+</pre>
+
+<p>You&#x27;ll see:</p>
+
+<pre>
+Console:  http://127.0.0.1:8080/          your private control panel (this machine only)
+API:      http://&lt;this-ip&gt;:8080/v1/chat/completions (Bearer &lt;api key&gt;)
+Add a node: cloudless up -join &lt;secret&gt;@&lt;your-ip&gt;:7946
+</pre>
+
+<p>`127.0.0.1:8080` is your admin console — open it in a browser. The **invite line** is what you</p>
+<p>share to grow the mesh.</p>
+
+<h4>2. Add more machines (grow the mesh)</h4>
+
+<p>On a second machine (reachable over your LAN, VPN, or public IP), paste the invite:</p>
+
+<pre>
+./cloudless up -join &lt;secret&gt;@&lt;first-node-ip&gt;:7946
+</pre>
+
+<p>It enrolls (gets a certificate), joins the encrypted gossip mesh, and starts serving. Tag a</p>
+<p>node&#x27;s location so it shows on the map:</p>
+
+<pre>
+./cloudless up -location asia/india/karnataka/bengaluru
+</pre>
+
+<h4>3. Use the AI (from anything)</h4>
+
+<p>Point any standard chat-completions client at any node:</p>
+
+<pre>
+curl http://localhost:8080/v1/chat/completions \
+  -H &quot;Authorization: Bearer &lt;api key&gt;&quot; \
+  -d &#x27;{&quot;model&quot;:&quot;&lt;your-model&gt;&quot;,&quot;messages&quot;:[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;hi&quot;}]}&#x27;
+</pre>
+
+<p>From Python (zero-dependency SDK):</p>
+
+<pre>
+from cloudless import Client
+mesh = Client(&quot;http://localhost:8080&quot;, api_key=&quot;&lt;api key&gt;&quot;)
+print(mesh.chat(&quot;Explain the mesh in one line&quot;))
+</pre>
+
+<p>Requests route to the best healthy node and fail over automatically if one drops.</p>
+
+<h4>4. The console — one place for everything</h4>
+
+<p>Open `http://127.0.0.1:8080/`. Tabs:</p>
+
+<ul>
+<li>**Dashboard** — live nodes, health, latencies, recent routes.</li>
+<li>**Map** — every node by locality (green = up, red = down), expandable continent → village.</li>
+<li>**Cloud AI / Storage / Compute / Data** — the service catalog.</li>
+<li>**Operations** — Usage &amp; quotas, Contribution ledger, Cost calculator, Idle capacity.</li>
+<li>**Security** — Members &amp; API keys, Resource sharing, Audit log, (passwordless sign-in, in build).</li>
+<li>**Features** — every capability with its status and issue link.</li>
+</ul>
+
+<p>Admin actions in the console need the cluster key (from `~/.cloudless/config.json`) — paste it</p>
+<p>once on the Members page; it&#x27;s stored only in your browser.</p>
+
+<h4>5. Common tasks (CLI + console + API all work)</h4>
+
+<table style="width:100%;border-collapse:collapse"><tbody>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Task</td><td style="border:1px solid var(--line);padding:.35rem .5rem">CLI</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Console</td><td style="border:1px solid var(--line);padding:.35rem .5rem">API</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">See the mesh</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless status`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Dashboard / Map</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`GET /status`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Add a member key</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless keys create alice`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Security → Members</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`POST /keys`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Revoke a key</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless keys revoke &lt;prefix&gt;`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Security → Members</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`DELETE /keys/{prefix}`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Set how much you share</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless share set -cpu 40 -when charging`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Security → Resource Sharing</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`PUT /share`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Add a model</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless models add model.gguf`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Storage → Model Commons</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`PUT /store`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Pull a model from peers</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless models pull model.gguf`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Storage → Model Commons</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`POST /store/pull`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Verify a model</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless models verify model.gguf`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Storage → Model Commons</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`GET /store/verify`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">See usage</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless usage`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Operations → Usage</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`GET /usage`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">See who gave/used</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless ledger`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Operations → Contribution Ledger</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`GET /ledger`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Cost vs cloud</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless savings`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Operations → Cost Calculator</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`GET /savings`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Find idle nodes</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless capacity`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Operations → Idle Capacity</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`GET /capacity`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Evict a node</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless nodes revoke &lt;name&gt;`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Map → revoke</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`POST /revoke/{name}`</td></tr>
+<tr><td style="border:1px solid var(--line);padding:.35rem .5rem">Check the audit log</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`cloudless audit`</td><td style="border:1px solid var(--line);padding:.35rem .5rem">Security → Audit Log</td><td style="border:1px solid var(--line);padding:.35rem .5rem">`GET /audit`</td></tr>
+</tbody></table>
+
+<h4>6. How much you share (safe by default)</h4>
+
+<p>Every node starts at a safe **5%** of CPU and can be tuned up to a **70%** ceiling — never</p>
+<p>100%, so your machine stays responsive. On phones a thermal/battery guard pauses sharing if it</p>
+<p>warms up or runs low (in build). Change it anytime:</p>
+
+<pre>
+cloudless share            # show current
+cloudless share set -cpu 70 -when always   # a dedicated/idle box: turn it up
+cloudless share set -cpu 0                 # stop sharing
+</pre>
+
+<p>Contribution is metered on the ledger, and you earn service in proportion to what you give.</p>
+
+<h4>7. Models: the commons</h4>
+
+<p>Add a model once, and peers can pull it from each other instead of re-downloading. Only safe</p>
+<p>tensor formats are accepted (`.gguf`, `.safetensors`, `.onnx`) — pickle-based files are rejected</p>
+<p>because they can execute code. Every artifact is SHA-256 verified on the way in and on demand.</p>
+
+<h4>8. Security you get for free</h4>
+
+<ul>
+<li>Encrypted, authenticated gossip; cluster CA with mutual-TLS between nodes.</li>
+<li>Node revocation: evict a machine and its certificate is refused mesh-wide.</li>
+<li>Tamper-evident audit log of every admin action.</li>
+<li>Data stays on your hardware; nothing is sent to a vendor.</li>
+</ul>
+
+<h4>9. Contribute</h4>
+
+<p>You don&#x27;t need to know Go. Build in any language against the open API (see</p>
+<p>[PROTOCOL.md](https://github.com/asifontheline/cloudless/blob/main/PROTOCOL.md)); Python is</p>
+<p>first-class. Changes flow through: branch → pull request → CI validation → review → merge queue.</p>
+<p>Full guide: [CONTRIBUTING.md](https://github.com/asifontheline/cloudless/blob/main/CONTRIBUTING.md).</p>
+
+<h4>10. Troubleshooting</h4>
+
+<ul>
+<li>**&quot;no local runtime detected&quot;** — start a local inference runtime first, or `-backend &lt;url&gt;`.</li>
+<li>**A peer won&#x27;t join** — the first node must be reachable (LAN, VPN, public IP, or forwarded</li>
+</ul>
+<p>  port 7946). A one-click overlay is in build.</p>
+<ul>
+<li>**Passkeys** — passwordless sign-in is in build; today the console uses the cluster key.</li>
+</ul>
+</section>
+<section id="blueprint"><h3>Cloudless Blueprint</h3>
 
 <h4>1. Goal</h4>
 <p>Build a decentralized platform where independent systems share compute, storage, and network resources over the internet so the system can offer cloud-style services without relying on a single commercial cloud provider. AI should be part of the platform’s capabilities, but not part of the name.</p>
@@ -550,12 +695,12 @@ section { display:none; } section.on { display:block; }
 </section>
 <p style="color:var(--plan);font-size:.85rem;margin-top:3rem">CloudLess · Apache-2.0 · published from the open repository.</p>
 <script>
+const ids={guide:'tu',blueprint:'tb',paper:'tw'};
 function show(id){
   for(const s of document.querySelectorAll('section')) s.classList.toggle('on', s.id===id);
-  document.getElementById('tb').classList.toggle('on', id==='blueprint');
-  document.getElementById('tw').classList.toggle('on', id==='paper');
+  for(const k in ids) document.getElementById(ids[k]).classList.toggle('on', k===id);
   location.hash = id; window.scrollTo(0,0);
 }
-if(location.hash==='#paper') show('paper');
+if(location.hash){ const h=location.hash.slice(1); if(ids[h]) show(h); }
 </script>
 </body></html>
