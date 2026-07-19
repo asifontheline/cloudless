@@ -73,6 +73,15 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #61 K4 | Polyglot extension model | ⬜ |
 | #62 K5 | Polyglot runtime backends | ⬜ |
 
+## EPIC L — Test & Quality
+| #84 L1 | Regression test cases for every shipped feature | ⬜ |
+| #85 L2 | Multi-node end-to-end mesh test in CI | ⬜ |
+| #86 L3 | Pre-merge gate — re-run tests against latest main just before merging | ✅ |
+| #87 L4 | SDK conformance test cases (Python & JS) against a live node | ⬜ |
+| #88 L5 | Tests-required policy for all future features | ⬜ |
+| #89 L6 | Browser test cases — console & website smoke tests | ⬜ |
+| #90 L7 | Security regression test cases | ⬜ |
+
 ## Cross-cutting infrastructure (shipped)
 - One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
 - CI validation engine + branch-protected `main` + 2-hourly review-gated merge queue ✅
