@@ -186,6 +186,13 @@ Community and low-cost hardware are the backbone of this plan. Key design choice
 - Align incentives with cooperative use, such as shared access, reputational rewards, or cost offsetting
 - Add optional redundancy by assigning duplicate tasks to trusted nodes for best-in-class reliability
 
+## 10.0 Mobile Devices as Nodes
+Phones and tablets are community hardware too. The node agent must run on mobile devices with roles scaled to their limits:
+- Lightweight roles first: mesh relay, blob cache, telemetry, small quantized-model inference
+- Battery/network aware: contribute only while charging and on unmetered networks by default (user-controlled)
+- Same security model: enrolled certificate, mutual TLS, share declarations like any node
+- Delivery path: the agent cross-compiles to mobile architectures; packaged builds for phone terminals first, then native apps
+
 ## 10.1 Resource Sharing Controls and Reciprocity
 Members stay in control of what they give, and what they give determines what they get:
 - Each node declares share limits: CPU cores/percent, IO bandwidth, disk quota, network bandwidth, and share hours (e.g. nights only)
