@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"cloudless/internal/audit"
 	"cloudless/internal/config"
 	"cloudless/internal/gateway"
 	"cloudless/internal/gossip"
@@ -61,6 +62,8 @@ func main() {
 		shareCmd(os.Args[2:])
 	case "nodes":
 		nodesCmd(os.Args[2:])
+	case "audit":
+		auditCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -354,6 +357,11 @@ func runServe(cfg *config.Config) {
 	}
 	gw.Models = modelStore
 	gw.Share = shareStore
+	auditPath := "audit.log"
+	if cfg.PKIDir != "" {
+		auditPath = filepath.Join(filepath.Dir(cfg.PKIDir), "audit.log")
+	}
+	gw.Audit = audit.Open(auditPath)
 	if cfg.Quotas != nil {
 		gw.Quota = quota.New(quota.Limits{
 			RequestsPerMinute: cfg.Quotas.RequestsPerMinute,
@@ -701,6 +709,36 @@ func nodesCmd(args []string) {
 		for _, r := range out.Revoked {
 			fmt.Printf("  %-30s %s\n", r.Name, r.Revoked.Format("2006-01-02 15:04"))
 		}
+	}
+}
+
+func auditCmd(args []string) {
+	fs := flag.NewFlagSet("audit", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	fs.Parse(args)
+	resp, err := http.Get(*addr + "/audit")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Entries  []audit.Entry `json:"entries"`
+		Intact   bool          `json:"intact"`
+		BrokenAt int64         `json:"broken_at"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		log.Fatal(err)
+	}
+	if out.Intact {
+		fmt.Println("audit chain: INTACT ✓")
+	} else {
+		fmt.Printf("audit chain: TAMPERED — broken at seq %d ✗\n", out.BrokenAt)
+	}
+	fmt.Printf("%-5s %-19s %-10s %-16s %s\n", "SEQ", "TIME", "ACTOR", "ACTION", "TARGET")
+	for i := len(out.Entries) - 1; i >= 0; i-- {
+		e := out.Entries[i]
+		fmt.Printf("%-5d %-19s %-10s %-16s %s %s\n",
+			e.Seq, e.Time.Format("2006-01-02 15:04:05"), e.Actor, e.Action, e.Target, e.Detail)
 	}
 }
 

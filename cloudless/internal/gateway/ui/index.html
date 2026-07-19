@@ -117,7 +117,7 @@ const SECTIONS = [
     ["join","Join Tokens","Invite new nodes from the browser; encrypted membership.","progress"],
     ["secrets","Secrets","Encrypted replicated secrets unlocked by the cluster key.","planned"],
     ["certs","Certificates","Cluster CA with per-node certificates and mutual TLS.","progress"],
-    ["audit","Audit Log","Signed append-only record of administrative actions.","planned"],
+    ["audit","Audit Log","Hash-chained, tamper-evident record of administrative actions.","live"],
   ]},
   { id:"ops", label:"Operations", items:[
     ["monitor","Monitoring","Node health, latencies, and routing decisions (live below).","live"],
@@ -165,6 +165,7 @@ function renderItem(sec, id) {
   if (sec.id === "ops" && id === "ledger") return renderLedger();
   if (sec.id === "security" && id === "members") return renderKeys();
   if (sec.id === "security" && id === "share") return renderShare();
+  if (sec.id === "security" && id === "audit") return renderAudit();
   if (sec.id === "ops" && id === "savings") return renderSavings();
   if (sec.id === "ops" && id === "capacity") return renderCapacity();
   if (sec.id === "storage" && id === "models") return renderModels();
@@ -469,6 +470,33 @@ function renderCapacity() {
   load(); timer = setInterval(load, 3000);
 }
 
+// ---- audit log (live) -------------------------------------------------------
+function renderAudit() {
+  main.innerHTML = `<p class="crumb"><a href="#/security">Security</a> / Audit Log</p>
+  <h1>Audit Log <span class="badge b-live">Live</span></h1>
+  <p>A tamper-evident, hash-chained record of every administrative action (node revocation, key
+  create/revoke, share changes). Each entry embeds the hash of the one before it, so removing or
+  altering any past entry breaks the chain and is detected.</p>
+  <p id="chain" class="principle"></p>
+  <table><thead><tr><th>Seq</th><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+  <tbody id="alog"></tbody></table>
+  <p class="muted">Updates every 3s.</p>`;
+  const load = async () => {
+    try {
+      const d = await (await fetch('/audit')).json();
+      const c = document.getElementById('chain');
+      if (d.intact) { c.style.borderColor = 'var(--ok)'; c.textContent = 'Chain integrity: INTACT ✓ — no entry has been altered or removed.'; }
+      else { c.style.borderColor = 'var(--bad,#d64545)'; c.textContent = 'Chain integrity: TAMPERED at seq ' + d.broken_at + ' ✗'; }
+      document.getElementById('alog').innerHTML = (d.entries || []).map(e =>
+        `<tr><td>${e.seq}</td><td>${esc((e.time||'').slice(0,19).replace('T',' '))}</td>` +
+        `<td>${esc(e.actor)}</td><td><code>${esc(e.action)}</code></td><td>${esc(e.target)}</td>` +
+        `<td class="muted">${esc(e.detail||'')}</td></tr>`).join('')
+        || `<tr><td colspan="6" class="muted">No administrative actions recorded yet.</td></tr>`;
+    } catch {}
+  };
+  load(); timer = setInterval(load, 3000);
+}
+
 // ---- resource sharing (live) ------------------------------------------------
 function renderShare() {
   main.innerHTML = `<p class="crumb"><a href="#/security">Security</a> / Resource Sharing</p>
@@ -571,7 +599,7 @@ const FEATURES = [
   ["A · Secure Mesh","Single-use expiring join tokens",2,"progress"],
   ["A · Secure Mesh","Mutual TLS between nodes",3,"done"],
   ["A · Secure Mesh","Node revocation",4,"done"],
-  ["A · Secure Mesh","Signed audit log",5,"planned"],
+  ["A · Secure Mesh","Signed audit log",5,"done"],
   ["B · Model Commons","Content-addressed model store",6,"done"],
   ["B · Model Commons","Mesh pull-through cache",7,"done"],
   ["B · Model Commons","Safe-format allowlist",8,"done"],

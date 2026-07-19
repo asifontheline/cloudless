@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"cloudless/internal/audit"
 	"cloudless/internal/keys"
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
@@ -60,6 +62,9 @@ type Gateway struct {
 	// Share, when set, holds this node's resource-sharing limits.
 	Share *share.Store
 
+	// Audit, when set, records administrative actions in a hash-chained log.
+	Audit *audit.Log
+
 	// Revoke, when set, evicts a node from the mesh (persist + broadcast +
 	// drop from routing). RevokedList lists current revocations.
 	Revoke      func(name string) bool
@@ -91,6 +96,16 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /ledger", g.handleLedger)
 	mux.HandleFunc("GET /savings", g.handleSavings)
 	mux.HandleFunc("GET /capacity", g.handleCapacity)
+	mux.HandleFunc("GET /audit", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ok, at := true, int64(0)
+		var entries []audit.Entry
+		if g.Audit != nil {
+			entries = g.Audit.List(200)
+			ok, at = g.Audit.Verify()
+		}
+		json.NewEncoder(w).Encode(map[string]any{"entries": entries, "intact": ok, "broken_at": at})
+	})
 	mux.HandleFunc("GET /revocations", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var list []revoke.Record
@@ -105,6 +120,7 @@ func (g *Gateway) Handler() http.Handler {
 			http.Error(w, `{"error":"already revoked or unknown"}`, http.StatusConflict)
 			return
 		}
+		g.Audit.Append("cluster", "node.revoke", name, "")
 		log.Printf("revoke: node %s evicted from the mesh", name)
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -143,6 +159,7 @@ func (g *Gateway) Handler() http.Handler {
 			cur.MeteredOK = *body.MeteredOK
 		}
 		applied := g.Share.Set(cur)
+		g.Audit.Append("cluster", "share.set", "this-node", fmt.Sprintf("cpu=%d%% when=%s", applied.CPUPercent, applied.ShareWhen))
 		log.Printf("share: limits set to %d%% CPU (ceiling %d%%), when=%s", applied.CPUPercent, share.Ceiling, applied.ShareWhen)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"limits": applied, "ceiling": share.Ceiling, "shared_cores": g.Share.MaxProcs()})
@@ -451,6 +468,7 @@ func (g *Gateway) handleKeysCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"key generation failed"}`, http.StatusInternalServerError)
 		return
 	}
+	g.Audit.Append("cluster", "keys.create", req.Name, "")
 	log.Printf("keys: created key for %q", req.Name)
 	w.Header().Set("Content-Type", "application/json")
 	// The full secret is returned exactly once, at creation.
@@ -463,6 +481,7 @@ func (g *Gateway) handleKeysRevoke(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"no matching active key"}`, http.StatusNotFound)
 		return
 	}
+	g.Audit.Append("cluster", "keys.revoke", prefix+"…", "")
 	log.Printf("keys: revoked %s…", prefix)
 	w.WriteHeader(http.StatusNoContent)
 }
