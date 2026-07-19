@@ -28,6 +28,12 @@ type Config struct {
 	Gossip                *Gossip   `json:"gossip,omitempty"`
 	PKIDir                string    `json:"pki_dir,omitempty"` // cluster PKI directory; enables the mTLS relay
 	Relay                 string    `json:"relay,omitempty"`   // relay listen address (default :9443 when PKI present)
+	Quotas                *Quotas   `json:"quotas,omitempty"`  // per-key fair-use limits (0 = unlimited)
+}
+
+type Quotas struct {
+	RequestsPerMinute int   `json:"requests_per_minute"`
+	TokensPerDay      int64 `json:"tokens_per_day"`
 }
 
 func Load(path string) (*Config, error) {

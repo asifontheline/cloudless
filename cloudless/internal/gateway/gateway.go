@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"cloudless/internal/quota"
 	"cloudless/internal/registry"
 	"cloudless/internal/usage"
 )
@@ -41,6 +42,9 @@ type Gateway struct {
 
 	// Usage, when set, accumulates per-key/backend accounting.
 	Usage *usage.Store
+
+	// Quota, when set, enforces per-key fair-use limits.
+	Quota *quota.Limiter
 }
 
 const routeLogSize = 20
@@ -67,7 +71,10 @@ func (g *Gateway) Handler() http.Handler {
 	}
 	mux.HandleFunc("GET /usage", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"usage": g.Usage.Snapshot()})
+		limits, quotas := g.Quota.Snapshot()
+		json.NewEncoder(w).Encode(map[string]any{
+			"usage": g.Usage.Snapshot(), "limits": limits, "quotas": quotas,
+		})
 	})
 	mux.HandleFunc("GET /ui", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -98,6 +105,12 @@ func (g *Gateway) auth(next http.HandlerFunc) http.HandlerFunc {
 // failing over to the next-ranked backend on errors that occur before
 // any response byte has been written to the client.
 func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
+	key := usage.Redact(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+	if ok, retry := g.Quota.Allow(key); !ok {
+		w.Header().Set("Retry-After", retry.Round(time.Second).String())
+		http.Error(w, `{"error":"quota exceeded — group fair-use limit reached"}`, http.StatusTooManyRequests)
+		return
+	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
 	if err != nil {
 		http.Error(w, `{"error":"read body"}`, http.StatusBadRequest)
@@ -175,6 +188,7 @@ func (g *Gateway) deliver(w http.ResponseWriter, r *http.Request, resp *http.Res
 	}
 	json.Unmarshal(body, &parsed)
 	g.Usage.Add(key, backendName, 1, parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens)
+	g.Quota.AddTokens(usage.Redact(key), parsed.Usage.PromptTokens+parsed.Usage.CompletionTokens)
 	for k, vv := range resp.Header {
 		for _, v := range vv {
 			w.Header().Add(k, v)

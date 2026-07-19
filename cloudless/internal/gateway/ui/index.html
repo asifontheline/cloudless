@@ -212,6 +212,10 @@ function renderUsage() {
   and the seed of the cooperative credit system.</p>
   <table><thead><tr><th>Key</th><th>Node</th><th>Requests</th><th>Prompt tok</th><th>Completion tok</th><th>Last used</th></tr></thead>
   <tbody id="usage"></tbody></table>
+  <h2>Fair-use quotas</h2>
+  <p id="limits" class="muted"></p>
+  <table><thead><tr><th>Key</th><th>Requests last minute</th><th>Tokens today</th></tr></thead>
+  <tbody id="quotas"></tbody></table>
   <p class="muted">Streaming responses count requests; token counts come from non-streaming responses.
   Updates every 3s.</p>`;
   const load = async () => {
@@ -221,6 +225,12 @@ function renderUsage() {
         `<tr><td><code>${esc(u.api_key)}</code></td><td>${esc(u.backend)}</td><td>${u.requests}</td>` +
         `<td>${u.prompt_tokens}</td><td>${u.completion_tokens}</td><td>${esc((u.last_used||'').slice(11,19))}</td></tr>`).join('')
         || `<tr><td colspan="6" class="muted">No usage recorded yet.</td></tr>`;
+      const L = d.limits || {};
+      document.getElementById('limits').textContent =
+        `Per key: ${L.requests_per_minute || 'unlimited'} requests/min · ${L.tokens_per_day || 'unlimited'} tokens/day. Exceeding returns 429 with Retry-After.`;
+      document.getElementById('quotas').innerHTML = (d.quotas || []).map(q =>
+        `<tr><td><code>${esc(q.key)}</code></td><td>${q.requests_last_min}</td><td>${q.tokens_today}</td></tr>`).join('')
+        || `<tr><td colspan="3" class="muted">No activity yet.</td></tr>`;
     } catch {}
   };
   load(); timer = setInterval(load, 3000);

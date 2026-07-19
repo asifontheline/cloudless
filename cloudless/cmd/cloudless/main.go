@@ -22,6 +22,7 @@ import (
 	"cloudless/internal/gateway"
 	"cloudless/internal/gossip"
 	"cloudless/internal/pki"
+	"cloudless/internal/quota"
 	"cloudless/internal/registry"
 	"cloudless/internal/relay"
 	"cloudless/internal/usage"
@@ -144,7 +145,8 @@ func buildConfig(joinArg, backend, listen, bind string) *config.Config {
 	} else {
 		g.Secret = randomHex(16) // 32 hex chars = 32-byte gossip key
 	}
-	return &config.Config{Listen: listen, APIKey: apiKey, HealthIntervalSeconds: 5, Gossip: g}
+	return &config.Config{Listen: listen, APIKey: apiKey, HealthIntervalSeconds: 5, Gossip: g,
+		Quotas: &config.Quotas{RequestsPerMinute: 120, TokensPerDay: 0}}
 }
 
 // detectRuntime probes well-known local inference runtime ports.
@@ -265,6 +267,14 @@ func runServe(cfg *config.Config) {
 		usagePath = filepath.Join(filepath.Dir(cfg.PKIDir), "usage.json")
 	}
 	gw.Usage = usage.Open(usagePath)
+	if cfg.Quotas != nil {
+		gw.Quota = quota.New(quota.Limits{
+			RequestsPerMinute: cfg.Quotas.RequestsPerMinute,
+			TokensPerDay:      cfg.Quotas.TokensPerDay,
+		})
+		log.Printf("quotas: %d req/min, %d tokens/day per key (0 = unlimited)",
+			cfg.Quotas.RequestsPerMinute, cfg.Quotas.TokensPerDay)
+	}
 	if secure && cfg.Gossip != nil {
 		if _, err := os.Stat(filepath.Join(cfg.PKIDir, "ca.key")); err == nil {
 			gw.EnrollHandler = relay.EnrollHandler(cfg.PKIDir, []byte(cfg.Gossip.Secret))
@@ -293,7 +303,9 @@ func usageCmd(args []string) {
 	}
 	defer resp.Body.Close()
 	var out struct {
-		Usage []usage.Record `json:"usage"`
+		Usage  []usage.Record `json:"usage"`
+		Limits quota.Limits   `json:"limits"`
+		Quotas []quota.Status `json:"quotas"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		log.Fatal(err)
@@ -302,6 +314,11 @@ func usageCmd(args []string) {
 	for _, u := range out.Usage {
 		fmt.Printf("%-12s %-30s %8d %10d %10d  %s\n",
 			u.APIKey, u.Backend, u.Requests, u.PromptTokens, u.CompletionTokens, u.LastUsed.Format("15:04:05"))
+	}
+	fmt.Printf("\nQUOTAS (per key): %d req/min, %d tokens/day (0 = unlimited)\n",
+		out.Limits.RequestsPerMinute, out.Limits.TokensPerDay)
+	for _, q := range out.Quotas {
+		fmt.Printf("  %-12s %d req last min · %d tokens today\n", q.Key, q.RequestsLastMin, q.TokensToday)
 	}
 }
 
