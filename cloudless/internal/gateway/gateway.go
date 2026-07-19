@@ -73,6 +73,10 @@ type Gateway struct {
 
 	// Limiter, when set, applies backpressure to inference requests.
 	Limiter *inflight.Limiter
+
+	// MintJoinToken, when set (CA-holding node), mints a single-use
+	// expiring join token for enrolling a new node (A2).
+	MintJoinToken func(ttl time.Duration) (token string, expires time.Time, err error)
 }
 
 const routeLogSize = 20
@@ -127,6 +131,24 @@ func (g *Gateway) Handler() http.Handler {
 		g.Audit.Append("cluster", "node.revoke", name, "")
 		log.Printf("revoke: node %s evicted from the mesh", name)
 		w.WriteHeader(http.StatusNoContent)
+	}))
+	mux.HandleFunc("POST /join-tokens", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
+		if g.MintJoinToken == nil {
+			http.Error(w, `{"error":"this node does not hold the cluster CA"}`, http.StatusNotFound)
+			return
+		}
+		var body struct {
+			TTLMinutes int `json:"ttl_minutes"`
+		}
+		json.NewDecoder(io.LimitReader(r.Body, 1<<12)).Decode(&body) // empty body = default TTL
+		tok, exp, err := g.MintJoinToken(time.Duration(body.TTLMinutes) * time.Minute)
+		if err != nil {
+			http.Error(w, `{"error":"mint failed"}`, http.StatusInternalServerError)
+			return
+		}
+		g.Audit.Append("cluster", "join-token.mint", "", "expires "+exp.UTC().Format(time.RFC3339))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"token": tok, "expires": exp.UTC()})
 	}))
 	mux.HandleFunc("GET /share", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

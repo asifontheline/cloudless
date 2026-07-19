@@ -33,8 +33,18 @@ On a second machine (reachable over your LAN, VPN, or public IP), paste the invi
 ./cloudless up -join <secret>@<first-node-ip>:7946
 ```
 
-It enrolls (gets a certificate), joins the encrypted gossip mesh, and starts serving. Tag a
-node's location so it shows on the map:
+It enrolls (gets a certificate), joins the encrypted gossip mesh, and starts serving.
+
+**Tighter enrollment — single-use join tokens.** For inviting machines you don't fully
+control, mint a token that works exactly once and expires (15 minutes by default):
+
+```sh
+cloudless token                 # on the founding node (or "+ mint join token" on the console dashboard)
+./cloudless up -join <secret>@<first-node-ip>:7946 -join-token <token>   # on the new machine
+```
+
+A reused, expired, or forged token is rejected; every mint is recorded in the audit log.
+Tag a node's location so it shows on the map:
 
 ```sh
 ./cloudless up -location asia/india/karnataka/bengaluru
