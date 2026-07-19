@@ -1,8 +1,8 @@
 # Cloudless
 
-**A network of cheap hardware built to beat the commercially available clouds.**
+**An alternative to commercial cloud — a community mesh network spread across continents with no data centres, running on commodity hardware and the systems people already own.**
 
-Cloudless is the parent platform: independent machines owned by a trusted group — teams, labs, co-ops, friends — federate their compute, storage, and bandwidth into one mesh that behaves like a cloud, with none of a cloud's bills, lock-in, or data custody.
+Cloudless is the parent platform: independent machines — from a spare desktop to a phone in someone's pocket, anywhere on earth — federate their compute, storage, and bandwidth into one mesh that behaves like a cloud, owned by the people who run it, with none of a cloud's bills, lock-in, or data custody.
 
 ## Philosophy
 

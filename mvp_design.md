@@ -1,6 +1,6 @@
 # MVP Design — The Group-Private Inference Mesh
 
-**Positioning:** the parent product is **Cloudless** — a network of cheap community hardware built to beat commercially available clouds. **Cloud AI** (this MVP) is its first *child service*; Cloud Storage, Cloud Compute, and Cloud Data are later children riding the same mesh, security backbone, and console.
+**Positioning:** the parent product is **Cloudless** — an alternative to commercial cloud: a community mesh network spread across continents with no data centres, running on commodity hardware and the systems people already own. **Cloud AI** (this MVP) is its first *child service*; Cloud Storage, Cloud Compute, and Cloud Data are later children riding the same mesh, security backbone, and console.
 
 **Status:** Iteration 5. Body text uses only our own vocabulary and generic engineering terms; third-party software is referenced solely in Appendix A (open-source dependencies), and no external brand is part of our naming, features, or identity.
 
