@@ -126,3 +126,37 @@ func TestConnectErrorFailover(t *testing.T) {
 		}
 	}
 }
+
+// /join-info reveals the mesh secret — it must demand the admin key and be
+// absent on nodes that can't share it (E2).
+func TestJoinInfoAdminGate(t *testing.T) {
+	g := newTestGateway(t)
+	g.JoinInfo = func() (string, string, string) { return "sec", "1.2.3.4:7946", "http://1.2.3.4:8080" }
+
+	req := httptest.NewRequest(http.MethodGet, "/join-info", nil)
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden && rec.Code != http.StatusUnauthorized {
+		t.Fatalf("no admin key must be refused: status %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/join-info", nil)
+	req.Header.Set("Authorization", "Bearer test-key")
+	rec = httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin key: status %d, want 200", rec.Code)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "1.2.3.4:7946") || !strings.Contains(body, `"secret":"sec"`) {
+		t.Fatalf("join info body wrong: %s", body)
+	}
+
+	g2 := newTestGateway(t)
+	req = httptest.NewRequest(http.MethodGet, "/join-info", nil)
+	req.Header.Set("Authorization", "Bearer test-key")
+	rec = httptest.NewRecorder()
+	g2.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("unset JoinInfo: status %d, want 404", rec.Code)
+	}
+}

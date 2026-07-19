@@ -77,6 +77,10 @@ type Gateway struct {
 	// MintJoinToken, when set (CA-holding node), mints a single-use
 	// expiring join token for enrolling a new node (A2).
 	MintJoinToken func(ttl time.Duration) (token string, expires time.Time, err error)
+
+	// JoinInfo, when set, reports what a new machine needs to join this
+	// mesh: the gossip secret and the address peers dial (E2 join links).
+	JoinInfo func() (secret, gossipAddr, apiURL string)
 }
 
 const routeLogSize = 20
@@ -149,6 +153,15 @@ func (g *Gateway) Handler() http.Handler {
 		g.Audit.Append("cluster", "join-token.mint", "", "expires "+exp.UTC().Format(time.RFC3339))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"token": tok, "expires": exp.UTC()})
+	}))
+	mux.HandleFunc("GET /join-info", g.adminOnly(func(w http.ResponseWriter, _ *http.Request) {
+		if g.JoinInfo == nil {
+			http.Error(w, `{"error":"join info unavailable on this node"}`, http.StatusNotFound)
+			return
+		}
+		secret, addr, api := g.JoinInfo()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"secret": secret, "gossip_addr": addr, "api_url": api})
 	}))
 	mux.HandleFunc("GET /share", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
