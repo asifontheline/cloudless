@@ -55,3 +55,5 @@ model is [#61](../../issues/61).
 
 The contract is stable and versioned; breaking changes go through a new version, never a
 silent change. Build freely.
+
+_Contributions welcome in any language — see CONTRIBUTING.md._
