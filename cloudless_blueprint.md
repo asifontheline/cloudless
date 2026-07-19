@@ -23,6 +23,7 @@ This system is not just an intranet, extranet, or community network. It is a sha
 
 ## 2. Core Principles
 - Decentralized federation: no central vendor controls the system
+- No masters: as the network grows there are no privileged or central nodes — coordination is by gossip among equals; information is scattered across the mesh and retrievable from anywhere; there is no single point to capture, fail, or shut down
 - Open protocols: common APIs and data formats
 - Open architecture, polyglot by design: a stable language-agnostic API is the extension surface; users and contributors build and extend in any language — Python first-class alongside Go, plus JS/TS and WASM/subprocess plugins — never locked to one language
 - Resource sharing: participants contribute CPU/GPU, storage, and bandwidth

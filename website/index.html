@@ -115,6 +115,21 @@
   .demo .dot { font-size: 1.1em; }
   .drawer .status { font-size: .72rem; padding: .12rem .55rem; border-radius: 999px; border: 1px solid var(--line); }
 
+  /* hero taglines and requirements */
+  .affordable { font-size: 1.15rem; font-weight: 700; margin: .8rem auto 0; max-width: 40rem;
+    background: linear-gradient(90deg, #4a7dbd, #2e9e5b); -webkit-background-clip: text;
+    background-clip: text; color: transparent; }
+  .needs { display: flex; gap: .5rem 1.1rem; justify-content: center; flex-wrap: wrap; margin: 1rem auto .2rem;
+    max-width: 46rem; font-weight: 600; }
+  .needs span { white-space: nowrap; }
+  .needs .n1 { color: #4a7dbd; } .needs .n2 { color: #d64545; } .needs .n3 { color: #2e9e5b; }
+  .needs .tail { color: var(--plan); font-weight: 700; }
+  /* donations & copyright */
+  .support { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 1.2rem 1.3rem; margin: 1rem 0; }
+  .support h3 { margin: 0 0 .3rem; }
+  .legal { font-size: .82rem; color: color-mix(in srgb, currentColor 72%, transparent); }
+  .legal h3 { color: inherit; font-size: 1rem; }
+
   /* in-build banner */
   .inbuild { display: inline-block; margin-top: 1rem; padding: .4rem 1rem; border: 1px dashed var(--warn);
              border-radius: 999px; font-weight: 700; color: var(--warn); animation: blink 1.2s step-end infinite; }
@@ -141,6 +156,7 @@
     <a href="#community">Community</a>
     <a href="blueprint.html">Blueprint</a><a href="whitepaper.html">White Paper</a>
     <a href="contributing.html">Contribute</a><a href="protocol.html">API</a>
+    <a href="#support">Donate</a>
     <a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a>
   </nav>
 </header>
@@ -206,6 +222,13 @@
   <p class="tagline">A <strong>community mesh network</strong> that can spread across continents with
   <strong>no data centres</strong> — it runs on commodity hardware and the systems people already own,
   and it belongs to the people who run it.</p>
+  <p class="affordable">…Make Cloud affordable with community Mesh…</p>
+  <p class="needs">
+    <span class="n1">A working internet connection</span> ·
+    <span class="n2">a generous heart</span> ·
+    <span class="n3">an unused or lesser-used PC / mobile / tablet</span>
+    <span class="tail">— that's all this needs.</span>
+  </p>
   <div class="chips">
     <span class="chip"><b>$0</b> metered billing</span>
     <span class="chip"><b>0</b> data centres</span>
@@ -251,6 +274,9 @@ failover, and web management built in.</p>
 </div>
 <div class="principle">Cooperatively owned · privacy-first · cheap hardware first · honest security
 (defense in depth, never "foolproof") · everything web-managed, setup in seconds.</div>
+<p><strong>No masters.</strong> As the network grows there are no privileged or central nodes to capture
+or fail — coordination is by gossip among equals, and information is scattered across the mesh and
+retrievable from anywhere. No one owns the switch, because there is no switch.</p>
 <p><strong>Cloud AI</strong> is the first service on the mesh — a standard chat-completions API with
 routing and failover, where cloud cost and privacy pain are highest. Storage, compute, and data
 services ride the same mesh next.</p>
@@ -427,15 +453,44 @@ worldwide, and <code>main</code> never breaks. Details in <a href="contributing.
   <div class="card"><h3><a href="https://github.com/asifontheline/cloudless/issues" target="_blank" rel="noopener">Open board ↗</a></h3>
     <p>Every feature is a public issue with acceptance criteria — our open Jira.</p></div>
   <div class="card"><h3><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">Milestones ↗</a></h3>
-    <p>Epics A–H, from secure mesh to billing freedom.</p></div>
+    <p>Epics A–K, from secure mesh to a polyglot open platform.</p></div>
   <div class="card"><h3><a href="https://github.com/asifontheline/cloudless/blob/main/BACKLOG.md" target="_blank" rel="noopener">Backlog ↗</a></h3>
     <p>Canonical backlog and working agreements.</p></div>
 </div>
 
+<h2 id="support">Support &amp; donations</h2>
+<div class="support">
+  <p>Cloudless is currently owned and maintained by <strong>asifontheline</strong> — a labour of love, built
+  in the open. <strong>Any help maintaining it would be greatly appreciated.</strong></p>
+  <p>The most valuable help is participation: <a href="#start">run a node</a>, contribute in
+  <a href="contributing.html">any language</a>, review pull requests, or spread the word. If you'd like to
+  support the project financially or partner with it, please get in touch via
+  <a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub</a>.</p>
+</div>
+
+<h2 id="copyright">Copyright &amp; reuse</h2>
+<div class="legal">
+  <p>© 2026 asifontheline. The Cloudless software is licensed <strong>Apache-2.0</strong> — free to use, run,
+  modify, and self-host under that licence.</p>
+  <p><strong>Duplicating or offering a Cloudless-based service.</strong> Individuals and companies are welcome
+  to replicate, host, or build on Cloudless and reuse this site's content, <em>provided that</em>:</p>
+  <ul>
+    <li>you <strong>inform and partner with cldless.com</strong> before operating a public Cloudless-branded
+      service, so efforts stay coordinated and the community isn't fragmented;</li>
+    <li>you <strong>uphold the base principles without compromise</strong> — open-source components only,
+      privacy-first, cooperative and master-less by design, safe-by-default resource sharing, honest security,
+      and the project's own vocabulary (no impersonation of other providers);</li>
+    <li>you <strong>do not misrepresent affiliation</strong> — the "Cloudless" / "CloudLess" name and the
+      cldless.com identity belong to the project; don't imply official endorsement without a partnership.</li>
+  </ul>
+  <p>These brand and coordination terms sit alongside — and do not restrict — the rights the Apache-2.0 licence
+  grants over the code itself. All trademarks and product names referenced belong to their respective owners.</p>
+</div>
+
 </main>
 </div>
-<footer>CloudLess · Apache-2.0 · a community mesh, no data centres ·
-<a href="https://github.com/asifontheline/cloudless">github.com/asifontheline/cloudless</a></footer>
+<footer>© 2026 asifontheline · CloudLess · Apache-2.0 · a master-less community mesh, no data centres ·
+<a href="#copyright">reuse terms</a> · <a href="https://github.com/asifontheline/cloudless">github.com/asifontheline/cloudless</a></footer>
 
 <div class="drawer-ov" id="dov"></div>
 <aside class="drawer" id="drawer" aria-hidden="true"></aside>

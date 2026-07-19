@@ -1,69 +1,85 @@
 # Open Feature Backlog
 
-The open, public board for this project lives on GitHub Issues/Milestones (our "Jira" — open tooling per project principles). This file is the canonical backlog snapshot; each story below becomes a GitHub issue.
+The open, public board lives on GitHub Issues/Milestones (our "Jira" — open tooling per
+project principles). This file is the canonical snapshot. Status as of 2026-07-19.
 
-**Priority:** P1 = current milestone · P2 = next · P3 = backlog · Status reflects prototype as of 2026-07-18.
+**Legend:** ✅ shipped · 🔶 in progress · ⬜ planned. **Priority:** P1 current · P2 next · P3 backlog.
 
-## EPIC A — Secure Mesh Foundation (M1b) — P1
-| ID | Story | Acceptance criteria |
+## EPIC A — Secure Mesh Foundation
+| ID | Story | Status |
 |---|---|---|
-| A1 | Cluster CA at `init`/`up` | CA key generated locally; node certs issued; docs updated |
-| A2 | Single-use expiring join tokens | Token mints from console/CLI; second use rejected; TTL enforced |
-| A3 | Mutual TLS between nodes | All peer traffic mTLS; plaintext peer port removed |
-| A4 | Node revocation | One console action evicts node: cert revoked + gossip key rotated |
-| A5 | Signed audit log | Admin actions append-only + signature-chained; visible in console |
+| #1 A1 | Cluster CA at init/up | ✅ |
+| #2 A2 | Single-use expiring join tokens | 🔶 (HMAC enrollment live; single-use tokens pending) |
+| #3 A3 | Mutual TLS between nodes | ✅ |
+| #4 A4 | Node revocation (cert refused + dropped, gossip-propagated) | ✅ |
+| #5 A5 | Signed audit log | ⬜ |
+| #52 A6 | Passwordless sign-in (passkeys/WebAuthn) | ⬜ |
 
-## EPIC B — Model Commons (M2) — P1
-| B1 | Content-addressed model store | Blobs stored/served by SHA-256; hash verified on receive & load |
-| B2 | Mesh pull-through cache | `models pull` checks peers before public repositories |
-| B3 | Safe-format allowlist | GGUF/safetensors/ONNX only; pickle-based files rejected with clear error |
-| B4 | Model registry in console | List/pull/delete models per node from the browser |
-| B5 | Runtime supervisor | Agent launches/monitors local inference server; model load/unload API |
+## EPIC B — Model Commons
+| #6 B1 | Content-addressed model store | ✅ |
+| #7 B2 | Mesh pull-through cache | ✅ |
+| #8 B3 | Safe-format allowlist (reject pickle) | ✅ |
+| #9 B4 | Model registry in console | ✅ (via Model Commons page) |
+| #10 B5 | Runtime supervisor | ⬜ |
 
-## EPIC C — Accounts & Fair Use (M3) — P2
-| C1 | Per-user API keys | Create/revoke in console; keys scoped to models |
-| C2 | Usage accounting | Tokens per key/node in embedded DB; console usage page |
-| C3 | Quotas & rate limits | Per-key limits enforced at gateway |
-| C4 | Request queueing | Backpressure instead of errors under load |
-| C5 | Mid-stream failover retry | Retry before first token; document semantics |
+## EPIC C — Accounts & Fair Use
+| #11 C1 | Per-user API keys | ✅ |
+| #12 C2 | Usage accounting | ✅ |
+| #13 C3 | Quotas & rate limits | ✅ |
+| #14 C4 | Request queueing | ⬜ |
+| #15 C5 | Mid-stream failover retry | ⬜ |
 
-## EPIC D — Evaluation & Paper (M4) — P2
-| D1 | Churn test harness | Scripted node kill/join; availability measured |
-| D2 | Latency/throughput benchmarks | vs single-node and hosted-API baselines |
-| D3 | Telemetry export | Standard metrics format from every node |
-| D4 | Paper §8 experiments | Results written back into cloudless_paper.md |
+## EPIC D — Evaluation & Paper
+| #16 D1 | Churn test harness | ⬜ |
+| #17 D2 | Latency/throughput benchmarks | ⬜ |
+| #18 D3 | Telemetry export | ⬜ |
+| #19 D4 | Paper §8 experiments | ⬜ |
 
-## EPIC E — Network & Onboarding (M5) — P3
-| E1 | Bundled encrypted overlay | Nodes connect across NAT without third-party setup |
-| E2 | Join links/QR from console | Browser-generated invite encodes token+endpoint |
-| E3 | Internal naming | Stable service names inside the mesh |
-| E4 | Signed release binaries | Reproducible builds; checksums published |
+## EPIC E — Network & Onboarding
+| #20 E1 | Bundled encrypted overlay | ⬜ |
+| #21 E2 | Join links/QR from console | ⬜ |
+| #22 E3 | Internal naming | ⬜ |
+| #23 E4 | Signed release binaries | ⬜ |
+| #67 | Merge-queue → deploy auto-trigger (token-cascade fix) | ⬜ |
 
-## EPIC F — Beyond Inference (from coverage matrix) — P3
-| F1 | Embeddings endpoint | `/v1/embeddings` routed like chat |
-| F2 | Speech-to-text service | Transcription runtime behind gateway |
-| F3 | Text-to-speech service | Voice synthesis on capable nodes |
-| F4 | Image generation jobs | GPU-node job type with queue |
-| F5 | Batch jobs | Parallel task fan-out (transcode, data prep) |
-| F6 | Scheduled jobs | Cron-style with failover |
-| F7 | Object store | Replicated content-addressed general storage |
-| F8 | Backup & archive | Encrypted k-of-n backups on community disks |
-| F9 | Queues & events | Durable messaging substrate |
-| F10 | Vector search | Semantic store paired with inference |
-| F11 | Anomaly quarantine | Behavioral signals drain suspicious nodes |
-| F12 | k-of-n result validation | Redundant execution + comparison for critical jobs |
+## EPIC F — Beyond Inference
+| #24–#35 | Embeddings, speech, TTS, images, batch, scheduled, object store, backup, queues, vector search, anomaly quarantine, k-of-n validation | ⬜ |
 
-## EPIC G — Encryption & Data Guard — P1/P2
-| G1 | Cluster key hierarchy & rotation | Root → cluster → node → artifact keys; scheduled rotation; tier compromise contained |
-| G2 | Encryption at rest on every node | Blobs/config/DB/audit log AES-256-GCM; keys via OS keystore/passphrase, never plaintext on disk |
-| G3 | Zero-plaintext transit audit | mTLS on all service+peer traffic; no plaintext listener anywhere; CI check |
-| G4 | Data classification & locality | private/group/public labels, private default; store+scheduler enforce locality |
-| G5 | Workload egress guard | Default-deny outbound; declared egress allowlist; all egress logged |
-| G6 | Data movement audit & leak detection | Transfers in signed audit log; anomaly patterns quarantine node |
-| G7 | Crypto-shredding delete | Delete destroys artifact key; ciphertext unreadable on peers/backups |
-| G8 | k-of-n root key recovery | Group members hold secret shares; no single party can unlock |
+## EPIC G — Encryption & Data Guard
+| #36–#43 | Key hierarchy, at-rest encryption, zero-plaintext audit, data classification/locality, egress guard, movement audit, crypto-shredding, k-of-n key recovery | ⬜ |
+
+## EPIC H — Billing Freedom ✅ complete
+| #44 H1 | Contribution & consumption ledger | ✅ |
+| #45 H2 | Cost-comparison calculator | ✅ |
+| #46 H3 | Idle-capacity surfacing | ✅ |
+
+## EPIC I — Community Fabric
+| #47 I1 | Per-node resource share controls (5% default → 70% ceiling) | ✅ |
+| #48 I2 | Reciprocity: contribution-based entitlement | ⬜ |
+| #49 I3 | Geo network map | 🔶 (map live; enrichment ongoing) |
+| #50 I4 | Locality-aware redundancy & routing | ⬜ |
+
+## EPIC J — Mobile Nodes
+| #53 J1 | Mobile node agent (Android & iOS) | ⬜ |
+| #54 J2 | Thermal & battery safety guard | ⬜ |
+| #55 J3 | Tunable cap 5%→70% (all nodes) | ✅ |
+| #56 J4 | Mobile portal (passkey PWA) | ⬜ |
+| #57 J5 | Mobile packaging & distribution | ⬜ |
+
+## EPIC K — Open Platform & Polyglot
+| #58 K1 | Stable open API specification | ⬜ (PROTOCOL.md published; formal OpenAPI pending) |
+| #59 K2 | Python SDK (first-class) | ✅ |
+| #60 K3 | JavaScript/TypeScript SDK | ⬜ |
+| #61 K4 | Polyglot extension model | ⬜ |
+| #62 K5 | Polyglot runtime backends | ⬜ |
+
+## Cross-cutting infrastructure (shipped)
+- One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
+- CI validation engine + branch-protected `main` + 2-hourly review-gated merge queue ✅
+- Website auto-published to cldless.com; contributor guide + open protocol published ✅
 
 ## Working agreements
-- Every story ships web console + HTTP API + CLI together (one-surface rule).
-- Security acceptance criteria are part of "done", not a later pass.
-- All naming follows the no-proprietary-names policy; licenses checked before any new dependency.
+- **No direct commits to main** — branch → PR → CI validation → review (`ready-to-merge`) → merge queue.
+- Every story ships web console + HTTP API + CLI together.
+- Security acceptance criteria are part of "done".
+- OSI-approved licenses only; own vocabulary only (no proprietary names); safe-by-default; master-less.
