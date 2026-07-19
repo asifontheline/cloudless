@@ -42,6 +42,8 @@ func main() {
 		status(os.Args[2:])
 	case "usage":
 		usageCmd(os.Args[2:])
+	case "ledger":
+		ledgerCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -320,6 +322,34 @@ func usageCmd(args []string) {
 	for _, q := range out.Quotas {
 		fmt.Printf("  %-12s %d req last min · %d tokens today\n", q.Key, q.RequestsLastMin, q.TokensToday)
 	}
+}
+
+func ledgerCmd(args []string) {
+	fs := flag.NewFlagSet("ledger", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	fs.Parse(args)
+	resp, err := http.Get(*addr + "/ledger")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		TotalTokens int64                `json:"total_tokens"`
+		Contributed []gateway.LedgerLine `json:"contributed"`
+		Consumed    []gateway.LedgerLine `json:"consumed"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("CONTRIBUTED (by node)")
+	for _, l := range out.Contributed {
+		fmt.Printf("  %-30s %6d reqs %8d tokens %5.1f%%\n", l.Party, l.Requests, l.Tokens, l.Share)
+	}
+	fmt.Println("CONSUMED (by key)")
+	for _, l := range out.Consumed {
+		fmt.Printf("  %-30s %6d reqs %8d tokens %5.1f%%\n", l.Party, l.Requests, l.Tokens, l.Share)
+	}
+	fmt.Printf("TOTAL tokens exchanged: %d\n", out.TotalTokens)
 }
 
 func status(args []string) {

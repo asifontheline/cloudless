@@ -69,6 +69,7 @@ func (g *Gateway) Handler() http.Handler {
 	if g.EnrollHandler != nil {
 		mux.HandleFunc("POST /enroll", g.EnrollHandler)
 	}
+	mux.HandleFunc("GET /ledger", g.handleLedger)
 	mux.HandleFunc("GET /usage", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		limits, quotas := g.Quota.Snapshot()
@@ -231,6 +232,64 @@ func (g *Gateway) logRoute(path, backend string, status, retries int) {
 	if len(g.routes) > routeLogSize {
 		g.routes = g.routes[len(g.routes)-routeLogSize:]
 	}
+}
+
+// LedgerLine is one party's side of the cooperative ledger.
+type LedgerLine struct {
+	Party    string  `json:"party"`
+	Requests int64   `json:"requests"`
+	Tokens   int64   `json:"tokens"`
+	Share    float64 `json:"share_pct"`
+}
+
+// handleLedger aggregates usage into the fairness view: contribution by
+// serving node, consumption by API key — the seed of cooperative credits.
+func (g *Gateway) handleLedger(w http.ResponseWriter, _ *http.Request) {
+	recs := g.Usage.Snapshot()
+	nodes := map[string]*LedgerLine{}
+	consumers := map[string]*LedgerLine{}
+	var totalTokens int64
+	for _, r := range recs {
+		tok := r.PromptTokens + r.CompletionTokens
+		totalTokens += tok
+		n, ok := nodes[r.Backend]
+		if !ok {
+			n = &LedgerLine{Party: r.Backend}
+			nodes[r.Backend] = n
+		}
+		n.Requests += r.Requests
+		n.Tokens += tok
+		c, ok := consumers[r.APIKey]
+		if !ok {
+			c = &LedgerLine{Party: r.APIKey}
+			consumers[r.APIKey] = c
+		}
+		c.Requests += r.Requests
+		c.Tokens += tok
+	}
+	toSorted := func(m map[string]*LedgerLine) []LedgerLine {
+		out := make([]LedgerLine, 0, len(m))
+		for _, l := range m {
+			if totalTokens > 0 {
+				l.Share = float64(l.Tokens) * 100 / float64(totalTokens)
+			}
+			out = append(out, *l)
+		}
+		for i := 0; i < len(out); i++ {
+			for j := i + 1; j < len(out); j++ {
+				if out[j].Tokens > out[i].Tokens {
+					out[i], out[j] = out[j], out[i]
+				}
+			}
+		}
+		return out
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"total_tokens": totalTokens,
+		"contributed":  toSorted(nodes),
+		"consumed":     toSorted(consumers),
+	})
 }
 
 func (g *Gateway) handleStatus(w http.ResponseWriter, _ *http.Request) {

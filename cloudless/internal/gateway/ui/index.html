@@ -120,6 +120,7 @@ const SECTIONS = [
     ["monitor","Monitoring","Node health, latencies, and routing decisions (live below).","live"],
     ["logs","Logs","Centralized log collection across nodes.","planned"],
     ["usage","Usage & Credits","Per-key accounting — the seed of cooperative credits.","live"],
+    ["ledger","Contribution Ledger","Who gave compute and who consumed it — the fairness view.","live"],
     ["dr","Replication & Recovery","k-of-n redundancy and automatic failover policy.","progress"],
   ]},
 ];
@@ -154,6 +155,7 @@ function renderSection(sec) {
 function renderItem(sec, id) {
   stopPolling();
   if (sec.id === "ops" && id === "usage") return renderUsage();
+  if (sec.id === "ops" && id === "ledger") return renderLedger();
   const it = sec.items.find(i => i[0] === id);
   if (!it) return renderSection(sec);
   const [, name, desc, st] = it;
@@ -231,6 +233,34 @@ function renderUsage() {
       document.getElementById('quotas').innerHTML = (d.quotas || []).map(q =>
         `<tr><td><code>${esc(q.key)}</code></td><td>${q.requests_last_min}</td><td>${q.tokens_today}</td></tr>`).join('')
         || `<tr><td colspan="3" class="muted">No activity yet.</td></tr>`;
+    } catch {}
+  };
+  load(); timer = setInterval(load, 3000);
+}
+
+// ---- ledger (live) ----------------------------------------------------------
+function renderLedger() {
+  main.innerHTML = `<p class="crumb"><a href="#/ops">Operations</a> / Contribution Ledger</p>
+  <h1>Contribution Ledger <span class="badge b-live">Live</span></h1>
+  <p>The cooperative's fairness view: nodes that <strong>contributed</strong> compute and keys that
+  <strong>consumed</strong> it. This ledger is the seed of the credit system — no bills, just balance.</p>
+  <h2>Contributed (by node)</h2>
+  <table><thead><tr><th>Node</th><th>Requests served</th><th>Tokens served</th><th>Share</th></tr></thead>
+  <tbody id="give"></tbody></table>
+  <h2>Consumed (by key)</h2>
+  <table><thead><tr><th>Key</th><th>Requests</th><th>Tokens</th><th>Share</th></tr></thead>
+  <tbody id="take"></tbody></table>
+  <p class="muted" id="ltotal"></p>`;
+  const row = l => `<tr><td><code>${esc(l.party)}</code></td><td>${l.requests}</td><td>${l.tokens}</td>` +
+    `<td>${(l.share_pct||0).toFixed(1)}%</td></tr>`;
+  const load = async () => {
+    try {
+      const d = await (await fetch('/ledger')).json();
+      document.getElementById('give').innerHTML = (d.contributed||[]).map(row).join('') ||
+        `<tr><td colspan="4" class="muted">Nothing yet.</td></tr>`;
+      document.getElementById('take').innerHTML = (d.consumed||[]).map(row).join('') ||
+        `<tr><td colspan="4" class="muted">Nothing yet.</td></tr>`;
+      document.getElementById('ltotal').textContent = `Total tokens exchanged in the mesh: ${d.total_tokens||0}.`;
     } catch {}
   };
   load(); timer = setInterval(load, 3000);
