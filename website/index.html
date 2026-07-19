@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Cloudless — a network of cheap community hardware built to beat commercially available clouds. Cloud AI is its first child service.">
-<title>CloudLess — cheap hardware, networked to beat the cloud</title>
+<meta name="description" content="CloudLess — an alternative to the commercial cloud: a community mesh network with no data centres, running on commodity hardware and the systems people already own.">
+<title>CloudLess — the cloud, without the cloud</title>
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="%234a7dbd" stroke-width="7"/><line x1="16" y1="72" x2="84" y2="12" stroke="%23d64545" stroke-width="8" stroke-linecap="round"/></svg>'>
 <style>
   :root { color-scheme: light dark; --line: color-mix(in srgb, currentColor 14%, transparent);
@@ -12,35 +12,63 @@
     --ok:#2e9e5b; --warn:#c78a00; --plan:#8a8f98; }
   * { box-sizing: border-box; }
   body { font: 16px/1.6 system-ui, sans-serif; margin: 0; }
-  header { position: sticky; top: 0; border-bottom: 1px solid var(--line); padding: .7rem 1rem;
+  header { position: sticky; top: 0; z-index: 5; border-bottom: 1px solid var(--line); padding: .7rem 1rem;
            backdrop-filter: blur(8px); background: color-mix(in srgb, Canvas 85%, transparent);
            display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
   .logo svg { height: 28px; display: block; }
   .wordmark { font-weight: 700; font-size: 1.1rem; }
   .wordmark s { color: var(--plan); text-decoration-color: var(--strike); text-decoration-thickness: 2.5px; }
   nav { margin-left: auto; display: flex; gap: .2rem; flex-wrap: wrap; }
-  nav a { padding: .35rem .7rem; border-radius: 6px; text-decoration: none; color: inherit; font-size: .92rem; }
+  nav a { padding: .35rem .7rem; border-radius: 6px; text-decoration: none; color: inherit; font-size: .95rem; }
   nav a:hover { background: var(--card); color: var(--accent); }
-  main { max-width: 960px; margin: 0 auto; padding: 0 1rem 3rem; }
-  .hero { text-align: center; padding: 3.5rem 0 2.5rem; }
-  .hero .logo svg { height: 84px; margin: 0 auto 1rem; }
-  h1 { font-size: 2rem; margin: .2rem 0; }
-  .tagline { font-size: 1.15rem; color: color-mix(in srgb, currentColor 75%, transparent); max-width: 620px; margin: .6rem auto; }
-  .cta { display: inline-block; margin: 1rem .3rem 0; padding: .6rem 1.2rem; border-radius: 8px;
-         text-decoration: none; font-weight: 600; }
+  main { max-width: 980px; margin: 0 auto; padding: 0 1rem 3rem; }
+
+  /* hero */
+  .hero { text-align: center; padding: 3.2rem 0 2.2rem; position: relative; overflow: hidden; }
+  .hero h1 { font-size: clamp(2.1rem, 6vw, 3.4rem); margin: .4rem 0 .6rem; line-height: 1.15; }
+  .hero h1 s { color: var(--plan); text-decoration-color: var(--strike); text-decoration-thickness: 4px; }
+  .kicker { color: var(--accent); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: .8rem; }
+  .tagline { font-size: 1.2rem; max-width: 46rem; margin: .8rem auto 0; color: color-mix(in srgb, currentColor 80%, transparent); }
+  .tagline strong { color: inherit; }
+  .chips { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; margin: 1.4rem 0 .4rem; }
+  .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: .35rem .95rem;
+          font-size: .9rem; font-weight: 600; }
+  .chip b { color: var(--accent); }
+  .cta { display: inline-block; margin: 1.2rem .3rem 0; padding: .65rem 1.4rem; border-radius: 8px;
+         text-decoration: none; font-weight: 700; }
   .cta.primary { background: var(--accent); color: #fff; }
+  .cta.primary:hover { filter: brightness(1.1); }
   .cta.ghost { border: 1px solid var(--line); color: inherit; }
-  h2 { font-size: 1.3rem; margin-top: 3rem; scroll-margin-top: 4.5rem; }
+
+  /* mesh animation */
+  .mesh { margin: 1.6rem auto 0; max-width: 560px; }
+  .mesh circle { fill: var(--accent); animation: pulse 2.6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  .mesh line { stroke: var(--accent); stroke-opacity: .35; stroke-width: 1.5; }
+  .mesh circle:nth-child(odd) { animation-delay: 1.1s; }
+  .mesh .dead { fill: var(--plan); animation: none; opacity: .5; }
+  @keyframes pulse { 0%,100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.5); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .mesh circle { animation: none; } }
+
+  h2 { font-size: 1.35rem; margin-top: 3rem; scroll-margin-top: 4.5rem; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: .9rem; }
-  .card { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 1rem; }
+  .card { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 1rem;
+          transition: transform .15s ease, border-color .15s ease; }
+  .card:hover { transform: translateY(-2px); border-color: var(--accent); }
   .card h3 { margin: 0 0 .3rem; font-size: 1rem; }
   .card p { margin: .3rem 0 0; font-size: .9rem; color: color-mix(in srgb, currentColor 75%, transparent); }
   .badge { float: right; font-size: .7rem; padding: .1rem .5rem; border-radius: 99px; border: 1px solid var(--line); }
   .b-live { color: var(--ok); } .b-progress { color: var(--warn); } .b-planned { color: var(--plan); }
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
+  @media (max-width: 640px) { .vs { grid-template-columns: 1fr; } }
+  .vs .card ul { margin: .4rem 0 0; padding-left: 1.1rem; font-size: .92rem; }
+  .vs .card li { margin: .25rem 0; }
   .principle { border-left: 3px solid var(--accent); padding: .3rem .9rem; margin: 1.2rem 0;
                color: color-mix(in srgb, currentColor 80%, transparent); }
   pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem;
         overflow-x: auto; font-size: .88rem; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--line); }
+  th { color: var(--plan); font-size: .78rem; text-transform: uppercase; }
   a { color: var(--accent); }
   footer { border-top: 1px solid var(--line); margin-top: 3rem; padding: 1.2rem 1rem; text-align: center;
            font-size: .85rem; color: var(--plan); }
@@ -51,117 +79,130 @@
   <span class="logo"><svg viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="#4a7dbd" stroke-width="6" stroke-linejoin="round"/><line x1="16" y1="72" x2="84" y2="12" stroke="#d64545" stroke-width="7" stroke-linecap="round"/></svg></span>
   <span class="wordmark"><s>Cloud</s>Less</span>
   <nav>
-    <a href="#about">About</a><a href="#family">Products</a><a href="#features">Features</a>
-    <a href="#billing">Why</a><a href="#status">Status</a><a href="#contribute">Contribute</a>
+    <a href="#why">Why</a><a href="#features">Features</a><a href="#start">Get started</a>
+    <a href="#community">Community</a>
     <a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a>
   </nav>
 </header>
 <main>
 
 <div class="hero">
-  <span class="logo"><svg viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="#4a7dbd" stroke-width="6" stroke-linejoin="round"/><line x1="16" y1="72" x2="84" y2="12" stroke="#d64545" stroke-width="7" stroke-linecap="round"/></svg></span>
-  <h1><s style="color:var(--plan)">Cloud</s>Less</h1>
-  <p class="tagline"><strong>A network of cheap hardware built to beat the commercially available clouds.</strong><br>
-  Machines your group already owns, federated into one mesh — with replication, failover, and a web console built in.</p>
-  <a class="cta primary" href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">Get the code</a>
-  <a class="cta ghost" href="#about">Learn more</a>
+  <div class="kicker">The alternative to commercial cloud</div>
+  <h1>The cloud, without <s>the cloud</s></h1>
+  <p class="tagline">A <strong>community mesh network</strong> that can spread across continents with
+  <strong>no data centres</strong> — it runs on commodity hardware and the systems people already own,
+  and it belongs to the people who run it.</p>
+  <div class="chips">
+    <span class="chip"><b>$0</b> metered billing</span>
+    <span class="chip"><b>0</b> data centres</span>
+    <span class="chip"><b>1</b> command to join</span>
+    <span class="chip"><b>100%</b> yours</span>
+  </div>
+  <div>
+    <a class="cta primary" href="#start">Start a mesh</a>
+    <a class="cta ghost" href="#why">Why it exists</a>
+  </div>
+  <svg class="mesh" viewBox="0 0 560 150" aria-hidden="true">
+    <line x1="60" y1="90" x2="170" y2="40"/><line x1="170" y1="40" x2="300" y2="80"/>
+    <line x1="300" y1="80" x2="420" y2="35"/><line x1="420" y1="35" x2="510" y2="95"/>
+    <line x1="60" y1="90" x2="190" y2="120"/><line x1="190" y1="120" x2="300" y2="80"/>
+    <line x1="300" y1="80" x2="400" y2="120"/><line x1="400" y1="120" x2="510" y2="95"/>
+    <line x1="170" y1="40" x2="190" y2="120"/><line x1="420" y1="35" x2="400" y2="120"/>
+    <circle cx="60" cy="90" r="6"/><circle cx="170" cy="40" r="7"/><circle cx="300" cy="80" r="8"/>
+    <circle cx="420" cy="35" r="7"/><circle cx="510" cy="95" r="6"/>
+    <circle cx="190" cy="120" r="6"/><circle cx="400" cy="120" r="6"/>
+  </svg>
+  <p style="font-size:.85rem;color:var(--plan)">a living mesh: laptops, workstations, spare GPUs — anywhere on earth</p>
 </div>
 
-<h2 id="about">About</h2>
-<p>Commercial clouds win by concentrating expensive machines in their data centers and renting them back to you,
-metered by the second. Cloudless inverts that: spare desktops, old workstations, and consumer GPUs owned by a
-trusted group — a team, a lab, a co-op — federate into shared infrastructure that behaves like a cloud with
-none of a cloud's bills, lock-in, or data custody.</p>
-<div class="principle">Privacy-first: data never leaves group hardware · Cooperatively owned: no vendor ·
-Cheap hardware first: heterogeneity is the design, not a compromise · Honest security: defense in depth,
-never "foolproof" · Web-managed: everything runs from an embedded console, setup in seconds.</div>
-
-<h2 id="family">Product family</h2>
-<p><strong>Cloudless</strong> is the parent platform — node agent, encrypted mesh membership, gateway with
-failover, security backbone, embedded console. Child services ride the same mesh:</p>
-<div class="grid">
-  <div class="card"><span class="badge b-live">First child · current focus</span><h3>Cloud AI</h3>
-    <p>Standard chat-completions API served by the mesh: chat, embeddings, speech, vision, images, vector
-    search — where cloud cost and privacy pain are highest today.</p></div>
-  <div class="card"><span class="badge b-planned">Planned</span><h3>Cloud Storage</h3>
-    <p>Model commons, object store, encrypted backup &amp; archive on community disks.</p></div>
-  <div class="card"><span class="badge b-planned">Planned</span><h3>Cloud Compute</h3>
-    <p>Batch jobs, scheduled jobs, containers, functions across peers.</p></div>
-  <div class="card"><span class="badge b-planned">Planned</span><h3>Cloud Data</h3>
-    <p>Queues, key-value, time-series, workflows on the same nodes.</p></div>
+<h2 id="why">Why</h2>
+<p>Commercial clouds concentrate expensive machines in data centres and rent them back to you — metered
+by the second, priced across hundreds of SKUs, with egress fees that tax you for leaving. CloudLess
+inverts the model: the machines a trusted group already owns federate into one mesh with replication,
+failover, and web management built in.</p>
+<div class="vs">
+  <div class="card"><h3>☁️ Commercial cloud</h3><ul>
+    <li>Unpredictable metered bills; ~30% spend wasted on idle resources</li>
+    <li>Egress fees — a lock-in tax on your own data</li>
+    <li>Your data lives in someone else's data centre</li>
+    <li>Whole FinOps teams exist just to read the invoice</li>
+  </ul></div>
+  <div class="card"><h3>🕸️ CloudLess mesh</h3><ul>
+    <li>Zero marginal cost — the hardware is already yours</li>
+    <li>No egress fees: data moves inside your own mesh</li>
+    <li>Privacy-first: data never leaves group hardware</li>
+    <li>A ledger of who gave and who used — no bills, just balance</li>
+  </ul></div>
 </div>
+<div class="principle">Cooperatively owned · privacy-first · cheap hardware first · honest security
+(defense in depth, never "foolproof") · everything web-managed, setup in seconds.</div>
+<p><strong>Cloud AI</strong> is the first service on the mesh — a standard chat-completions API with
+routing and failover, where cloud cost and privacy pain are highest. Storage, compute, and data
+services ride the same mesh next.</p>
 
-<h2 id="features">What works today</h2>
+<h2 id="features">Features &amp; status</h2>
 <div class="grid">
-  <div class="card"><span class="badge b-live">Live</span><h3>One-command setup</h3>
-    <p><code>up</code> detects your runtime, generates keys, prints a join command for the next machine.</p></div>
-  <div class="card"><span class="badge b-live">Live</span><h3>Encrypted mesh</h3>
-    <p>Cluster CA, certificate enrollment, and mutual-TLS relays — peer traffic is never plaintext.</p></div>
-  <div class="card"><span class="badge b-live">Live</span><h3>Usage &amp; fair-use quotas</h3>
-    <p>Requests and tokens per key and node — visibility instead of a bill — with rate limits and daily
-    token budgets enforced at the gateway.</p></div>
-  <div class="card"><span class="badge b-live">Live</span><h3>Routing &amp; failover</h3>
-    <p>Requests go to the best healthy node; a dying node's work reroutes automatically.</p></div>
-  <div class="card"><span class="badge b-live">Live</span><h3>Web console</h3>
-    <p>Live mesh dashboard embedded in the binary — zero external assets, nothing to install.</p></div>
+  <div class="card"><span class="badge b-live">Live</span><h3>One-command mesh</h3>
+    <p><code>up</code> detects your runtime, generates keys, prints a join command. Second machine pastes it. Done.</p></div>
+  <div class="card"><span class="badge b-live">Live</span><h3>Encrypted everything</h3>
+    <p>Cluster CA, certificate enrollment, mutual-TLS relays — peer traffic is never plaintext.</p></div>
+  <div class="card"><span class="badge b-live">Live</span><h3>Self-healing routing</h3>
+    <p>Requests go to the best healthy node; a dying node's work reroutes mid-flight.</p></div>
+  <div class="card"><span class="badge b-live">Live</span><h3>Billing freedom</h3>
+    <p>Usage per member, fair-use quotas, a contribution ledger, a cost calculator, idle-capacity alerts.</p></div>
+  <div class="card"><span class="badge b-live">Live</span><h3>Members &amp; keys</h3>
+    <p>Named API keys created and revoked from the browser; everything attributes per person.</p></div>
+  <div class="card"><span class="badge b-live">Live</span><h3>Built-in console</h3>
+    <p>The whole platform managed from a web page embedded in one binary. Nothing else to install.</p></div>
   <div class="card"><span class="badge b-progress">In progress</span><h3>Model commons</h3>
-    <p>Content-addressed, hash-verified model cache; peers serve each other blobs.</p></div>
-  <div class="card"><span class="badge b-progress">In progress</span><h3>Encryption &amp; Data Guard</h3>
-    <p>At-rest encryption, data locality enforcement, egress guard, crypto-shredding.</p></div>
+    <p>Hash-verified, content-addressed model store; peers serve each other models.</p></div>
+  <div class="card"><span class="badge b-planned">Planned</span><h3>Beyond inference</h3>
+    <p>Speech, images, batch jobs, object storage, queues, vector search — same mesh, same console.</p></div>
 </div>
-<pre>$ cloudless up
-  Console:  http://127.0.0.1:8080/
-  API:      http://&lt;this-ip&gt;:8080/v1/chat/completions
-  Add a node: cloudless up -join &lt;secret&gt;@&lt;your-ip&gt;:7946</pre>
-
-<h2 id="billing">Why: the cloud bill problem</h2>
-<p>Cloud spend is unpredictable by design — per-second metering, egress fees, idle resources, surprise
-autoscaling, per-token AI pricing across hundreds of SKUs. Whole teams (FinOps) exist just to understand
-the bill. Cloudless's answer is structural, not a discount: hardware you already own has <strong>zero
-marginal cost</strong> — no meters, no egress fees, no surprise invoices. The only "bill" is electricity,
-and the group sees exactly who contributed and who consumed.</p>
-
-<h2 id="status">Feature status</h2>
-<p>Every feature is tracked publicly — each row links to its epic on the
-<a href="https://github.com/asifontheline/cloudless/issues" target="_blank" rel="noopener">issue tracker</a>.
-Status as of 2026-07-18:</p>
+<h3 style="margin-top:2rem">Progress by area</h3>
 <div style="overflow-x:auto">
-<table style="width:100%;border-collapse:collapse">
-<thead><tr>
-<th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--line);color:var(--plan);font-size:.8rem;text-transform:uppercase">Area</th>
-<th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--line);color:var(--plan);font-size:.8rem;text-transform:uppercase">Implemented</th>
-<th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--line);color:var(--plan);font-size:.8rem;text-transform:uppercase">Tracker</th>
-</tr></thead><tbody>
-<tr><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)">Core platform — onboarding, encrypted mesh, failover gateway, console</td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><span class="b-live">4 / 4</span></td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">repo ↗</a></td></tr>
-<tr><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)">Epic A — Secure Mesh (CA, mTLS, join tokens, revocation, audit)</td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><span class="b-progress">2 / 5</span></td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#1–#5 ↗</a></td></tr>
-<tr><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)">Epic B — Model Commons (hash-verified model store &amp; cache)</td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><span class="b-planned">0 / 5</span></td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#6–#10 ↗</a></td></tr>
-<tr><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)">Epic C — Accounts (per-user keys, usage, quotas)</td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><span class="b-progress">3 / 5</span></td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#11–#15 ↗</a></td></tr>
-<tr><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)">Epic D — Evaluation &amp; Paper (benchmarks, churn tests)</td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><span class="b-planned">0 / 4</span></td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#16–#19 ↗</a></td></tr>
-<tr><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)">Epic E — Network &amp; Onboarding (overlay, QR joins, releases)</td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><span class="b-planned">0 / 4</span></td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#20–#23 ↗</a></td></tr>
-<tr><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)">Epic F — Beyond Inference (speech, images, batch, storage, queues)</td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><span class="b-planned">0 / 12</span></td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#24–#35 ↗</a></td></tr>
-<tr><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)">Epic G — Encryption &amp; Data Guard (at-rest, locality, shredding)</td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><span class="b-planned">0 / 8</span></td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#36–#43 ↗</a></td></tr>
-<tr><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)">Epic H — Billing Freedom (ledger, calculator, idle surfacing)</td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><span class="b-live">3 / 3 ✓</span></td><td style="padding:.4rem .6rem;border-bottom:1px solid var(--line)"><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#44–#46 ↗</a></td></tr>
+<table>
+<thead><tr><th>Area</th><th>Implemented</th><th>Tracker</th></tr></thead><tbody>
+<tr><td>Core platform — onboarding, encrypted mesh, failover gateway, console</td><td><span class="b-live">4 / 4 ✓</span></td><td><a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">repo ↗</a></td></tr>
+<tr><td>Epic A — Secure Mesh (CA, mTLS, join tokens, revocation, audit)</td><td><span class="b-progress">2 / 5</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#1–#5 ↗</a></td></tr>
+<tr><td>Epic B — Model Commons (hash-verified model store &amp; cache)</td><td><span class="b-planned">0 / 5</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#6–#10 ↗</a></td></tr>
+<tr><td>Epic C — Accounts (per-user keys, usage, quotas)</td><td><span class="b-progress">3 / 5</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#11–#15 ↗</a></td></tr>
+<tr><td>Epic D — Evaluation &amp; Paper (benchmarks, churn tests)</td><td><span class="b-planned">0 / 4</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#16–#19 ↗</a></td></tr>
+<tr><td>Epic E — Network &amp; Onboarding (overlay, QR joins, releases)</td><td><span class="b-planned">0 / 4</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#20–#23 ↗</a></td></tr>
+<tr><td>Epic F — Beyond Inference (speech, images, batch, storage, queues)</td><td><span class="b-planned">0 / 12</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#24–#35 ↗</a></td></tr>
+<tr><td>Epic G — Encryption &amp; Data Guard (at-rest, locality, shredding)</td><td><span class="b-planned">0 / 8</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#36–#43 ↗</a></td></tr>
+<tr><td>Epic H — Billing Freedom (ledger, calculator, idle surfacing)</td><td><span class="b-live">3 / 3 ✓</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#44–#46 ↗</a></td></tr>
 </tbody></table>
 </div>
-<p style="color:var(--plan);font-size:.85rem">Live per-feature detail (all 51 items with individual issue links) is on the
+<p style="color:var(--plan);font-size:.85rem">Per-feature detail with individual issue links lives on the
 Features tab of every node's built-in console.</p>
 
-<h2 id="contribute">Contribute</h2>
-<p>The code, the board, and the roadmap are all public:</p>
+<h2 id="start">Get started</h2>
+<p>Two machines, two commands, one private AI cloud:</p>
+<pre>machine-1 $ cloudless up
+  Console:  http://127.0.0.1:8080/
+  API:      http://&lt;this-ip&gt;:8080/v1/chat/completions
+  Add a node: cloudless up -join &lt;secret&gt;@&lt;this-ip&gt;:7946
+
+machine-2 $ cloudless up -join &lt;secret&gt;@&lt;machine-1-ip&gt;:7946   # that's it</pre>
+<p>Point any standard chat-completions client at any node. Kill a machine mid-request — the mesh
+reroutes and keeps answering.</p>
+
+<h2 id="community">Community</h2>
+<p>The code, the board, and the roadmap are all public. CloudLess is community-owned by design.</p>
 <div class="grid">
   <div class="card"><h3><a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">Source code ↗</a></h3>
     <p>The full platform, Apache-2.0. Clone it, run <code>up</code>, join the mesh.</p></div>
   <div class="card"><h3><a href="https://github.com/asifontheline/cloudless/issues" target="_blank" rel="noopener">Open board ↗</a></h3>
     <p>Every feature is a public issue with acceptance criteria — our open Jira.</p></div>
   <div class="card"><h3><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">Milestones ↗</a></h3>
-    <p>Epics A–H: secure mesh, model commons, accounts, evaluation, networking, services, encryption,
-    billing freedom.</p></div>
+    <p>Epics A–H, from secure mesh to billing freedom.</p></div>
   <div class="card"><h3><a href="https://github.com/asifontheline/cloudless/blob/main/BACKLOG.md" target="_blank" rel="noopener">Backlog ↗</a></h3>
-    <p>Canonical backlog snapshot and working agreements.</p></div>
+    <p>Canonical backlog and working agreements.</p></div>
 </div>
 
 </main>
-<footer>CloudLess (working title) · Apache-2.0 · community-owned infrastructure ·
+<footer>CloudLess · Apache-2.0 · a community mesh, no data centres ·
 <a href="https://github.com/asifontheline/cloudless">github.com/asifontheline/cloudless</a></footer>
 </body>
 </html>
