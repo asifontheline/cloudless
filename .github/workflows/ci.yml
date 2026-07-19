@@ -40,3 +40,17 @@ jobs:
           if [ -n "$unformatted" ]; then
             echo "These files need gofmt:"; echo "$unformatted"; exit 1
           fi
+
+  python-sdk:
+    name: python sdk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Compile & import
+        working-directory: sdk/python
+        run: |
+          python -m py_compile cloudless/__init__.py
+          python -c "import cloudless; print('cloudless SDK', cloudless.__version__, 'imports cleanly')"
