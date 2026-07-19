@@ -49,6 +49,8 @@ func main() {
 		keysCmd(os.Args[2:])
 	case "savings":
 		savingsCmd(os.Args[2:])
+	case "capacity":
+		capacityCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -397,6 +399,44 @@ func keysCmd(args []string) {
 	default:
 		log.Fatal("usage: cloudless keys [list|create <name>|revoke <prefix>]")
 	}
+}
+
+func capacityCmd(args []string) {
+	fs := flag.NewFlagSet("capacity", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	fs.Parse(args)
+	resp, err := http.Get(*addr + "/capacity")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		IdleNodes int `json:"idle_nodes"`
+		Nodes     []struct {
+			Node        string `json:"node"`
+			Healthy     bool   `json:"healthy"`
+			Requests    int64  `json:"requests"`
+			Idle        bool   `json:"idle"`
+			IdleSeconds int64  `json:"idle_seconds"`
+		} `json:"nodes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("%-30s %-9s %8s  %s\n", "NODE", "STATE", "REQS", "VERDICT")
+	for _, n := range out.Nodes {
+		state, verdict := "down", "unavailable"
+		if n.Healthy {
+			state = "healthy"
+			if n.Idle {
+				verdict = "IDLE — give it work"
+			} else {
+				verdict = "busy/warm"
+			}
+		}
+		fmt.Printf("%-30s %-9s %8d  %s\n", n.Node, state, n.Requests, verdict)
+	}
+	fmt.Printf("idle nodes: %d\n", out.IdleNodes)
 }
 
 func savingsCmd(args []string) {

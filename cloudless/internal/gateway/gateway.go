@@ -76,6 +76,7 @@ func (g *Gateway) Handler() http.Handler {
 	}
 	mux.HandleFunc("GET /ledger", g.handleLedger)
 	mux.HandleFunc("GET /savings", g.handleSavings)
+	mux.HandleFunc("GET /capacity", g.handleCapacity)
 	mux.HandleFunc("GET /keys", g.adminOnly(g.handleKeysList))
 	mux.HandleFunc("POST /keys", g.adminOnly(g.handleKeysCreate))
 	mux.HandleFunc("DELETE /keys/{prefix}", g.adminOnly(g.handleKeysRevoke))
@@ -317,6 +318,59 @@ func (g *Gateway) handleSavings(w http.ResponseWriter, r *http.Request) {
 		"hosted_equivalent_usd": hosted,
 		"mesh_marginal_usd":     0.0,
 		"note":                  "Mesh marginal cost is zero by design; real costs are electricity and owned hardware. Reference rates are generic hosted-API figures — adjust to your comparison point.",
+	})
+}
+
+// handleCapacity surfaces idle capacity: healthy nodes that have served
+// nothing recently are flagged so the group uses hardware it already owns
+// instead of letting it sit — the co-op answer to zombie cloud spend.
+func (g *Gateway) handleCapacity(w http.ResponseWriter, _ *http.Request) {
+	type nodeCap struct {
+		Node        string     `json:"node"`
+		Healthy     bool       `json:"healthy"`
+		LatencyMS   int64      `json:"latency_ms"`
+		Requests    int64      `json:"requests"`
+		LastServed  *time.Time `json:"last_served,omitempty"`
+		Idle        bool       `json:"idle"`
+		IdleSeconds int64      `json:"idle_seconds"`
+	}
+	served := map[string]struct {
+		reqs int64
+		last time.Time
+	}{}
+	for _, rec := range g.Usage.Snapshot() {
+		s := served[rec.Backend]
+		s.reqs += rec.Requests
+		if rec.LastUsed.After(s.last) {
+			s.last = rec.LastUsed
+		}
+		served[rec.Backend] = s
+	}
+	const idleAfter = 10 * time.Minute
+	now := time.Now()
+	out := []nodeCap{}
+	var idleCount int
+	for _, b := range g.reg.Ranked() {
+		n := nodeCap{Node: b.Backend.Name, Healthy: b.Healthy, LatencyMS: b.LatencyMS}
+		if s, ok := served[b.Backend.Name]; ok && s.reqs > 0 {
+			n.Requests = s.reqs
+			t := s.last
+			n.LastServed = &t
+			n.IdleSeconds = int64(now.Sub(t).Seconds())
+			n.Idle = b.Healthy && now.Sub(t) > idleAfter
+		} else {
+			n.Idle = b.Healthy
+			n.IdleSeconds = -1 // never served
+		}
+		if n.Idle {
+			idleCount++
+		}
+		out = append(out, n)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"nodes": out, "idle_nodes": idleCount,
+		"note": "Idle = healthy but nothing served in 10+ minutes. This capacity is already paid for — point work at it.",
 	})
 }
 

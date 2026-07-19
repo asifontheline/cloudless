@@ -123,6 +123,7 @@ const SECTIONS = [
     ["usage","Usage & Credits","Per-key accounting — the seed of cooperative credits.","live"],
     ["ledger","Contribution Ledger","Who gave compute and who consumed it — the fairness view.","live"],
     ["savings","Cost Calculator","What the mesh's work would have cost on a metered hosted API.","live"],
+    ["capacity","Idle Capacity","Healthy nodes with nothing to do — capacity already paid for.","live"],
     ["dr","Replication & Recovery","k-of-n redundancy and automatic failover policy.","progress"],
   ]},
 ];
@@ -161,6 +162,7 @@ function renderItem(sec, id) {
   if (sec.id === "ops" && id === "ledger") return renderLedger();
   if (sec.id === "security" && id === "members") return renderKeys();
   if (sec.id === "ops" && id === "savings") return renderSavings();
+  if (sec.id === "ops" && id === "capacity") return renderCapacity();
   const it = sec.items.find(i => i[0] === id);
   if (!it) return renderSection(sec);
   const [, name, desc, st] = it;
@@ -301,6 +303,34 @@ function renderSavings() {
   load(); timer = setInterval(load, 3000);
 }
 
+// ---- idle capacity (live) ---------------------------------------------------
+function renderCapacity() {
+  main.innerHTML = `<p class="crumb"><a href="#/ops">Operations</a> / Idle Capacity</p>
+  <h1>Idle Capacity <span class="badge b-live">Live</span></h1>
+  <p>Healthy nodes with nothing to do. Unlike cloud "zombie spend", this capacity is already paid
+  for — the fix isn't to shut it down, it's to <em>use</em> it (batch jobs, model pulls, experiments).</p>
+  <p id="capsum" class="principle"></p>
+  <table><thead><tr><th>Node</th><th>State</th><th>Requests served</th><th>Last served</th><th>Verdict</th></tr></thead>
+  <tbody id="capbody"></tbody></table>`;
+  const load = async () => {
+    try {
+      const d = await (await fetch('/capacity')).json();
+      document.getElementById('capsum').textContent =
+        (d.idle_nodes || 0) === 0 ? "No idle nodes — everything is earning its electricity."
+        : `${d.idle_nodes} idle node(s) — free capacity waiting for work.`;
+      document.getElementById('capbody').innerHTML = (d.nodes || []).map(n => {
+        const last = n.idle_seconds < 0 ? 'never' :
+          n.last_served ? esc((n.last_served).slice(11,19)) : '—';
+        const verdict = !n.healthy ? '<span class="bad">unhealthy</span>' :
+          n.idle ? '<span class="b-progress">IDLE — give it work</span>' : '<span class="ok">busy/warm</span>';
+        return `<tr><td>${esc(n.node)}</td><td class="${n.healthy?'ok':'bad'}">${n.healthy?'healthy':'down'}</td>` +
+          `<td>${n.requests}</td><td>${last}</td><td>${verdict}</td></tr>`;
+      }).join('') || `<tr><td colspan="5" class="muted">No nodes.</td></tr>`;
+    } catch {}
+  };
+  load(); timer = setInterval(load, 3000);
+}
+
 // ---- members & api keys (live) ----------------------------------------------
 function renderKeys() {
   main.innerHTML = `<p class="crumb"><a href="#/security">Security</a> / Members &amp; API Keys</p>
@@ -407,7 +437,7 @@ const FEATURES = [
   ["G · Encryption & Data Guard","k-of-n root key recovery",43,"planned"],
   ["H · Billing Freedom","Contribution and consumption ledger",44,"done"],
   ["H · Billing Freedom","Cost-comparison calculator",45,"done"],
-  ["H · Billing Freedom","Idle-capacity surfacing",46,"planned"],
+  ["H · Billing Freedom","Idle-capacity surfacing",46,"done"],
 ];
 const FBADGE = { done:["Implemented","b-live"], progress:["In progress","b-progress"], planned:["Not implemented","b-planned"] };
 function renderFeatures() {
