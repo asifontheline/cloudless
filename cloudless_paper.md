@@ -106,6 +106,15 @@ The platform is designed for heterogeneous, inexpensive hardware. Key aspects in
 - Incentive structures for node reliability
 - Optional redundancy through task duplication
 
+## 7.1 Resource Governance and Reciprocity
+Participation is voluntary and bounded: each member declares how much CPU, IO, disk, and bandwidth their node shares, and when. The agent enforces these declarations locally. Contribution is metered in a cooperative ledger, and service entitlement is reciprocal — proportional to contribution, with community-set minimum floors to keep the mesh inclusive. This replaces cloud billing with a balance of give and take.
+
+## 7.2 Geo-Hierarchical Topology and Observability
+Nodes carry hierarchical locality labels (continent/country/state/city/village). The platform maintains a live network map — healthy and failed nodes visible at every level — giving the community a shared operational picture across continents without any central NOC.
+
+## 7.3 Locality-Aware Redundancy
+Replication and routing are locality-aware: requests prefer nearby nodes, replicas are spread across localities, and failover widens outward through the hierarchy. Partitioned localities continue to serve locally, rejoining the wider mesh when connectivity returns.
+
 ## 8. Evaluation Plan
 A strong paper requires evaluation. Suggested experiments:
 - Prototype deployment on 2–5 community nodes

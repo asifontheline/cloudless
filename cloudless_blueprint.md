@@ -186,6 +186,25 @@ Community and low-cost hardware are the backbone of this plan. Key design choice
 - Align incentives with cooperative use, such as shared access, reputational rewards, or cost offsetting
 - Add optional redundancy by assigning duplicate tasks to trusted nodes for best-in-class reliability
 
+## 10.1 Resource Sharing Controls and Reciprocity
+Members stay in control of what they give, and what they give determines what they get:
+- Each node declares share limits: CPU cores/percent, IO bandwidth, disk quota, network bandwidth, and share hours (e.g. nights only)
+- The agent enforces declared limits locally; the scheduler never exceeds a node's declaration
+- Contribution is metered (the ledger) and reciprocated: members earn service capacity proportional to what their nodes contribute, with community-configurable floors so small contributors are never locked out
+- Changing a share declaration is a one-click console action, effective immediately
+
+## 10.2 Community Node Tracking and the Network Map
+Every node in the community mesh is tracked and visible:
+- Nodes carry an optional hierarchical location label: continent / country / state / city / village
+- The console renders a live network map: green dots for healthy nodes, red for down, grouped by location and expandable level by level
+- The map is the community's shared operational picture — who is up, where capacity lives, where coverage is thin
+
+## 10.3 Locality-Aware Redundancy
+Failure tolerance is built around geography:
+- Replicas are placed across localities: at least one copy in another city/region when the mesh spans them
+- Requests prefer nearby nodes for latency; failover widens outward (village → city → state → country → continent)
+- Local clusters keep serving their locality even when cut off from the wider mesh
+
 ## 11. Rule Engine Rules
 The rule engine should enforce replication, monitoring, and failover for reliable services on community hardware.
 - Replicate each compute task to multiple nodes when needed:

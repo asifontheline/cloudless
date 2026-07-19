@@ -71,6 +71,7 @@ document.head.appendChild(fav);
 // status: live = works today · progress = milestone underway · planned = build later
 const SECTIONS = [
   { id:"dashboard", label:"Dashboard" },
+  { id:"map", label:"Map" },
   { id:"about", label:"About" },
   { id:"features", label:"Features" },
   { id:"contribute", label:"Contribute" },
@@ -138,6 +139,7 @@ function route() {
   const sec = SECTIONS.find(s => s.id === parts[0]) || SECTIONS[0];
   nav.querySelectorAll("a").forEach(a => a.classList.toggle("active", a.dataset.id === sec.id));
   if (sec.id === "dashboard") return renderDashboard();
+  if (sec.id === "map") return renderMap();
   if (sec.id === "about") return renderAbout();
   if (sec.id === "features") return renderFeatures();
   if (sec.id === "contribute") return renderContribute();
@@ -176,6 +178,64 @@ function renderItem(sec, id) {
     ? `<p>This capability is <strong>live</strong> on the current prototype. See the <a href="#/dashboard">dashboard</a>.</p>`
     : `<p class="muted">Section reserved — this capability will be designed and built as its own work item.
        Management UI, HTTP API, and CLI will land together per the one-surface rule.</p>`}`;
+}
+
+// ---- network map (live) ------------------------------------------------------
+// Hierarchical view: continent / country / state / city / village. Green dot =
+// healthy node, red = down. Levels expand/collapse; open state survives refresh.
+function renderMap() {
+  main.innerHTML = `<h1>Network map <span class="badge b-live">Live</span></h1>
+  <p>The community's shared picture: every node, by locality.
+  <span class="ok">●</span> healthy &nbsp; <span class="bad">●</span> down.
+  Set a node's place with <code>up -location continent/country/state/city/village</code>.</p>
+  <div id="maptree"></div>
+  <p class="muted" id="mapsum"></p>`;
+  const openSet = new Set(JSON.parse(sessionStorage.getItem('mapOpen') || '[]'));
+  const load = async () => {
+    try {
+      const d = await (await fetch('/status')).json();
+      const root = { children: {}, nodes: [] };
+      let up = 0, down = 0;
+      (d.backends || []).forEach(b => {
+        b.Healthy ? up++ : down++;
+        const path = (b.Backend.location || 'unlocated').split('/').filter(Boolean);
+        let cur = root;
+        path.forEach(seg => {
+          cur.children[seg] = cur.children[seg] || { children: {}, nodes: [] };
+          cur = cur.children[seg];
+        });
+        cur.nodes.push(b);
+      });
+      const dot = h => `<span class="${h?'ok':'bad'}" style="font-size:1.1em">●</span>`;
+      const stats = t => {
+        let u = 0, dn = 0;
+        (function walk(n){ n.nodes.forEach(b => b.Healthy ? u++ : dn++); Object.values(n.children).forEach(walk); })(t);
+        return {u, dn};
+      };
+      const render = (tree, prefix) => {
+        let html = '';
+        Object.keys(tree.children).sort().forEach(seg => {
+          const id = prefix + '/' + seg, child = tree.children[seg], s = stats(child);
+          html += `<details data-mid="${esc(id)}" ${openSet.has(id)?'open':''} style="margin:.25rem 0 .25rem 1rem">
+            <summary style="cursor:pointer">${esc(seg)} — <span class="ok">${s.u}●</span>${s.dn?` <span class="bad">${s.dn}●</span>`:''}</summary>
+            ${render(child, id)}</details>`;
+        });
+        tree.nodes.forEach(b => {
+          html += `<div style="margin:.15rem 0 .15rem 2.2rem">${dot(b.Healthy)} ${esc(b.Backend.name)}
+            <span class="muted" style="font-size:.8rem">${b.Healthy ? b.LatencyMS+' ms' : 'down'}</span></div>`;
+        });
+        return html;
+      };
+      document.getElementById('maptree').innerHTML =
+        render(root, '') || '<p class="muted">No nodes yet.</p>';
+      document.getElementById('mapsum').textContent = `${up} healthy · ${down} down · ${up+down} nodes total.`;
+      document.querySelectorAll('[data-mid]').forEach(el => el.addEventListener('toggle', () => {
+        el.open ? openSet.add(el.dataset.mid) : openSet.delete(el.dataset.mid);
+        sessionStorage.setItem('mapOpen', JSON.stringify([...openSet]));
+      }));
+    } catch {}
+  };
+  load(); timer = setInterval(load, 3000);
 }
 
 // ---- about ------------------------------------------------------------------
@@ -438,6 +498,10 @@ const FEATURES = [
   ["H · Billing Freedom","Contribution and consumption ledger",44,"done"],
   ["H · Billing Freedom","Cost-comparison calculator",45,"done"],
   ["H · Billing Freedom","Idle-capacity surfacing",46,"done"],
+  ["I · Community Fabric","Per-node resource share controls",47,"planned"],
+  ["I · Community Fabric","Reciprocity: contribution-based entitlement",48,"planned"],
+  ["I · Community Fabric","Geo network map",49,"progress"],
+  ["I · Community Fabric","Locality-aware redundancy and routing",50,"planned"],
 ];
 const FBADGE = { done:["Implemented","b-live"], progress:["In progress","b-progress"], planned:["Not implemented","b-planned"] };
 function renderFeatures() {
@@ -497,7 +561,7 @@ async function tick() {
     const r = await fetch('/status'); const d = await r.json();
     document.getElementById('err').style.display = 'none';
     document.getElementById('nodes').innerHTML = (d.backends || []).map(b =>
-      `<tr><td>${esc(b.Backend.Name)}</td><td><code>${esc(b.Backend.BaseURL)}</code></td>` +
+      `<tr><td>${esc(b.Backend.name)}</td><td><code>${esc(b.Backend.base_url)}</code></td>` +
       `<td class="${b.Healthy ? 'ok' : 'bad'}">${b.Healthy ? 'healthy' : 'unhealthy'}</td>` +
       `<td>${b.Healthy ? b.LatencyMS + ' ms' : '—'}</td></tr>`).join('');
     document.getElementById('routes').innerHTML = (d.routes || []).slice().reverse().map(x =>

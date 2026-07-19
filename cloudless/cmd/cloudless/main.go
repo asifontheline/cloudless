@@ -77,6 +77,7 @@ func up(args []string) {
 	bind := fs.String("bind", "0.0.0.0:7946", "gossip bind address")
 	relayAddr := fs.String("relay", ":9443", "mutual-TLS relay listen address")
 	seedAPI := fs.String("seed-api", "", "seed node gateway URL for enrollment (default http://<join-host>:8080)")
+	location := fs.String("location", "", "node locality: continent/country/state/city/village")
 	fs.Parse(args)
 
 	home, err := os.UserHomeDir()
@@ -91,6 +92,7 @@ func up(args []string) {
 		log.Printf("using existing config %s", cfgPath)
 	} else {
 		cfg = buildConfig(*joinArg, *backend, *listen, *bind)
+		cfg.Gossip.Location = *location
 		cfg.PKIDir = filepath.Join(dir, "pki")
 		cfg.Relay = *relayAddr
 		cfg.Gossip.RelayURL = "https://" + advertiseAddr(*relayAddr) + "/v1"
@@ -250,7 +252,7 @@ func runServe(cfg *config.Config) {
 
 	if cfg.Gossip != nil {
 		if cfg.Gossip.BackendURL != "" {
-			reg.Upsert(config.Backend{Name: cfg.Gossip.NodeName, BaseURL: cfg.Gossip.BackendURL})
+			reg.Upsert(config.Backend{Name: cfg.Gossip.NodeName, BaseURL: cfg.Gossip.BackendURL, Location: cfg.Gossip.Location})
 		}
 		advertise := cfg.Gossip.BackendURL
 		if secure && cfg.Gossip.RelayURL != "" {
@@ -261,6 +263,7 @@ func runServe(cfg *config.Config) {
 			BindAddr:   cfg.Gossip.Bind,
 			Join:       cfg.Gossip.Join,
 			BackendURL: advertise,
+			Location:   cfg.Gossip.Location,
 			Secret:     []byte(cfg.Gossip.Secret),
 		}, reg)
 		if err != nil {

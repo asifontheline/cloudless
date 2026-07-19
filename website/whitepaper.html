@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>White Paper — CloudLess</title>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="%234a7dbd" stroke-width="7"/><line x1="16" y1="72" x2="84" y2="12" stroke="%23d64545" stroke-width="8" stroke-linecap="round"/></svg>'>
+<style>
+:root { color-scheme: light dark; --line: color-mix(in srgb, currentColor 14%, transparent);
+  --card: color-mix(in srgb, currentColor 4%, transparent); --accent:#4a7dbd; --plan:#8a8f98; }
+body { font: 16px/1.65 system-ui, sans-serif; max-width: 860px; margin: 0 auto; padding: 1rem 1rem 4rem; }
+h2 { font-size: 1.6rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }
+h3 { font-size: 1.2rem; margin-top: 2rem; } h4 { font-size: 1.02rem; }
+pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.4; }
+a { color: var(--accent); }
+.nav { position: sticky; top: 0; background: color-mix(in srgb, Canvas 88%, transparent);
+  backdrop-filter: blur(8px); padding: .7rem 0; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+</style></head><body>
+<div class="nav"><a href="index.html">← CloudLess home</a> &nbsp;·&nbsp;
+<a href="blueprint.html">Blueprint</a> &nbsp;·&nbsp; <a href="whitepaper.html">White Paper</a> &nbsp;·&nbsp;
+<a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a></div>
+<h2>Cloudless: A Community-Powered Decentralized Infrastructure</h2>
+
+<h3>Abstract</h3>
+<p>This paper proposes a decentralized platform that uses community-contributed compute, storage, and network resources to deliver cloud-like services, including AI, without relying on a centralized public cloud provider. The platform prioritizes privacy, low-cost hardware, and cooperative governance, while providing replication, failover, and orchestration for best-in-class reliability.</p>
+
+<h3>1. Introduction</h3>
+<p>Public cloud providers offer scalable services, but they are often expensive, proprietary, and raise privacy concerns. We present a new alternative: a federated compute infrastructure built from community hardware and shared systems. This platform is not an intranet, extranet, or traditional community network; it is a general-purpose distributed fabric with AI as one first-class capability, integrating model hosting, task scheduling, data caching, and trusted execution.</p>
+
+<h4>1.1 Problem Statement</h4>
+<ul>
+<li>Cloud services are costly for continuous or large-scale workloads.</li>
+<li>Proprietary clouds centralize data and compute control.</li>
+<li>Existing distributed systems lack integrated orchestration, replication, and trust for general compute and AI workloads.</li>
+</ul>
+
+<h4>1.2 Contribution</h4>
+<ul>
+<li>Define a decentralized compute architecture that replicates cloud features on community hardware.</li>
+<li>Explain how AI becomes a key built-in service within this broader platform.</li>
+<li>Propose a rule engine for replication, monitoring, and failover.</li>
+<li>Describe a governing model for trust, reputation, and low-cost participation.</li>
+<li>Identify a practical path for prototype deployment on heterogeneous hardware.</li>
+</ul>
+
+<h3>2. Related Work</h3>
+<h4>2.1 Public Cloud AI</h4>
+<ul>
+<li>AWS, Azure, GCP AI services</li>
+<li>Centralized management, elasticity, service abstraction</li>
+</ul>
+
+<h4>2.2 Federated Learning and Distributed AI</h4>
+<ul>
+<li>TensorFlow Federated</li>
+<li>OpenMined</li>
+<li>Flower</li>
+</ul>
+
+<h4>2.3 Decentralized Compute and Storage</h4>
+<ul>
+<li>IPFS, Filecoin</li>
+<li>Golem, iExec, Akash</li>
+<li>Community networks and edge compute</li>
+</ul>
+
+<h4>2.4 Distinction</h4>
+<p>This work differs by combining distributed compute, model distribution, and AI service orchestration into a single community-driven platform with built-in failover and privacy-first processing.</p>
+
+<h3>3. System Architecture</h3>
+<p>A high-level architecture of the platform includes:</p>
+<ul>
+<li>Client / API Layer</li>
+<li>Federation Gateway</li>
+<li>Node Discovery and Task Orchestration</li>
+<li>Federated Node Mesh</li>
+<li>Distributed Model and Data Storage</li>
+<li>Security and Identity services</li>
+</ul>
+
+<h4>3.1 Node Federation</h4>
+<p>Each participant runs an agent that advertises compute, storage, and AI runtimes. Discovery is handled through DHT, bootstrap peers, and optional directories.</p>
+
+<h4>3.2 Work Orchestration</h4>
+<p>A decentralized scheduler assigns inference, training, and preprocessing tasks. Containerized or sandboxed workloads run on nodes with local caching and lightweight runtime support.</p>
+
+<h4>3.3 Model Distribution</h4>
+<p>Models are shared via a content-addressed distributed network. Nodes cache models locally and may store sharded or replicated copies to reduce bandwidth.</p>
+
+<h4>3.4 Storage and Data</h4>
+<p>Shared artifacts are stored in peer-to-peer storage systems. Sensitive user data remains local unless explicit consent is granted.</p>
+
+<h4>3.5 Network Layer</h4>
+<p>The platform uses encrypted P2P communication, NAT traversal, and optional mesh overlays to connect nodes securely.</p>
+
+<h3>4. Governing and Guiding Principles</h3>
+<ul>
+<li>Prioritize low-cost community compute over rented infrastructure.</li>
+<li>Keep sensitive data local and enforce privacy-first processing.</li>
+<li>Design for cooperative and community-native participation.</li>
+<li>Replicate only what matters to remain efficient.</li>
+<li>Optimize for heterogeneous, low-cost hardware.</li>
+<li>Reward reliable nodes through reputation and trust.</li>
+<li>Build resilience with decentralized redundancy and failover.</li>
+<li>Maintain open interoperability with standard model formats and APIs.</li>
+<li>Serve customers who value cost control, privacy, and decentralization.</li>
+</ul>
+
+<h3>5. Rule Engine</h3>
+<p>The rule engine enforces service behavior:</p>
+<ul>
+<li>Replicate critical tasks across multiple nodes.</li>
+<li>Prefer trusted nodes with strong success histories.</li>
+<li>Monitor node health via heartbeats and status checks.</li>
+<li>Mark unhealthy nodes and reroute tasks automatically.</li>
+<li>Use local caches and nearby replicas to minimize network overhead.</li>
+<li>Retry failed tasks transparently and checkpoint long-running work.</li>
+<li>Validate critical outputs before they are returned.</li>
+<li>Apply dynamic redundancy based on priority and cost.</li>
+</ul>
+
+<h3>6. Replication and Failover Strategy</h3>
+<h4>6.1 Compute Replication</h4>
+<ul>
+<li>Primary/secondary task assignment</li>
+<li>k-of-n redundancy for critical jobs</li>
+<li>Speculative execution on backup nodes</li>
+</ul>
+
+<h4>6.2 Data and Model Replication</h4>
+<ul>
+<li>Distributed model storage via IPFS/DHT</li>
+<li>Local caching for frequently used artifacts</li>
+<li>Multiple replicas of popular models and shards</li>
+</ul>
+
+<h4>6.3 Failure Handling</h4>
+<ul>
+<li>Automatic rerouting when nodes fail or become slow</li>
+<li>Transparent retries and checkpoint resume</li>
+<li>Quorum or majority validation for critical results</li>
+</ul>
+
+<h3>7. Community Hardware Strategy</h3>
+<p>The platform is designed for heterogeneous, inexpensive hardware. Key aspects include:</p>
+<ul>
+<li>Support for mixed CPU/GPU resources</li>
+<li>Lightweight runtimes and quantized model execution</li>
+<li>Local caching to reduce repeated downloads</li>
+<li>Incentive structures for node reliability</li>
+<li>Optional redundancy through task duplication</li>
+</ul>
+
+<h3>7.1 Resource Governance and Reciprocity</h3>
+<p>Participation is voluntary and bounded: each member declares how much CPU, IO, disk, and bandwidth their node shares, and when. The agent enforces these declarations locally. Contribution is metered in a cooperative ledger, and service entitlement is reciprocal — proportional to contribution, with community-set minimum floors to keep the mesh inclusive. This replaces cloud billing with a balance of give and take.</p>
+
+<h3>7.2 Geo-Hierarchical Topology and Observability</h3>
+<p>Nodes carry hierarchical locality labels (continent/country/state/city/village). The platform maintains a live network map — healthy and failed nodes visible at every level — giving the community a shared operational picture across continents without any central NOC.</p>
+
+<h3>7.3 Locality-Aware Redundancy</h3>
+<p>Replication and routing are locality-aware: requests prefer nearby nodes, replicas are spread across localities, and failover widens outward through the hierarchy. Partitioned localities continue to serve locally, rejoining the wider mesh when connectivity returns.</p>
+
+<h3>8. Evaluation Plan</h3>
+<p>A strong paper requires evaluation. Suggested experiments:</p>
+<ul>
+<li>Prototype deployment on 2–5 community nodes</li>
+<li>Measure latency, throughput, and cost against cloud baselines</li>
+<li>Test replication and failover under node churn</li>
+<li>Evaluate privacy benefits for local data handling</li>
+<li>Analyze reliability when using low-cost hardware</li>
+</ul>
+
+<h3>9. Conclusion</h3>
+<p>This paper outlines a practical path toward a community-powered AI infrastructure that matches core cloud capabilities while avoiding centralized dependency. The platform aims to deliver low-cost, private, reliable AI services using distributed, cooperative hardware.</p>
+
+<h3>10. Future Work</h3>
+<ul>
+<li>Build a reference implementation</li>
+<li>Develop reputation and incentive mechanisms</li>
+<li>Explore formal security and privacy guarantees</li>
+<li>Add support for broader AI model lifecycle management</li>
+<li>Evaluate real-world community deployments</li>
+</ul>
+
+<h3>References</h3>
+<ul>
+<li>Placeholder for prior work citations on cloud computing, federated learning, decentralized storage, and distributed systems.</li>
+</ul>
+
+<p style="color:var(--plan);font-size:.85rem;margin-top:3rem">CloudLess · Apache-2.0 · published from the
+open repository — this page auto-updates when the source document changes.</p>
+</body></html>

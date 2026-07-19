@@ -18,6 +18,7 @@ import (
 // memberlist caps NodeMeta at 512 bytes.
 type Meta struct {
 	BackendURL string `json:"backend_url"`
+	Location   string `json:"location,omitempty"`
 }
 
 type Options struct {
@@ -25,6 +26,7 @@ type Options struct {
 	BindAddr   string   // host:port for gossip traffic
 	Join       []string // seed peers, host:port
 	BackendURL string   // this node's inference endpoint advertised to peers
+	Location   string   // hierarchical locality label
 	Secret     []byte   // shared cluster key; encrypts and authenticates gossip
 }
 
@@ -62,7 +64,7 @@ func (e *events) NotifyJoin(n *memberlist.Node) {
 		return
 	}
 	log.Printf("gossip: peer %s joined, backend %s", n.Name, m.BackendURL)
-	e.reg.Upsert(config.Backend{Name: n.Name, BaseURL: m.BackendURL})
+	e.reg.Upsert(config.Backend{Name: n.Name, BaseURL: m.BackendURL, Location: m.Location})
 }
 
 func (e *events) NotifyLeave(n *memberlist.Node) {
@@ -85,7 +87,7 @@ func Start(opts Options, reg *registry.Registry) (*Mesh, error) {
 		return nil, fmt.Errorf("gossip bind port %q: %w", portStr, err)
 	}
 
-	meta, err := json.Marshal(Meta{BackendURL: opts.BackendURL})
+	meta, err := json.Marshal(Meta{BackendURL: opts.BackendURL, Location: opts.Location})
 	if err != nil {
 		return nil, err
 	}

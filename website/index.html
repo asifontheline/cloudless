@@ -72,6 +72,22 @@
   a { color: var(--accent); }
   footer { border-top: 1px solid var(--line); margin-top: 3rem; padding: 1.2rem 1rem; text-align: center;
            font-size: .85rem; color: var(--plan); }
+
+  /* docs-style left sidebar */
+  .layout { display: flex; align-items: flex-start; max-width: 1280px; margin: 0 auto; }
+  .side { width: 250px; flex: none; position: sticky; top: 3.4rem; max-height: calc(100vh - 3.8rem);
+          overflow-y: auto; padding: 1rem .8rem 2rem; border-right: 1px solid var(--line); font-size: .88rem; }
+  .side h4 { margin: .2rem 0 .5rem; font-size: .75rem; text-transform: uppercase; color: var(--plan); letter-spacing: .08em; }
+  .side details { margin: .15rem 0; }
+  .side summary { cursor: pointer; font-weight: 600; padding: .25rem .4rem; border-radius: 6px; list-style-position: inside; }
+  .side summary:hover { background: var(--card); color: var(--accent); }
+  .side ul { margin: .15rem 0 .4rem; padding-left: 1.4rem; }
+  .side li { margin: .18rem 0; color: color-mix(in srgb, currentColor 80%, transparent); }
+  .side a { text-decoration: none; }
+  .side .doc { display: block; padding: .25rem .4rem; border-radius: 6px; font-weight: 600; color: inherit; }
+  .side .doc:hover { background: var(--card); color: var(--accent); }
+  @media (max-width: 900px) { .layout { display: block; } .side { position: static; width: auto;
+    max-height: none; border-right: none; border-bottom: 1px solid var(--line); } }
 </style>
 </head>
 <body>
@@ -84,6 +100,46 @@
     <a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a>
   </nav>
 </header>
+<div class="layout">
+<aside class="side">
+  <h4>Documentation</h4>
+  <a class="doc" href="blueprint.html">📘 Blueprint</a>
+  <a class="doc" href="whitepaper.html">📄 White Paper</a>
+  <a class="doc" href="#start">🚀 Get started</a>
+  <h4 style="margin-top:1rem">Features</h4>
+  <details open><summary>🧠 AI &amp; Machine Learning</summary><ul>
+    <li>Chat &amp; completions <span class="b-live">live</span></li><li>Embeddings</li>
+    <li>Speech to/from text</li><li>Vision &amp; OCR</li><li>Image generation</li>
+    <li>Vector search</li><li>Fine-tuning</li></ul></details>
+  <details><summary>⚙️ Compute</summary><ul>
+    <li>Batch jobs</li><li>Scheduled jobs</li><li>Containers</li><li>Functions</li><li>Media transcode</li></ul></details>
+  <details><summary>🗄️ Storage</summary><ul>
+    <li>Model commons <span class="b-progress">wip</span></li><li>Object store</li>
+    <li>Backup &amp; archive</li><li>Artifact registry</li></ul></details>
+  <details><summary>📨 Data &amp; Messaging</summary><ul>
+    <li>Queues &amp; events</li><li>Key-value</li><li>Time-series</li><li>Workflows</li></ul></details>
+  <details><summary>🌐 Networking</summary><ul>
+    <li>Gateway &amp; failover <span class="b-live">live</span></li>
+    <li>Encrypted membership <span class="b-live">live</span></li>
+    <li>Network map <span class="b-progress">wip</span></li>
+    <li>Cross-continent overlay</li><li>Internal naming</li></ul></details>
+  <details><summary>🔐 Security &amp; Identity</summary><ul>
+    <li>Members &amp; API keys <span class="b-live">live</span></li>
+    <li>Cluster CA &amp; mTLS <span class="b-live">live</span></li>
+    <li>Join tokens <span class="b-progress">wip</span></li>
+    <li>Encryption at rest + Data Guard</li><li>Signed audit log</li></ul></details>
+  <details><summary>📊 Management &amp; Governance</summary><ul>
+    <li>Web console <span class="b-live">live</span></li><li>Monitoring <span class="b-live">live</span></li>
+    <li>Usage &amp; quotas <span class="b-live">live</span></li><li>Contribution ledger <span class="b-live">live</span></li>
+    <li>Cost calculator <span class="b-live">live</span></li><li>Idle alerts <span class="b-live">live</span></li></ul></details>
+  <details><summary>🤝 Community Fabric</summary><ul>
+    <li>Resource share controls</li><li>Reciprocity &amp; entitlement</li>
+    <li>Geo network map <span class="b-progress">wip</span></li><li>Locality-aware redundancy</li></ul></details>
+  <details><summary>🚀 Onboarding</summary><ul>
+    <li>One-command mesh <span class="b-live">live</span></li>
+    <li>Runtime auto-detect <span class="b-live">live</span></li>
+    <li>Join links / QR</li><li>Signed releases</li></ul></details>
+</aside>
 <main>
 
 <div class="hero">
@@ -251,6 +307,7 @@ reroutes and keeps answering.</p>
 </div>
 
 </main>
+</div>
 <footer>CloudLess · Apache-2.0 · a community mesh, no data centres ·
 <a href="https://github.com/asifontheline/cloudless">github.com/asifontheline/cloudless</a></footer>
 </body>

@@ -7,8 +7,9 @@ import (
 )
 
 type Backend struct {
-	Name    string `json:"name"`
-	BaseURL string `json:"base_url"`
+	Name     string `json:"name"`
+	BaseURL  string `json:"base_url"`
+	Location string `json:"location,omitempty"` // hierarchical: continent/country/state/city/village
 }
 
 type Gossip struct {
@@ -17,6 +18,7 @@ type Gossip struct {
 	Join       []string `json:"join"`        // seed peers, host:port
 	BackendURL string   `json:"backend_url"` // this node's local inference endpoint
 	RelayURL   string   `json:"relay_url"`   // mutual-TLS relay URL advertised to peers (preferred over backend_url)
+	Location   string   `json:"location,omitempty"` // continent/country/state/city/village
 	Secret     string   `json:"secret"`      // shared cluster key (16/24/32 bytes) encrypting gossip
 }
 
