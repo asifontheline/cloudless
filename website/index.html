@@ -112,7 +112,7 @@
   <span class="wordmark"><s>Cloud</s>Less</span>
   <a class="inbuild-top" href="https://github.com/asifontheline/cloudless" title="In-build — come be part of it">🚧 In-build — join us</a>
   <nav>
-    <a href="#why">Why</a><a href="#features">Features</a><a href="#start">Get started</a>
+    <a href="#why">Why</a><a href="#features">Features</a><a href="#start">Run a node</a>
     <a href="#community">Community</a>
     <a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a>
   </nav>
@@ -122,7 +122,7 @@
   <h4>Docs</h4>
   <a class="doc" href="blueprint.html">📘 Blueprint</a>
   <a class="doc" href="whitepaper.html">📄 White Paper</a>
-  <a class="doc" href="#start">🚀 Get started</a>
+  <a class="doc" href="#start">🚀 Run a node</a>
   <h4 style="margin-top:.8rem">Features</h4>
   <details><summary>🧠 AI &amp; ML</summary><ul>
     <li><a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">Chat &amp; completions</a> <span class="b-live">●</span></li>
@@ -301,31 +301,49 @@ services ride the same mesh next.</p>
 <p style="color:var(--plan);font-size:.85rem">Per-feature detail with individual issue links lives on the
 Features tab of every node's built-in console.</p>
 
-<h2 id="start">Get started</h2>
-<p><strong>Scenario:</strong> you're in Bengaluru, a friend is in Berlin. You want one shared, private AI
-service running on both your machines — no cloud account, no bill. Here's the whole thing.</p>
+<h2 id="start">Run a node</h2>
+<p>You don't need to know anyone. Run a node, tell it <em>how much of your machine you're willing to share</em>,
+and it joins the community mesh — contributing only what you allow, and earning you service in return. Here's
+how, in plain steps.</p>
 
-<p><strong>1 — You start the mesh.</strong> On your machine:</p>
-<pre>you@bengaluru $ cloudless up
-  Console:  http://127.0.0.1:8080/          # manage YOUR node in a browser (local only, just for you)
-  Invite:   cloudless up -join K7f…q2@203.0.113.9:7946    # share this line with your friend</pre>
-<p class="muted" style="font-size:.9rem"><code>127.0.0.1</code> is only your private admin page — it's not
-the mesh address. The <strong>invite line</strong> carries the shared secret and how to reach you.</p>
+<p><strong>Step 1 — Start your node.</strong></p>
+<pre>$ cloudless up
+  Console:  http://127.0.0.1:8080/     # your private control panel, in a browser</pre>
+<p class="muted" style="font-size:.9rem"><code>127.0.0.1</code> just means "this computer" — it's your own
+admin page, only you can open it. It is <em>not</em> the address others use.</p>
 
-<p><strong>2 — Your friend joins</strong> from anywhere on earth — they paste the invite line:</p>
-<pre>friend@berlin $ cloudless up -join K7f…q2@203.0.113.9:7946
-  Enrolled. Serving as part of the mesh.</pre>
+<p><strong>Step 2 — Find your public address.</strong> Every machine on the internet has a public IP — the
+number the outside world sees. To find yours, open a terminal and run:</p>
+<pre>$ curl ifconfig.me
+203.0.113.9        # ← that's your public IP (yours will be different)</pre>
+<p class="muted" style="font-size:.9rem">No terminal? Just search "what is my IP" in any browser — the first
+result shows it.</p>
 
-<p><strong>3 — Use it.</strong> Either of you points any standard chat-completions app at your own node
-(<code>http://localhost:8080/v1</code>). Requests route to whichever machine is free; if one drops
-offline mid-answer, the other takes over. That's a private, two-continent AI cloud.</p>
+<p><strong>Step 3 — Publish your node (make it reachable).</strong> Your node listens on a port
+(<code>7946</code>). For others to reach it, that port has to be open to the internet. Pick the path that fits you:</p>
+<ul>
+  <li><strong>Easiest — cloud VPS or a machine with a real public IP:</strong> nothing to do. It's already reachable at the IP from Step 2.</li>
+  <li><strong>Home internet — port forwarding:</strong> open your router's admin page (usually
+    <code>192.168.0.1</code> in a browser), find <em>Port Forwarding</em>, and forward port <code>7946</code>
+    to your computer. This tells your router "send mesh traffic to this machine." A 3-minute, one-time setup.</li>
+  <li><strong>Can't forward (mobile data / shared building internet):</strong> those connections hide you behind
+    the provider. Use the <strong>one-click overlay</strong> —
+    <a href="https://github.com/asifontheline/cloudless/issues/20" target="_blank" rel="noopener">in-build (#20)</a> —
+    which connects nodes across any network with no router setup at all.</li>
+</ul>
 
-<div class="principle"><strong>Reachability, honestly:</strong> for a global join today, the first node needs
-to be reachable — a public IP, a forwarded port, or a small VPN between you (WireGuard/Tailscale-style).
-On the same office or home network it just works with no setup. A <strong>one-click global overlay</strong>
-(join across any NAT, no networking knowledge) and <strong>QR-code invites</strong> are
-<a href="https://github.com/asifontheline/cloudless/issues/20" target="_blank" rel="noopener">in-build (#20, #21)</a> —
-this is exactly the kind of thing to help build.</p>
+<p><strong>Step 4 — Set how much you share.</strong> Your machine, your rules. Declare the limits and the node
+never exceeds them:</p>
+<pre>$ cloudless up -share-cpu 40% -share-disk 20GB -share-when charging
+  Sharing: up to 40% CPU · 20 GB disk · only while plugged in</pre>
+<p class="muted" style="font-size:.9rem">Contribution is metered on the ledger, and you get service back in
+proportion to what you give. Share-limit controls are
+<a href="https://github.com/asifontheline/cloudless/issues/47" target="_blank" rel="noopener">in-build (#47)</a>;
+today the node shares whatever the machine has spare.</p>
+
+<p><strong>That's it.</strong> Your node is now part of the mesh, serving up to your limits and earning you
+access to everyone else's. Point any standard chat app at <code>http://localhost:8080/v1</code> to use it;
+if any node drops mid-request, another takes over automatically.</p>
 
 <h2 id="community">Community</h2>
 <p>The code, the board, and the roadmap are all public. CloudLess is community-owned by design.</p>
