@@ -209,7 +209,7 @@
   <details><summary>🧩 Build &amp; extend</summary><ul>
     <li><button class="feat" data-f="polyglot">Any language</button> <span class="b-progress">◐</span></li>
     <li><button class="feat" data-f="pysdk">Python SDK</button> <span class="b-live">●</span></li>
-    <li><button class="feat" data-f="jssdk">JS / TS SDK</button></li>
+    <li><button class="feat" data-f="jssdk">JS / TS SDK</button> <span class="b-live">●</span></li>
     <li><button class="feat" data-f="plugins">Plugins (WASM/any)</button></li></ul></details>
 </aside>
 <main>
@@ -528,6 +528,7 @@ const F = {
     demo:CON+'<div class="row"><span>CPU share</span><span>5% ──●──────── 70%</span></div><div class="row"><span>Ceiling</span><span>70% <span class="muted">(never 100%)</span></span></div><div class="row"><span>Earned service</span><span class="ok">↑ grows with contribution</span></div>'},
   polyglot:{t:"Build in any language", s:"progress", d:"The whole platform is an open, versioned API — the extension surface. Build and extend in any language: a first-class Python SDK (live), JavaScript/TypeScript, or plug in services as sandboxed WASM or subprocesses. Never locked to one language.",
     demo:CON+'<div class="msg u">import cloudless   # Python SDK — live</div><div class="msg a">mesh.chat("hi")  →  answered by the mesh<br><span class="muted">same open API from JS, Go, or any language</span></div>'},
+  jssdk:{t:"JavaScript / TypeScript SDK", s:"live", d:"A zero-dependency JS/TS client (built-in fetch; Node 18+ and browsers) mirroring the Python SDK: chat, status, usage, ledger, savings, sharing, model commons. Ships TypeScript types.", demo:CON+'<div class="msg u">import { Client } from "cloudless"</div><div class="msg u">await new Client(url,{apiKey}).chat("hi")</div><div class="msg a">→ answered by the mesh <span class="muted">(zero deps)</span></div>'},
   pysdk:{t:"Python SDK", s:"live", d:"A first-class, zero-dependency Python client for the mesh: chat, status, usage, ledger, savings, sharing, and the model commons — all in a few lines. pip install and go.",
     demo:CON+'<div class="msg u">from cloudless import Client</div><div class="msg u">Client("http://localhost:8080", api_key=k).chat("hi")</div><div class="msg a">→ answered by the mesh <span class="muted">(stdlib only, no deps)</span></div>'},
 };
@@ -537,7 +538,7 @@ const PLANNED = {
   queues:"Queues & events",kv:"Key-value store",workflows:"Workflows",overlay:"One-click global overlay",dataguard:"Data Guard",
   audit:"Signed audit log",share:"Resource share controls",reciprocity:"Reciprocity & entitlement",geomap:"Geo network map",
   mobile:"Mobile devices as nodes",qr:"Join links / QR codes",
-  jssdk:"JavaScript / TypeScript SDK",plugins:"Plugins in any language (WASM / subprocess)"
+  plugins:"Plugins in any language (WASM / subprocess)"
 };
 const badge = s => s==="live" ? '<span class="status" style="color:var(--ok)">● live</span>'
   : s==="in progress" ? '<span class="status" style="color:var(--warn)">◐ in progress</span>'

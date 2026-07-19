@@ -54,3 +54,17 @@ jobs:
         run: |
           python -m py_compile cloudless/__init__.py
           python -c "import cloudless; print('cloudless SDK', cloudless.__version__, 'imports cleanly')"
+
+  js-sdk:
+    name: js sdk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Syntax check & import
+        working-directory: sdk/js
+        run: |
+          node --check cloudless.js
+          node --input-type=module -e "import {Client,VERSION} from './cloudless.js'; if(typeof Client!=='function') process.exit(1); console.log('cloudless JS SDK', VERSION, 'imports cleanly');"
