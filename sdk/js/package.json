@@ -1,0 +1,16 @@
+{
+  "name": "cloudless",
+  "version": "0.1.0",
+  "description": "JavaScript/TypeScript SDK for Cloudless — the community mesh alternative to commercial cloud",
+  "type": "module",
+  "main": "cloudless.js",
+  "types": "cloudless.d.ts",
+  "exports": { ".": "./cloudless.js" },
+  "files": ["cloudless.js", "cloudless.d.ts", "README.md"],
+  "engines": { "node": ">=18" },
+  "keywords": ["cloudless", "mesh", "ai", "inference", "decentralized"],
+  "homepage": "https://cldless.com",
+  "repository": { "type": "git", "url": "https://github.com/asifontheline/cloudless" },
+  "license": "Apache-2.0",
+  "dependencies": {}
+}
