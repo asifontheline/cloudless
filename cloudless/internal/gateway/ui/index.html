@@ -538,8 +538,17 @@ function renderShare() {
 function renderKeys() {
   main.innerHTML = `<p class="crumb"><a href="#/security">Security</a> / Members &amp; API Keys</p>
   <h1>Members &amp; API Keys <span class="badge b-live">Live</span></h1>
-  <p>Each member gets a named key; usage, quotas, and the ledger attribute per key.
-  Management requires the cluster admin key (kept only in your browser).</p>
+
+  <h2 style="font-size:1rem">Passwordless sign-in <span class="badge b-progress">◐ in build</span></h2>
+  <p>Register a passkey (fingerprint / face / device PIN) once, then sign in with a touch — no admin
+  key to paste. Open this console at <code>http://localhost:8080/</code> (not 127.0.0.1) for passkeys to work.</p>
+  <p><input id="pkname" placeholder="your name" style="padding:.4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+  <button onclick="passkeyRegister()" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Register passkey</button>
+  <button onclick="passkeyLogin()" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Sign in</button></p>
+  <p id="pkmsg" class="principle" style="display:none"></p>
+
+  <h2 style="font-size:1rem">Or use the cluster admin key</h2>
+  <p>Management requires the cluster admin key or a passkey session (kept only in your browser).</p>
   <p><input id="adm" type="password" placeholder="admin key" style="padding:.4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
   <button id="save" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:inherit;cursor:pointer">Use key</button></p>
   <p><input id="kname" placeholder="member name" style="padding:.4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
@@ -724,6 +733,56 @@ async function tick() {
   } catch { const e = document.getElementById('err'); if (e) e.style.display = 'block'; }
 }
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ---- passwordless sign-in (passkeys / WebAuthn) -----------------------------
+// base64url <-> ArrayBuffer helpers for the WebAuthn wire format.
+function b64uToBuf(s){ s=s.replace(/-/g,'+').replace(/_/g,'/'); const p='='.repeat((4-s.length%4)%4);
+  const bin=atob(s+p); const b=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) b[i]=bin.charCodeAt(i); return b.buffer; }
+function bufToB64u(buf){ const b=new Uint8Array(buf); let s=''; for(const x of b) s+=String.fromCharCode(x);
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+// Recursively decode the server's credential options into ArrayBuffers.
+function decodeCreation(o){ o.challenge=b64uToBuf(o.challenge); o.user.id=b64uToBuf(o.user.id);
+  if(o.excludeCredentials) o.excludeCredentials.forEach(c=>c.id=b64uToBuf(c.id)); return o; }
+function decodeRequest(o){ o.challenge=b64uToBuf(o.challenge);
+  if(o.allowCredentials) o.allowCredentials.forEach(c=>c.id=b64uToBuf(c.id)); return o; }
+
+async function passkeyRegister(){
+  const name=(document.getElementById('pkname')||{}).value?.trim();
+  if(!name) return pkMsg('Enter a name first.', true);
+  try{
+    const opts=await (await fetch('/auth/register/begin?name='+encodeURIComponent(name),{method:'POST'})).json();
+    const cred=await navigator.credentials.create({publicKey:decodeCreation(opts.publicKey||opts)});
+    const body={id:cred.id,rawId:bufToB64u(cred.rawId),type:cred.type,response:{
+      attestationObject:bufToB64u(cred.response.attestationObject),
+      clientDataJSON:bufToB64u(cred.response.clientDataJSON)}};
+    const r=await fetch('/auth/register/finish?name='+encodeURIComponent(name),{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok) pkMsg('Registered! Now sign in with your fingerprint/face.', false);
+    else pkMsg('Registration failed: '+(await r.text()), true);
+  }catch(e){ pkMsg('Registration cancelled or unsupported: '+e.message, true); }
+}
+async function passkeyLogin(){
+  const name=(document.getElementById('pkname')||{}).value?.trim();
+  if(!name) return pkMsg('Enter your name first.', true);
+  try{
+    const opts=await (await fetch('/auth/login/begin?name='+encodeURIComponent(name),{method:'POST'})).json();
+    const cred=await navigator.credentials.get({publicKey:decodeRequest(opts.publicKey||opts)});
+    const body={id:cred.id,rawId:bufToB64u(cred.rawId),type:cred.type,response:{
+      authenticatorData:bufToB64u(cred.response.authenticatorData),
+      clientDataJSON:bufToB64u(cred.response.clientDataJSON),
+      signature:bufToB64u(cred.response.signature),
+      userHandle:cred.response.userHandle?bufToB64u(cred.response.userHandle):null}};
+    const r=await fetch('/auth/login/finish?name='+encodeURIComponent(name),{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){ const d=await r.json(); localStorage.setItem('adminKey', d.token);
+      pkMsg('Signed in as '+d.name+'. Your session key is set for this browser.', false); }
+    else pkMsg('Sign-in failed: '+(await r.text()), true);
+  }catch(e){ pkMsg('Sign-in cancelled or unsupported: '+e.message, true); }
+}
+function pkMsg(t,bad){ const m=document.getElementById('pkmsg'); if(!m) return;
+  m.style.display='block'; m.style.borderColor=bad?'var(--bad,#d64545)':'var(--accent)'; m.textContent=t; }
+window.passkeyRegister=passkeyRegister; window.passkeyLogin=passkeyLogin;
+
 route();
 </script>
 </body>
