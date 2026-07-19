@@ -1,3 +1,4 @@
 .DS_Store
 cloudless/cloudless
 *.log
+.claude/settings.local.json
