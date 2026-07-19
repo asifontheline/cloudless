@@ -23,13 +23,13 @@ type Gossip struct {
 }
 
 type Config struct {
-	Listen                string    `json:"listen"`
-	APIKey                string    `json:"api_key"`
-	HealthIntervalSeconds int       `json:"health_interval_seconds"`
-	Backends              []Backend `json:"backends"`
-	Gossip                *Gossip   `json:"gossip,omitempty"`
-	PKIDir                string    `json:"pki_dir,omitempty"` // cluster PKI directory; enables the mTLS relay
-	Relay                 string    `json:"relay,omitempty"`   // relay listen address (default :9443 when PKI present)
+	Listen                string       `json:"listen"`
+	APIKey                string       `json:"api_key"`
+	HealthIntervalSeconds int          `json:"health_interval_seconds"`
+	Backends              []Backend    `json:"backends"`
+	Gossip                *Gossip      `json:"gossip,omitempty"`
+	PKIDir                string       `json:"pki_dir,omitempty"`     // cluster PKI directory; enables the mTLS relay
+	Relay                 string       `json:"relay,omitempty"`       // relay listen address (default :9443 when PKI present)
 	Quotas                *Quotas      `json:"quotas,omitempty"`      // per-key fair-use limits (0 = unlimited)
 	Concurrency           *Concurrency `json:"concurrency,omitempty"` // gateway backpressure (nil = defaults)
 }
