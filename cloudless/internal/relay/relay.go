@@ -15,21 +15,62 @@ import (
 	"cloudless/internal/pki"
 )
 
+// BlobStore is the subset of the model store the relay serves to peers.
+type BlobStore interface {
+	List() []storeEntry
+	Path(name string) (string, bool)
+}
+
+// storeEntry mirrors store.Entry for JSON without importing the store here.
+type storeEntry struct {
+	Name   string `json:"name"`
+	SHA256 string `json:"sha256"`
+	Size   int64  `json:"size"`
+	Format string `json:"format"`
+}
+
 // Server is the node's mutual-TLS front door for peer traffic: peers holding
-// a CA-signed cert may proxy inference requests to this node's local runtime.
+// a CA-signed cert may proxy inference requests to this node's local runtime
+// and pull model blobs from its store.
 type Server struct {
 	backendURL string // local runtime base, e.g. http://127.0.0.1:11434/v1
+	list       func() []storeEntry
+	path       func(string) (string, bool)
 	client     *http.Client
 }
 
-func NewServer(backendURL string) *Server {
-	return &Server{backendURL: backendURL, client: &http.Client{}}
+func NewServer(backendURL string, list func() []storeEntry, path func(string) (string, bool)) *Server {
+	return &Server{backendURL: backendURL, list: list, path: path, client: &http.Client{}}
 }
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/", s.proxy)
+	mux.HandleFunc("GET /store", s.storeList)
+	mux.HandleFunc("GET /blob", s.blob)
 	return mux
+}
+
+func (s *Server) storeList(w http.ResponseWriter, _ *http.Request) {
+	var list []storeEntry
+	if s.list != nil {
+		list = s.list()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"artifacts": list})
+}
+
+func (s *Server) blob(w http.ResponseWriter, r *http.Request) {
+	if s.path == nil {
+		http.Error(w, "no store", http.StatusServiceUnavailable)
+		return
+	}
+	p, ok := s.path(r.URL.Query().Get("name"))
+	if !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	http.ServeFile(w, r, p)
 }
 
 func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
@@ -80,15 +121,19 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListenAndServe runs the relay with mutual TLS from the cluster PKI.
-func ListenAndServe(addr, pkiDir, backendURL string) error {
+// list/path (may be nil) expose the local model store to peers for pulls.
+func ListenAndServe(addr, pkiDir, backendURL string, list func() []storeEntry, path func(string) (string, bool)) error {
 	tlsCfg, err := pki.ServerTLS(pkiDir)
 	if err != nil {
 		return err
 	}
-	srv := &http.Server{Addr: addr, Handler: NewServer(backendURL).Handler(), TLSConfig: tlsCfg}
+	srv := &http.Server{Addr: addr, Handler: NewServer(backendURL, list, path).Handler(), TLSConfig: tlsCfg}
 	log.Printf("relay: mutual-TLS peer endpoint on %s", addr)
 	return srv.ListenAndServeTLS("", "")
 }
+
+// Entry is the exported artifact shape for callers assembling store adapters.
+type Entry = storeEntry
 
 // ---- enrollment (A2-lite) ---------------------------------------------------
 // The CA-holding node signs a joiner's public key. Authentication binds the

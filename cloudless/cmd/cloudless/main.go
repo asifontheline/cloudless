@@ -230,6 +230,16 @@ func runServe(cfg *config.Config) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	// Model store is opened early so the relay can serve blobs to peers.
+	var modelStore *store.Store
+	if cfg.PKIDir != "" {
+		if st, err := store.Open(filepath.Join(filepath.Dir(cfg.PKIDir), "models")); err == nil {
+			modelStore = st
+		} else {
+			log.Printf("store: %v", err)
+		}
+	}
+
 	// A3: with PKI present, start the mutual-TLS relay and dial peers with
 	// the node certificate; peer traffic is never plaintext.
 	var peerTLS *tls.Config
@@ -244,8 +254,20 @@ func runServe(cfg *config.Config) {
 		if cfg.Gossip != nil {
 			backendURL = cfg.Gossip.BackendURL
 		}
+		var list func() []relay.Entry
+		var path func(string) (string, bool)
+		if modelStore != nil {
+			list = func() []relay.Entry {
+				out := []relay.Entry{}
+				for _, e := range modelStore.List() {
+					out = append(out, relay.Entry{Name: e.Name, SHA256: e.SHA256, Size: e.Size, Format: e.Format})
+				}
+				return out
+			}
+			path = modelStore.Path
+		}
 		go func() {
-			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL); err != nil {
+			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL, list, path); err != nil {
 				log.Fatalf("relay: %v", err)
 			}
 		}()
@@ -284,11 +306,14 @@ func runServe(cfg *config.Config) {
 	}
 	gw.Usage = usage.Open(usagePath)
 	gw.Keys = keys.Open(strings.TrimSuffix(usagePath, "usage.json") + "keys.json")
-	if st, err := store.Open(strings.TrimSuffix(usagePath, "usage.json") + "models"); err == nil {
-		gw.Models = st
-	} else {
-		log.Printf("store: %v", err)
+	if modelStore == nil {
+		if st, err := store.Open(strings.TrimSuffix(usagePath, "usage.json") + "models"); err == nil {
+			modelStore = st
+		} else {
+			log.Printf("store: %v", err)
+		}
 	}
+	gw.Models = modelStore
 	if cfg.Quotas != nil {
 		gw.Quota = quota.New(quota.Limits{
 			RequestsPerMinute: cfg.Quotas.RequestsPerMinute,
@@ -472,6 +497,23 @@ func modelsCmd(args []string) {
 			log.Fatalf("add failed: %s", body)
 		}
 		fmt.Printf("added: %s\n", body)
+	case "pull":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless models pull <name>")
+		}
+		req, _ := http.NewRequest("POST", *addr+"/store/pull?name="+fs.Arg(1), nil)
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusNotFound {
+			fmt.Printf("not in the mesh: %s\n(fall back to a public repository for this model)\n", body)
+			return
+		}
+		fmt.Printf("pull: %s\n", body)
 	case "verify":
 		if fs.NArg() < 2 {
 			log.Fatal("usage: cloudless models verify <name>")

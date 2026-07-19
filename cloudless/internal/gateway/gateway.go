@@ -83,6 +83,7 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /capacity", g.handleCapacity)
 	mux.HandleFunc("GET /store", g.handleStoreList)
 	mux.HandleFunc("PUT /store", g.adminOnly(g.handleStoreAdd))
+	mux.HandleFunc("POST /store/pull", g.adminOnly(g.handleStorePull))
 	mux.HandleFunc("GET /store/verify", g.handleStoreVerify)
 	mux.HandleFunc("DELETE /store/{name}", g.adminOnly(g.handleStoreDelete))
 	mux.HandleFunc("GET /keys", g.adminOnly(g.handleKeysList))
@@ -273,6 +274,67 @@ func (g *Gateway) handleStoreAdd(w http.ResponseWriter, r *http.Request) {
 	log.Printf("store: added %s (%s, %d bytes, sha256 %s…)", e.Name, e.Format, e.Size, e.SHA256[:12])
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(e)
+}
+
+// handleStorePull fetches a model from the mesh: it asks each peer's relay
+// what it holds and, on the first peer that has the artifact, streams the
+// blob through the mutual-TLS relay into the local store (hash + format
+// verified on write). Public repositories are only a fallback the caller
+// reaches for if this returns not-found.
+func (g *Gateway) handleStorePull(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, `{"error":"name required"}`, http.StatusBadRequest)
+		return
+	}
+	if _, ok := g.Models.Path(name); ok {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"pulled": false, "reason": "already present"})
+		return
+	}
+	for _, b := range g.reg.Ranked() {
+		base := strings.TrimSuffix(b.Backend.BaseURL, "/v1")
+		if !strings.HasPrefix(base, "https://") {
+			continue // only mutual-TLS relays serve blobs
+		}
+		list, err := g.client.Get(base + "/store")
+		if err != nil {
+			continue
+		}
+		var lr struct {
+			Artifacts []store.Entry `json:"artifacts"`
+		}
+		json.NewDecoder(list.Body).Decode(&lr)
+		list.Body.Close()
+		has := false
+		for _, a := range lr.Artifacts {
+			if a.Name == name {
+				has = true
+				break
+			}
+		}
+		if !has {
+			continue
+		}
+		blob, err := g.client.Get(base + "/blob?name=" + name)
+		if err != nil || blob.StatusCode != http.StatusOK {
+			if blob != nil {
+				blob.Body.Close()
+			}
+			continue
+		}
+		e, err := g.Models.Add(name, blob.Body)
+		blob.Body.Close()
+		if err != nil {
+			log.Printf("store: pull of %q from %s failed verification: %v", name, b.Backend.Name, err)
+			continue
+		}
+		log.Printf("store: pulled %s from %s (sha256 %s…)", name, b.Backend.Name, e.SHA256[:12])
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"pulled": true, "from": b.Backend.Name, "sha256": e.SHA256})
+		return
+	}
+	http.Error(w, `{"error":"no peer in the mesh has this artifact — fall back to a public repository"}`, http.StatusNotFound)
 }
 
 func (g *Gateway) handleStoreVerify(w http.ResponseWriter, r *http.Request) {

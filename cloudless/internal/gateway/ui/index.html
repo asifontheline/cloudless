@@ -343,6 +343,9 @@ function renderModels() {
   <code>.onnx</code>) — pickle-based files are rejected because they can execute code.</p>
   <p><input id="mfile" type="file" style="font-size:.9rem">
   <button id="mup" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Add artifact</button>
+  &nbsp;·&nbsp;
+  <input id="mpull" placeholder="model name" style="padding:.4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+  <button id="mpullb" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Pull from mesh</button>
   <span class="muted">(admin key from the Members page is used)</span></p>
   <p id="mmsg" class="principle" style="display:none"></p>
   <table><thead><tr><th>Name</th><th>Format</th><th>Size</th><th>SHA-256</th><th></th><th></th></tr></thead>
@@ -370,6 +373,17 @@ function renderModels() {
         load();
       });
     } catch {}
+  };
+  document.getElementById('mpullb').onclick = async () => {
+    const name = document.getElementById('mpull').value.trim();
+    if (!name) return;
+    msg('Pulling ' + name + ' from the mesh…', false);
+    const r = await fetch('/store/pull?name=' + encodeURIComponent(name), {method: 'POST', headers: hdr()});
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.pulled) msg('Pulled ' + name + ' from ' + d.from + ' (verified)', false);
+    else if (r.ok) msg(name + ': ' + (d.reason || 'already present'), false);
+    else msg(d.error || 'Not found in the mesh — try a public repository.', true);
+    load();
   };
   document.getElementById('mup').onclick = async () => {
     const f = document.getElementById('mfile').files[0];
@@ -509,7 +523,7 @@ const FEATURES = [
   ["A · Secure Mesh","Node revocation",4,"planned"],
   ["A · Secure Mesh","Signed audit log",5,"planned"],
   ["B · Model Commons","Content-addressed model store",6,"done"],
-  ["B · Model Commons","Mesh pull-through cache",7,"planned"],
+  ["B · Model Commons","Mesh pull-through cache",7,"done"],
   ["B · Model Commons","Safe-format allowlist",8,"done"],
   ["B · Model Commons","Model registry in console",9,"planned"],
   ["B · Model Commons","Runtime supervisor",10,"planned"],
