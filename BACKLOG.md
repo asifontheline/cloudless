@@ -73,6 +73,40 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #61 K4 | Polyglot extension model | ⬜ |
 | #62 K5 | Polyglot runtime backends | ⬜ |
 
+## EPIC L — Test & Quality
+| #84 L1 | Regression test cases for every shipped feature | ⬜ |
+| #85 L2 | Multi-node end-to-end mesh test in CI | ⬜ |
+| #86 L3 | Pre-merge gate — re-run tests against latest main just before merging | ✅ |
+| #87 L4 | SDK conformance test cases (Python & JS) against a live node | ⬜ |
+| #88 L5 | Tests-required policy for all future features | ⬜ |
+| #89 L6 | Browser test cases — console & website smoke tests | ⬜ |
+| #90 L7 | Security regression test cases | ⬜ |
+
+## EPIC M — Data Durability & Recovery (MUST-DO)
+Node churn must never mean lost or breached data. Prerequisite for Epic N recruitment.
+| #92 M1 | N-copy replication across failure domains | ⬜ P1 |
+| #93 M2 | Self-healing re-replication on node loss | ⬜ P1 |
+| #94 M3 | Encrypt before data leaves the owner's machine (breach containment) | ⬜ P1 |
+| #95 M4 | Restore lost data — owner-initiated recovery flow | ⬜ P1 |
+| #96 M5 | Off-mesh backup export & re-import (escape hatch) | ⬜ P1 |
+| #97 M6 | Measured durability guarantees on the console | ⬜ P2 |
+
+## EPIC N — Mesh Expansion & Node Hosting (PRIMARY growth path)
+The primary path to expand the mesh: recruit free and willing node hosts. Gated on M1–M3.
+| #98 N1 | **PRIMARY** — recruit homelab & self-hosting communities | ⬜ P1 |
+| #99 N2 | Always-free cloud tier seed nodes | ⬜ P2 |
+| #100 N3 | Grant-funded and OSS-credit seed hosting | ⬜ P2 |
+| #101 N4 | Universities, hackerspaces & computer clubs | ⬜ P3 |
+
+## EPIC O — Speed by Divide & Conquer
+Individual machines are modest; the mesh is not. Speed comes from dividing work across nodes.
+| #102 O1 | Parallel fan-out — split batch work across nodes, merge results | ⬜ P1 |
+| #103 O2 | Speculative racing — first answer wins | ⬜ P1 |
+| #104 O3 | Model sharding — run models no single node can | ⬜ P2 |
+| #105 O4 | Chunked parallel transfers from many peers | ⬜ P2 |
+| #106 O5 | Divide-and-conquer batch jobs — map, process, merge | ⬜ P2 |
+| #107 O6 | Speed-aware scheduling & honest speed-up metrics | ⬜ P2 |
+
 ## Cross-cutting infrastructure (shipped)
 - One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
 - CI validation engine + branch-protected `main` + 2-hourly review-gated merge queue ✅

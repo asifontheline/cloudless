@@ -4,6 +4,12 @@ name: Merge queue
 # all green. "Reviewed" = carries the `ready-to-merge` label (added after
 # review). This keeps main continuously up to date without ever merging a
 # red build, and replaces long-lived direct commits to main.
+#
+# Pre-merge gate (L3, #86): a PR's checks were green at push time, but main
+# may have moved since. Before merging, each PR is merged onto the *current*
+# main locally and the full suite (build, vet, test, gofmt) runs on that
+# result. A PR that is green in isolation but breaks against latest main is
+# left for rebase instead of being merged.
 
 on:
   schedule:
@@ -19,23 +25,45 @@ jobs:
   merge:
     runs-on: ubuntu-latest
     steps:
-      - name: Merge green, reviewed PRs
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cloudless/go.mod
+          cache-dependency-path: cloudless/go.sum
+      - name: Merge green, reviewed PRs (re-validated against latest main)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          git config user.name "merge-queue"
+          git config user.email "merge-queue@users.noreply.github.com"
           prs=$(gh pr list -R "$REPO" --state open --label ready-to-merge --json number --jq '.[].number')
           if [ -z "$prs" ]; then echo "No PRs labelled ready-to-merge."; exit 0; fi
           merged_any=false
           for pr in $prs; do
             echo "::group::PR #$pr"
-            if gh pr checks "$pr" -R "$REPO"; then
-              echo "PR #$pr is green — squashing into main."
+            if ! gh pr checks "$pr" -R "$REPO"; then
+              echo "PR #$pr has failing or pending checks — leaving for next cycle."
+              echo "::endgroup::"; continue
+            fi
+            # Pre-merge gate: run the full suite on (current main + this PR).
+            git fetch origin main "pull/$pr/head:pr-$pr"
+            git checkout -B premerge origin/main
+            if ! git merge --no-edit "pr-$pr"; then
+              git merge --abort || true
+              echo "PR #$pr does not merge cleanly onto latest main — leaving for rebase."
+              echo "::endgroup::"; continue
+            fi
+            if (cd cloudless && go build ./... && go vet ./... && go test ./... && [ -z "$(gofmt -l .)" ]); then
+              echo "PR #$pr validates against latest main — squashing."
               gh pr merge "$pr" -R "$REPO" --squash --delete-branch --admin
               merged_any=true
             else
-              echo "PR #$pr has failing or pending checks — leaving for next cycle."
+              echo "PR #$pr is green in isolation but fails against latest main — leaving for rebase."
+              gh pr comment "$pr" -R "$REPO" --body "Merge queue: checks are green on the branch, but the full test suite fails when this PR is merged onto current \`main\`. Please rebase and fix — the queue will retry next cycle." || true
             fi
             echo "::endgroup::"
           done
