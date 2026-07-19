@@ -261,8 +261,15 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 			log.Printf("backend %s returned %d, trying next", b.Backend.Name, resp.StatusCode)
 			continue
 		}
+		// Mid-stream failover (C5): deliver reports false when the backend
+		// died before the first byte was committed to the client — safe to
+		// retry on the next backend. After the first byte, no retry.
+		if !g.deliver(w, r, resp, b.Backend.Name) {
+			lastErr = nil
+			log.Printf("backend %s failed before first byte, trying next", b.Backend.Name)
+			continue
+		}
 		g.logRoute(r.URL.Path, b.Backend.Name, resp.StatusCode, i)
-		g.deliver(w, r, resp, b.Backend.Name)
 		return
 	}
 	g.logRoute(r.URL.Path, "-", http.StatusBadGateway, len(backends))
@@ -285,19 +292,33 @@ func trimV1(path string) string {
 // deliver relays the backend response to the client. Non-streaming JSON is
 // buffered so token usage can be read from the body; streams pass through
 // untouched and count requests only.
-func (g *Gateway) deliver(w http.ResponseWriter, r *http.Request, resp *http.Response, backendName string) {
+//
+// It returns false when the backend failed before anything was committed to
+// the client — the caller may then retry the next backend. Once the first
+// byte has been written, failures can only truncate the response.
+func (g *Gateway) deliver(w http.ResponseWriter, r *http.Request, resp *http.Response, backendName string) bool {
 	key := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	ct := resp.Header.Get("Content-Type")
 	if strings.HasPrefix(ct, "text/event-stream") {
+		// Read the first chunk before committing: a stream that dies before
+		// its first token is retried on the next backend.
+		buf := make([]byte, 32*1024)
+		n, err := resp.Body.Read(buf)
+		for n == 0 && err == nil {
+			n, err = resp.Body.Read(buf)
+		}
+		if n == 0 {
+			resp.Body.Close()
+			return false
+		}
 		g.Usage.Add(key, backendName, 1, 0, 0)
-		copyResponse(w, resp)
-		return
+		copyResponse(w, resp, buf[:n])
+		return true
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
-		http.Error(w, `{"error":"upstream read"}`, http.StatusBadGateway)
-		return
+		return false // nothing written yet — caller retries the next backend
 	}
 	var parsed struct {
 		Usage struct {
@@ -315,9 +336,12 @@ func (g *Gateway) deliver(w http.ResponseWriter, r *http.Request, resp *http.Res
 	}
 	w.WriteHeader(resp.StatusCode)
 	w.Write(body)
+	return true
 }
 
-func copyResponse(w http.ResponseWriter, resp *http.Response) {
+// copyResponse streams the response through, starting with the already-read
+// first chunk (may be empty). From here on the response is committed.
+func copyResponse(w http.ResponseWriter, resp *http.Response, first []byte) {
 	defer resp.Body.Close()
 	for k, vv := range resp.Header {
 		for _, v := range vv {
@@ -326,6 +350,14 @@ func copyResponse(w http.ResponseWriter, resp *http.Response) {
 	}
 	w.WriteHeader(resp.StatusCode)
 	flusher, _ := w.(http.Flusher)
+	if len(first) > 0 {
+		if _, werr := w.Write(first); werr != nil {
+			return
+		}
+		if flusher != nil {
+			flusher.Flush()
+		}
+	}
 	buf := make([]byte, 32*1024)
 	for {
 		n, err := resp.Body.Read(buf)
