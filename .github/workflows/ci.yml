@@ -44,7 +44,6 @@ jobs:
   python-sdk:
     name: python sdk
     runs-on: ubuntu-latest
-    if: hashFiles('sdk/python/**') != ''
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
