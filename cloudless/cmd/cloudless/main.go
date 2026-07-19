@@ -398,6 +398,9 @@ func runServe(cfg *config.Config) {
 			gw.MintJoinToken = func(ttl time.Duration) (string, time.Time, error) {
 				return jointoken.New(secret, ttl)
 			}
+			gw.JoinInfo = func() (string, string, string) {
+				return cfg.Gossip.Secret, advertiseAddr(cfg.Gossip.Bind), "http://" + advertiseAddr(cfg.Listen)
+			}
 		}
 	}
 	srv := &http.Server{Addr: cfg.Listen, Handler: gw.Handler()}
