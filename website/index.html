@@ -90,6 +90,31 @@
   .side .doc { display: block; padding: .15rem .3rem; border-radius: 6px; font-weight: 600; color: inherit; }
   .side .doc:hover { background: var(--card); color: var(--accent); }
 
+  /* feature working-window drawer */
+  .feat { cursor: pointer; background: none; border: none; padding: 0; font: inherit; color: var(--accent);
+          text-align: left; }
+  .feat:hover { text-decoration: underline; }
+  .drawer-ov { position: fixed; inset: 0; background: rgba(0,0,0,.45); opacity: 0; pointer-events: none;
+               transition: opacity .2s; z-index: 20; }
+  .drawer-ov.on { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 92vw); z-index: 21;
+            background: Canvas; border-left: 1px solid var(--line); transform: translateX(100%);
+            transition: transform .22s ease; overflow-y: auto; padding: 1.2rem 1.3rem 2rem; }
+  .drawer.on { transform: translateX(0); }
+  .drawer .x { float: right; cursor: pointer; font-size: 1.4rem; line-height: 1; color: var(--plan); background: none; border: none; }
+  .drawer h3 { margin: .2rem 0 .3rem; font-size: 1.3rem; }
+  .demo { border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: .9rem;
+          margin: .9rem 0; font-size: .86rem; }
+  .demo .bar { display: flex; gap: .35rem; margin-bottom: .6rem; }
+  .demo .bar span { width: 10px; height: 10px; border-radius: 50%; background: var(--plan); opacity: .5; }
+  .demo .row { display: flex; justify-content: space-between; padding: .25rem 0; border-bottom: 1px solid var(--line); }
+  .demo .msg { padding: .4rem .6rem; border-radius: 8px; margin: .3rem 0; }
+  .demo .u { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  .demo .a { background: color-mix(in srgb, var(--ok) 14%, transparent); }
+  .demo .big { font-size: 1.8rem; font-weight: 700; }
+  .demo .dot { font-size: 1.1em; }
+  .drawer .status { font-size: .72rem; padding: .12rem .55rem; border-radius: 999px; border: 1px solid var(--line); }
+
   /* in-build banner */
   .inbuild { display: inline-block; margin-top: 1rem; padding: .4rem 1rem; border: 1px dashed var(--warn);
              border-radius: 999px; font-weight: 700; color: var(--warn); animation: blink 1.2s step-end infinite; }
@@ -121,40 +146,51 @@
 <div class="layout">
 <aside class="side">
   <h4>Features</h4>
+  <p style="font-size:.7rem;color:var(--plan);margin:.1rem 0 .5rem">click any feature to see it working →</p>
   <details><summary>🧠 AI &amp; ML</summary><ul>
-    <li><a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">Chat &amp; completions</a> <span class="b-live">●</span></li>
-    <li>Embeddings</li><li>Speech</li><li>Vision &amp; OCR</li><li>Images</li><li>Vector search</li><li>Fine-tuning</li></ul></details>
+    <li><button class="feat" data-f="chat">Chat &amp; completions</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="embeddings">Embeddings</button></li>
+    <li><button class="feat" data-f="speech">Speech</button></li>
+    <li><button class="feat" data-f="vision">Vision &amp; OCR</button></li>
+    <li><button class="feat" data-f="images">Images</button></li>
+    <li><button class="feat" data-f="vectors">Vector search</button></li></ul></details>
   <details><summary>⚙️ Compute</summary><ul>
-    <li>Batch jobs</li><li>Scheduled jobs</li><li>Containers</li><li>Functions</li></ul></details>
+    <li><button class="feat" data-f="batch">Batch jobs</button></li>
+    <li><button class="feat" data-f="scheduled">Scheduled jobs</button></li>
+    <li><button class="feat" data-f="containers">Containers</button></li></ul></details>
   <details><summary>🗄️ Storage</summary><ul>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/6" target="_blank" rel="noopener">Model commons</a> <span class="b-live">●</span></li>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/8" target="_blank" rel="noopener">Safe-format guard</a> <span class="b-live">●</span></li>
-    <li>Object store</li><li>Backup &amp; archive</li></ul></details>
+    <li><button class="feat" data-f="models">Model commons</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="safeformat">Safe-format guard</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="object">Object store</button></li>
+    <li><button class="feat" data-f="backup">Backup &amp; archive</button></li></ul></details>
   <details><summary>📨 Data</summary><ul>
-    <li>Queues &amp; events</li><li>Key-value</li><li>Time-series</li><li>Workflows</li></ul></details>
+    <li><button class="feat" data-f="queues">Queues &amp; events</button></li>
+    <li><button class="feat" data-f="kv">Key-value</button></li>
+    <li><button class="feat" data-f="workflows">Workflows</button></li></ul></details>
   <details><summary>🌐 Networking</summary><ul>
-    <li><a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">Gateway &amp; failover</a> <span class="b-live">●</span></li>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/3" target="_blank" rel="noopener">Encrypted membership</a> <span class="b-live">●</span></li>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/49" target="_blank" rel="noopener">Network map</a> <span class="b-progress">◐</span></li>
-    <li>Overlay</li><li>Internal naming</li></ul></details>
+    <li><button class="feat" data-f="gateway">Gateway &amp; failover</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="membership">Encrypted membership</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="map">Network map</button> <span class="b-progress">◐</span></li>
+    <li><button class="feat" data-f="overlay">Overlay</button></li></ul></details>
   <details><summary>🔐 Security</summary><ul>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/11" target="_blank" rel="noopener">Members &amp; keys</a> <span class="b-live">●</span></li>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/1" target="_blank" rel="noopener">Cluster CA &amp; mTLS</a> <span class="b-live">●</span></li>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/2" target="_blank" rel="noopener">Join tokens</a> <span class="b-progress">◐</span></li>
-    <li>Data Guard</li><li>Audit log</li></ul></details>
+    <li><button class="feat" data-f="passkey">Passwordless sign-in</button> <span class="b-progress">◐</span></li>
+    <li><button class="feat" data-f="members">Members &amp; keys</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="mtls">Cluster CA &amp; mTLS</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="dataguard">Data Guard</button></li>
+    <li><button class="feat" data-f="audit">Audit log</button></li></ul></details>
   <details><summary>📊 Governance</summary><ul>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/12" target="_blank" rel="noopener">Usage &amp; quotas</a> <span class="b-live">●</span></li>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/44" target="_blank" rel="noopener">Contribution ledger</a> <span class="b-live">●</span></li>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/45" target="_blank" rel="noopener">Cost calculator</a> <span class="b-live">●</span></li>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/46" target="_blank" rel="noopener">Idle alerts</a> <span class="b-live">●</span></li></ul></details>
+    <li><button class="feat" data-f="usage">Usage &amp; quotas</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="ledger">Contribution ledger</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="cost">Cost calculator</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="idle">Idle alerts</button> <span class="b-live">●</span></li></ul></details>
   <details><summary>🤝 Community</summary><ul>
-    <li>Share controls</li><li>Reciprocity</li>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/49" target="_blank" rel="noopener">Geo map</a> <span class="b-progress">◐</span></li>
-    <li>Locality redundancy</li>
-    <li><a href="https://github.com/asifontheline/cloudless/issues/51" target="_blank" rel="noopener">Mobile nodes</a></li></ul></details>
+    <li><button class="feat" data-f="share">Share controls</button></li>
+    <li><button class="feat" data-f="reciprocity">Reciprocity</button></li>
+    <li><button class="feat" data-f="geomap">Geo map</button> <span class="b-progress">◐</span></li>
+    <li><button class="feat" data-f="mobile">Mobile nodes</button></li></ul></details>
   <details><summary>🚀 Onboarding</summary><ul>
-    <li><a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">One-command mesh</a> <span class="b-live">●</span></li>
-    <li>Join links / QR</li><li>Signed releases</li></ul></details>
+    <li><button class="feat" data-f="oneup">One-command mesh</button> <span class="b-live">●</span></li>
+    <li><button class="feat" data-f="qr">Join links / QR</button></li></ul></details>
 </aside>
 <main>
 
@@ -342,6 +378,21 @@ today the node shares whatever the machine has spare.</p>
 access to everyone else's. Point any standard chat app at <code>http://localhost:8080/v1</code> to use it;
 if any node drops mid-request, another takes over automatically.</p>
 
+<h3 id="signin" style="scroll-margin-top:4.5rem">Sign in — no passwords to remember</h3>
+<p>When you open your console the first time, you register in one tap using a <strong>passkey</strong> — your
+device's fingerprint, face, or PIN. There's no password to invent, forget, or have stolen.</p>
+<ol style="padding-left:1.2rem">
+  <li><strong>Register:</strong> open <code>http://127.0.0.1:8080/</code> → <em>Create account</em> → confirm with
+    your fingerprint / face. Done. A secret key is created and stored safely on your device — it never leaves it.</li>
+  <li><strong>Sign in:</strong> next time, just touch the sensor. No typing.</li>
+  <li><strong>More devices:</strong> add your phone or laptop by scanning a code — each gets its own passkey.</li>
+  <li><strong>Lose a device?</strong> Revoke it from any other device; a one-time recovery code (saved at signup)
+    restores access if you lose them all.</li>
+</ol>
+<p class="muted" style="font-size:.9rem">Passkeys are the phishing-resistant standard (WebAuthn) built into every
+modern phone and browser — the same thing banks use. Passwordless sign-in is
+<a href="https://github.com/asifontheline/cloudless/issues/52" target="_blank" rel="noopener">in-build (#52)</a>.</p>
+
 <h2 id="community">Community</h2>
 <p>The code, the board, and the roadmap are all public. CloudLess is community-owned by design.</p>
 <div class="grid">
@@ -359,5 +410,70 @@ if any node drops mid-request, another takes over automatically.</p>
 </div>
 <footer>CloudLess · Apache-2.0 · a community mesh, no data centres ·
 <a href="https://github.com/asifontheline/cloudless">github.com/asifontheline/cloudless</a></footer>
+
+<div class="drawer-ov" id="dov"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"></aside>
+<script>
+// Each feature opens a working-window preview instead of leaving to GitHub.
+const CON = '<div class="bar"><span></span><span></span><span></span></div>';
+const F = {
+  chat: {t:"Chat & completions", s:"live", d:"A standard chat-completions API served by the mesh. Any node answers; requests route to a free machine and fail over if one drops.",
+    demo:CON+'<div class="msg u">▶ POST /v1/chat/completions</div><div class="msg a">◀ \"Cloudless routes this to the best free node — no cloud, no bill.\"<br><span class="muted">served by node berlin-7f · 42 tok/s</span></div>'},
+  models:{t:"Model commons", s:"live", d:"Content-addressed model store. Every file is verified by SHA-256; peers share models instead of each re-downloading.",
+    demo:CON+'<div class="row"><b>NAME</b><b>FORMAT</b><b>SHA-256</b></div><div class="row">qwen2.5-7b.gguf<span>gguf</span><code>d8527c39…</code></div><div class="row">mistral-7b.safetensors<span>safetensors</span><code>5c3830d7…</code></div>'},
+  safeformat:{t:"Safe-format guard", s:"live", d:"Admission control on the model store: only GGUF, safetensors, and ONNX are accepted. Pickle-based files — the ecosystem's main malware vector — are rejected outright.",
+    demo:CON+'<div class="msg u">▶ add evil-model.bin</div><div class="msg" style="background:color-mix(in srgb,#d64545 15%,transparent)">◀ REJECTED — pickle-based files can execute code and are not allowed</div>'},
+  gateway:{t:"Gateway & failover", s:"live", d:"The mesh's front door: it scores healthy nodes and routes to the fastest. Kill a node mid-request and another takes over automatically.",
+    demo:CON+'<div class="row"><span>node bengaluru-4f</span><span class="ok">healthy 0ms</span></div><div class="row"><span>node berlin-7f</span><span class="ok">healthy 4ms</span></div><div class="row"><span>node lagos-a1</span><span class="bad">down — rerouted</span></div>'},
+  membership:{t:"Encrypted membership", s:"live", d:"Nodes discover each other over encrypted, authenticated gossip. A machine without the cluster secret can't even see the mesh.",
+    demo:CON+'<div class="msg a">gossip: peer berlin-7f joined (AES-GCM, verified)</div><div class="msg" style="background:color-mix(in srgb,#d64545 12%,transparent)">gossip: unknown node rejected — wrong key</div>'},
+  map:{t:"Network map", s:"in progress", d:"Live picture of the whole community by locality — continent ▸ country ▸ city ▸ village — green for up, red for down, expandable level by level.",
+    demo:CON+'<div>🌍 asia — <span class="ok">3●</span> <span class="bad">1●</span></div><div style="padding-left:1rem">🇮🇳 india ▸ bengaluru <span class="ok">●●</span></div><div>🌍 europe — <span class="ok">2●</span></div><div style="padding-left:1rem">🇩🇪 germany ▸ berlin <span class="ok">●</span></div>'},
+  members:{t:"Members & API keys", s:"live", d:"Each member gets a named key, created and revoked from the browser. Usage, quotas, and the ledger all attribute per person.",
+    demo:CON+'<div class="row">alice <span class="ok">active</span></div><div class="row">bob <span class="ok">active</span></div><div class="row">carol <span class="bad">revoked</span></div>'},
+  mtls:{t:"Cluster CA & mutual TLS", s:"live", d:"The mesh runs its own certificate authority; every node enrolls and all peer traffic is mutual-TLS. No plaintext ever crosses the wire.",
+    demo:CON+'<div class="msg a">✓ node certificate issued by cluster CA</div><div class="msg a">✓ peer connection: TLS 1.3, both sides verified</div>'},
+  usage:{t:"Usage & quotas", s:"live", d:"Requests and tokens counted per key and node, with fair-use rate limits and daily budgets enforced at the gateway.",
+    demo:CON+'<div class="row"><span>alice</span><span>1,204 reqs · 88k tok</span></div><div class="row"><span>limit</span><span>120 req/min · 5M tok/day</span></div>'},
+  ledger:{t:"Contribution ledger", s:"live", d:"The cooperative's fairness view: which nodes gave compute, which keys used it, with shares. No bills — just balance.",
+    demo:CON+'<div class="row"><b>Contributed</b><b>Tokens</b></div><div class="row">node bengaluru <span>66.7%</span></div><div class="row">node berlin <span>33.3%</span></div>'},
+  cost:{t:"Cost calculator", s:"live", d:"What the mesh's work would have cost on a metered hosted API — versus your actual marginal cost of zero.",
+    demo:CON+'<div>Hosted-API equivalent</div><div class="big">$0.0033</div><div>Mesh marginal cost <span class="ok">$0.00</span></div>'},
+  idle:{t:"Idle-capacity alerts", s:"live", d:"Healthy nodes that aren't serving anything get flagged — capacity you already paid for, waiting for work.",
+    demo:CON+'<div class="row"><span>node bengaluru</span><span class="ok">busy</span></div><div class="row"><span>node berlin</span><span class="b-progress">IDLE — give it work</span></div>'},
+  oneup:{t:"One-command mesh", s:"live", d:"cloudless up detects your runtime, generates keys, and prints an invite line. The next machine pastes it. That's the whole setup.",
+    demo:CON+'<div class="msg u">$ cloudless up</div><div class="msg a">Console: http://127.0.0.1:8080/<br>Invite: cloudless up -join K7f…q2@…:7946</div>'},
+  passkey:{t:"Passwordless sign-in", s:"in progress", d:"Sign in with your fingerprint, face, or device PIN — no passwords to remember, nothing to steal. Built on passkeys (WebAuthn), the phishing-resistant standard in every modern browser and phone.",
+    demo:CON+'<div class="msg u">Register → [ Touch fingerprint ]</div><div class="msg a">✓ Signed in. No password created.<br><span class="muted">key never leaves your device</span></div>'},
+};
+const PLANNED = {
+  embeddings:"Embeddings",speech:"Speech to/from text",vision:"Vision & OCR",images:"Image generation",vectors:"Vector search",
+  batch:"Batch jobs",scheduled:"Scheduled jobs",containers:"Containers",object:"Object store",backup:"Backup & archive",
+  queues:"Queues & events",kv:"Key-value store",workflows:"Workflows",overlay:"One-click global overlay",dataguard:"Data Guard",
+  audit:"Signed audit log",share:"Resource share controls",reciprocity:"Reciprocity & entitlement",geomap:"Geo network map",
+  mobile:"Mobile devices as nodes",qr:"Join links / QR codes"
+};
+const badge = s => s==="live" ? '<span class="status" style="color:var(--ok)">● live</span>'
+  : s==="in progress" ? '<span class="status" style="color:var(--warn)">◐ in progress</span>'
+  : '<span class="status" style="color:var(--plan)">○ planned — help build</span>';
+const drawer = document.getElementById('drawer'), ov = document.getElementById('dov');
+function openFeat(id) {
+  const f = F[id] || {t: PLANNED[id] || id, s:"planned",
+    d:"This service is on the roadmap — designed, not yet built. The mesh underneath is ready for it; this is exactly the kind of thing to help build.", demo:""};
+  drawer.innerHTML = `<button class="x" onclick="closeFeat()">×</button>
+    <h3>${f.t}</h3>${badge(f.s)}
+    ${f.demo ? `<div class="demo">${f.demo}</div>` : ''}
+    <p>${f.d}</p>
+    ${f.s==="live"
+      ? `<p><a class="cta primary" href="#start" onclick="closeFeat()">Run a node to use this</a></p>`
+      : `<p><a class="cta primary" href="https://github.com/asifontheline/cloudless/issues" target="_blank" rel="noopener">Help build it ↗</a></p>`}
+    <p style="font-size:.82rem;color:var(--plan)">Live features run inside every node's built-in console — this is a preview of that working window.</p>`;
+  drawer.classList.add('on'); ov.classList.add('on'); drawer.setAttribute('aria-hidden','false');
+}
+function closeFeat() { drawer.classList.remove('on'); ov.classList.remove('on'); drawer.setAttribute('aria-hidden','true'); }
+document.querySelectorAll('.feat').forEach(b => b.addEventListener('click', () => openFeat(b.dataset.f)));
+ov.addEventListener('click', closeFeat);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFeat(); });
+</script>
 </body>
 </html>

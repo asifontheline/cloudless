@@ -109,6 +109,7 @@ This system is not just an intranet, extranet, or community network. It is a sha
 - Optionally use a distributed ledger or signed logs for audit
 
 ## 5. Security and Trust
+- Human sign-in is passwordless by default: passkeys (WebAuthn/FIDO2) — device fingerprint/face/PIN, credential never leaves the device, phishing-resistant, with multi-device enrollment, per-device revocation, and a one-time recovery code (the cluster key remains for automation only)
 - Authenticate nodes before tasks are accepted
 - Run untrusted workloads in sandboxes / containers
 - Encrypt all communication (membership, service, and overlay layers)
