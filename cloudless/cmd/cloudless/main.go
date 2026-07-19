@@ -27,6 +27,7 @@ import (
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
 	"cloudless/internal/relay"
+	"cloudless/internal/revoke"
 	"cloudless/internal/share"
 	"cloudless/internal/store"
 	"cloudless/internal/usage"
@@ -58,6 +59,8 @@ func main() {
 		modelsCmd(os.Args[2:])
 	case "share":
 		shareCmd(os.Args[2:])
+	case "nodes":
+		nodesCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -233,10 +236,12 @@ func runServe(cfg *config.Config) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Model store and share limits are opened early so the relay can serve
-	// blobs and enforce the owner's share budget on peer traffic.
+	// Model store, share limits, and the revocation set are opened early so
+	// the relay can serve blobs, enforce the share budget, and refuse
+	// revoked peers.
 	var modelStore *store.Store
 	var shareStore *share.Store
+	var revoked *revoke.Set
 	if cfg.PKIDir != "" {
 		base := filepath.Dir(cfg.PKIDir)
 		if st, err := store.Open(filepath.Join(base, "models")); err == nil {
@@ -245,8 +250,10 @@ func runServe(cfg *config.Config) {
 			log.Printf("store: %v", err)
 		}
 		shareStore = share.Open(filepath.Join(base, "share.json"))
+		revoked = revoke.Open(filepath.Join(base, "revocations.json"))
 	} else {
 		shareStore = share.Open("share.json")
+		revoked = revoke.Open("revocations.json")
 	}
 	log.Printf("share: %d%% CPU (%d shared core(s)); ceiling %d%%",
 		shareStore.Get().CPUPercent, shareStore.MaxProcs(), share.Ceiling)
@@ -257,7 +264,7 @@ func runServe(cfg *config.Config) {
 	secure := cfg.PKIDir != "" && pki.HasCreds(cfg.PKIDir)
 	if secure {
 		var err error
-		peerTLS, err = pki.ClientTLS(cfg.PKIDir)
+		peerTLS, err = pki.ClientTLS(cfg.PKIDir, revoked.Has)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -278,7 +285,7 @@ func runServe(cfg *config.Config) {
 			path = modelStore.Path
 		}
 		go func() {
-			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL, list, path, shareStore.MaxProcs); err != nil {
+			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL, list, path, shareStore.MaxProcs, revoked.Has); err != nil {
 				log.Fatalf("relay: %v", err)
 			}
 		}()
@@ -287,6 +294,13 @@ func runServe(cfg *config.Config) {
 	reg := registry.New(cfg.Backends, time.Duration(cfg.HealthIntervalSeconds)*time.Second, peerTLS)
 	go reg.Run(ctx)
 
+	// applyRevoke evicts a node locally: record it and drop it from routing.
+	applyRevoke := func(name string) {
+		revoked.Add(name)
+		reg.Remove(name)
+	}
+
+	var mesh *gossip.Mesh
 	if cfg.Gossip != nil {
 		if cfg.Gossip.BackendURL != "" {
 			reg.Upsert(config.Backend{Name: cfg.Gossip.NodeName, BaseURL: cfg.Gossip.BackendURL, Location: cfg.Gossip.Location})
@@ -295,13 +309,15 @@ func runServe(cfg *config.Config) {
 		if secure && cfg.Gossip.RelayURL != "" {
 			advertise = cfg.Gossip.RelayURL
 		}
-		mesh, err := gossip.Start(gossip.Options{
+		var err error
+		mesh, err = gossip.Start(gossip.Options{
 			NodeName:   cfg.Gossip.NodeName,
 			BindAddr:   cfg.Gossip.Bind,
 			Join:       cfg.Gossip.Join,
 			BackendURL: advertise,
 			Location:   cfg.Gossip.Location,
 			Secret:     []byte(cfg.Gossip.Secret),
+			OnRevoke:   applyRevoke, // apply revocations received from peers
 		}, reg)
 		if err != nil {
 			log.Fatal(err)
@@ -311,6 +327,18 @@ func runServe(cfg *config.Config) {
 	}
 
 	gw := gateway.New(reg, cfg.APIKey, peerTLS)
+	// Revoking here applies locally and broadcasts to the whole mesh.
+	gw.Revoke = func(name string) bool {
+		if !revoked.Add(name) {
+			return false
+		}
+		reg.Remove(name)
+		if mesh != nil {
+			mesh.BroadcastRevoke(name)
+		}
+		return true
+	}
+	gw.RevokedList = revoked.List
 	usagePath := "usage.json"
 	if cfg.PKIDir != "" {
 		usagePath = filepath.Join(filepath.Dir(cfg.PKIDir), "usage.json")
@@ -618,6 +646,62 @@ func shareCmd(args []string) {
 	json.NewDecoder(resp.Body).Decode(&d)
 	fmt.Printf("CPU share: %d%% (ceiling %d%%) · %d shared core(s) · when: %s\n",
 		d.Limits.CPUPercent, d.Ceiling, d.SharedCores, d.Limits.ShareWhen)
+}
+
+// nodesCmd manages membership: nodes revoke <name> | nodes revocations
+func nodesCmd(args []string) {
+	sub := ""
+	rest := make([]string, 0, len(args))
+	for _, a := range args {
+		if a == "revoke" || a == "revocations" {
+			sub = a
+			continue
+		}
+		rest = append(rest, a)
+	}
+	fs := flag.NewFlagSet("nodes", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	fs.Parse(rest)
+	if *adminKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*adminKey = cfg.APIKey
+			}
+		}
+	}
+	switch sub {
+	case "revoke":
+		if fs.NArg() < 1 {
+			log.Fatal("usage: cloudless nodes revoke <node-name>")
+		}
+		req, _ := http.NewRequest("POST", *addr+"/revoke/"+fs.Arg(0), nil)
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusNoContent {
+			fmt.Printf("revoked %s — evicted mesh-wide\n", fs.Arg(0))
+		} else {
+			log.Fatalf("revoke failed (%d)", resp.StatusCode)
+		}
+	default:
+		resp, err := http.Get(*addr + "/revocations")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var out struct {
+			Revoked []revoke.Record `json:"revoked"`
+		}
+		json.NewDecoder(resp.Body).Decode(&out)
+		fmt.Println("REVOKED NODES")
+		for _, r := range out.Revoked {
+			fmt.Printf("  %-30s %s\n", r.Name, r.Revoked.Format("2006-01-02 15:04"))
+		}
+	}
 }
 
 func capacityCmd(args []string) {

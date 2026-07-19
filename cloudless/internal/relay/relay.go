@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -142,8 +141,8 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 
 // ListenAndServe runs the relay with mutual TLS from the cluster PKI.
 // list/path (may be nil) expose the local model store to peers for pulls.
-func ListenAndServe(addr, pkiDir, backendURL string, list func() []storeEntry, path func(string) (string, bool), slots func() int) error {
-	tlsCfg, err := pki.ServerTLS(pkiDir)
+func ListenAndServe(addr, pkiDir, backendURL string, list func() []storeEntry, path func(string) (string, bool), slots func() int, revoked pki.RevokedFn) error {
+	tlsCfg, err := pki.ServerTLS(pkiDir, revoked)
 	if err != nil {
 		return err
 	}
@@ -249,6 +248,3 @@ type enrollError struct {
 }
 
 func (e *enrollError) Error() string { return "enroll failed: " + e.body }
-
-// PeerTLS exposes the client TLS config for dialing peer relays.
-func PeerTLS(pkiDir string) (*tls.Config, error) { return pki.ClientTLS(pkiDir) }

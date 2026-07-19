@@ -17,6 +17,7 @@ import (
 	"cloudless/internal/keys"
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
+	"cloudless/internal/revoke"
 	"cloudless/internal/share"
 	"cloudless/internal/store"
 	"cloudless/internal/usage"
@@ -58,6 +59,11 @@ type Gateway struct {
 
 	// Share, when set, holds this node's resource-sharing limits.
 	Share *share.Store
+
+	// Revoke, when set, evicts a node from the mesh (persist + broadcast +
+	// drop from routing). RevokedList lists current revocations.
+	Revoke      func(name string) bool
+	RevokedList func() []revoke.Record
 }
 
 const routeLogSize = 20
@@ -85,6 +91,23 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /ledger", g.handleLedger)
 	mux.HandleFunc("GET /savings", g.handleSavings)
 	mux.HandleFunc("GET /capacity", g.handleCapacity)
+	mux.HandleFunc("GET /revocations", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var list []revoke.Record
+		if g.RevokedList != nil {
+			list = g.RevokedList()
+		}
+		json.NewEncoder(w).Encode(map[string]any{"revoked": list})
+	})
+	mux.HandleFunc("POST /revoke/{name}", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
+		name := r.PathValue("name")
+		if g.Revoke == nil || !g.Revoke(name) {
+			http.Error(w, `{"error":"already revoked or unknown"}`, http.StatusConflict)
+			return
+		}
+		log.Printf("revoke: node %s evicted from the mesh", name)
+		w.WriteHeader(http.StatusNoContent)
+	}))
 	mux.HandleFunc("GET /share", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{

@@ -183,10 +183,14 @@ func HasCreds(dir string) bool {
 	return err == nil
 }
 
+// RevokedFn reports whether a node CommonName has been revoked. May be nil.
+type RevokedFn func(commonName string) bool
+
 // verifyAgainstCA checks the presented chain against the cluster CA while
 // skipping hostname verification: peers dial each other by ephemeral LAN IPs,
-// so identity comes from possession of a CA-signed cert, not from SANs.
-func verifyAgainstCA(pool *x509.CertPool) func(raw [][]byte, _ [][]*x509.Certificate) error {
+// so identity comes from possession of a CA-signed cert, not from SANs. A
+// revoked node's certificate is rejected even though it is otherwise valid.
+func verifyAgainstCA(pool *x509.CertPool, revoked RevokedFn) func(raw [][]byte, _ [][]*x509.Certificate) error {
 	return func(raw [][]byte, _ [][]*x509.Certificate) error {
 		if len(raw) == 0 {
 			return errors.New("no peer certificate")
@@ -194,6 +198,9 @@ func verifyAgainstCA(pool *x509.CertPool) func(raw [][]byte, _ [][]*x509.Certifi
 		cert, err := x509.ParseCertificate(raw[0])
 		if err != nil {
 			return err
+		}
+		if revoked != nil && revoked(cert.Subject.CommonName) {
+			return errors.New("peer certificate is revoked: " + cert.Subject.CommonName)
 		}
 		inter := x509.NewCertPool()
 		for _, der := range raw[1:] {
@@ -226,8 +233,8 @@ func nodeCert(dir string) (tls.Certificate, error) {
 }
 
 // ServerTLS returns the relay server config: presents the node cert and
-// requires a CA-signed client cert (mutual TLS).
-func ServerTLS(dir string) (*tls.Config, error) {
+// requires a CA-signed, non-revoked client cert (mutual TLS).
+func ServerTLS(dir string, revoked RevokedFn) (*tls.Config, error) {
 	cert, err := nodeCert(dir)
 	if err != nil {
 		return nil, err
@@ -239,13 +246,14 @@ func ServerTLS(dir string) (*tls.Config, error) {
 	return &tls.Config{
 		Certificates:          []tls.Certificate{cert},
 		ClientAuth:            tls.RequireAnyClientCert,
-		VerifyPeerCertificate: verifyAgainstCA(pool),
+		VerifyPeerCertificate: verifyAgainstCA(pool, revoked),
 		MinVersion:            tls.VersionTLS13,
 	}, nil
 }
 
-// ClientTLS returns the client config for dialing peer relays.
-func ClientTLS(dir string) (*tls.Config, error) {
+// ClientTLS returns the client config for dialing peer relays. It also
+// refuses to talk to a revoked peer.
+func ClientTLS(dir string, revoked RevokedFn) (*tls.Config, error) {
 	cert, err := nodeCert(dir)
 	if err != nil {
 		return nil, err
@@ -257,7 +265,7 @@ func ClientTLS(dir string) (*tls.Config, error) {
 	return &tls.Config{
 		Certificates:          []tls.Certificate{cert},
 		InsecureSkipVerify:    true, // chain is fully verified below against the cluster CA; only hostname matching is skipped
-		VerifyPeerCertificate: verifyAgainstCA(pool),
+		VerifyPeerCertificate: verifyAgainstCA(pool, revoked),
 		MinVersion:            tls.VersionTLS13,
 	}, nil
 }

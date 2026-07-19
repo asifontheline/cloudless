@@ -225,7 +225,8 @@ function renderMap() {
         });
         tree.nodes.forEach(b => {
           html += `<div style="margin:.15rem 0 .15rem 2.2rem">${dot(b.Healthy)} ${esc(b.Backend.name)}
-            <span class="muted" style="font-size:.8rem">${b.Healthy ? b.LatencyMS+' ms' : 'down'}</span></div>`;
+            <span class="muted" style="font-size:.8rem">${b.Healthy ? b.LatencyMS+' ms' : 'down'}</span>
+            <a href="#" data-revoke="${esc(b.Backend.name)}" style="font-size:.78rem;margin-left:.5rem;color:var(--bad,#d64545)">revoke</a></div>`;
         });
         return html;
       };
@@ -236,6 +237,14 @@ function renderMap() {
         el.open ? openSet.add(el.dataset.mid) : openSet.delete(el.dataset.mid);
         sessionStorage.setItem('mapOpen', JSON.stringify([...openSet]));
       }));
+      document.querySelectorAll('[data-revoke]').forEach(a => a.onclick = async e => {
+        e.preventDefault();
+        if (!confirm('Revoke ' + a.dataset.revoke + '? Its certificate is refused mesh-wide and it is dropped from routing.')) return;
+        const r = await fetch('/revoke/' + encodeURIComponent(a.dataset.revoke), {method:'POST',
+          headers:{'Authorization':'Bearer '+(localStorage.getItem('adminKey')||'')}});
+        if (!r.ok) alert('Revoke failed — need the admin key (set it on the Members page).');
+        load();
+      });
     } catch {}
   };
   load(); timer = setInterval(load, 3000);
@@ -561,7 +570,7 @@ const FEATURES = [
   ["A · Secure Mesh","Cluster CA at init/up",1,"done"],
   ["A · Secure Mesh","Single-use expiring join tokens",2,"progress"],
   ["A · Secure Mesh","Mutual TLS between nodes",3,"done"],
-  ["A · Secure Mesh","Node revocation",4,"planned"],
+  ["A · Secure Mesh","Node revocation",4,"done"],
   ["A · Secure Mesh","Signed audit log",5,"planned"],
   ["B · Model Commons","Content-addressed model store",6,"done"],
   ["B · Model Commons","Mesh pull-through cache",7,"done"],
