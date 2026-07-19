@@ -45,6 +45,7 @@ a { color: var(--accent); }
 <ul>
 <li>Decentralized federation: no central vendor controls the system</li>
 <li>Open protocols: common APIs and data formats</li>
+<li>Open architecture, polyglot by design: a stable language-agnostic API is the extension surface; users and contributors build and extend in any language — Python first-class alongside Go, plus JS/TS and WASM/subprocess plugins — never locked to one language</li>
 <li>Resource sharing: participants contribute CPU/GPU, storage, and bandwidth</li>
 <li>Open-source software: avoid proprietary lock-in</li>
 <li>Privacy and security: encrypt data in transit and at rest</li>
@@ -252,12 +253,14 @@ a { color: var(--accent); }
 <li>Delivery path: the Go agent cross-compiles to android/arm64 and ios/arm64; PWA and sideload first, store submissions later</li>
 </ul>
 
-<h3>10.0.1 Safe Resource Defaults (hard rule)</h3>
-<p>Contribution must never be disruptive:</p>
+<h3>10.0.1 Resource Cap — Safe Default, User&#x27;s Discretion (hard rule)</h3>
+<p>Contribution must never be disruptive, and how much to give is always the contributor&#x27;s choice:</p>
 <ul>
-<li>Every device — mobile and desktop — starts capped at **5%** of CPU/IO/memory</li>
-<li>Using more requires explicit, per-resource user consent, and is instantly reversible from the portal</li>
-<li>Conservative by default protects the owner&#x27;s experience and trust; generosity is opt-in, never assumed</li>
+<li>Every node — mobile and standalone — starts at a safe **5%** default of CPU/IO/memory</li>
+<li>Fully **tunable up to a 70% ceiling**: a dedicated or idle machine can be set high; a personal phone or laptop stays low</li>
+<li>The cap never reaches 100% — 70% max leaves headroom so the device stays responsive, cool, and safe even when contributing hard</li>
+<li>Raising the cap is explicit, per-resource, and instantly reversible from the portal</li>
+<li>On mobile, a thermal/battery guard sits on top of the cap; the cap itself applies to all nodes</li>
 </ul>
 
 <h3>10.1 Resource Sharing Controls and Reciprocity</h3>

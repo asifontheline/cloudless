@@ -24,6 +24,7 @@ This system is not just an intranet, extranet, or community network. It is a sha
 ## 2. Core Principles
 - Decentralized federation: no central vendor controls the system
 - Open protocols: common APIs and data formats
+- Open architecture, polyglot by design: a stable language-agnostic API is the extension surface; users and contributors build and extend in any language — Python first-class alongside Go, plus JS/TS and WASM/subprocess plugins — never locked to one language
 - Resource sharing: participants contribute CPU/GPU, storage, and bandwidth
 - Open-source software: avoid proprietary lock-in
 - Privacy and security: encrypt data in transit and at rest
@@ -196,11 +197,13 @@ Phones and tablets are the most common, hand-carried commodity hardware — firs
 - Mobile portal: manage share limits, usage, and earned service from the phone after passkey sign-in (PWA, no app store needed to start)
 - Delivery path: the Go agent cross-compiles to android/arm64 and ios/arm64; PWA and sideload first, store submissions later
 
-## 10.0.1 Safe Resource Defaults (hard rule)
-Contribution must never be disruptive:
-- Every device — mobile and desktop — starts capped at **5%** of CPU/IO/memory
-- Using more requires explicit, per-resource user consent, and is instantly reversible from the portal
-- Conservative by default protects the owner's experience and trust; generosity is opt-in, never assumed
+## 10.0.1 Resource Cap — Safe Default, User's Discretion (hard rule)
+Contribution must never be disruptive, and how much to give is always the contributor's choice:
+- Every node — mobile and standalone — starts at a safe **5%** default of CPU/IO/memory
+- Fully **tunable up to a 70% ceiling**: a dedicated or idle machine can be set high; a personal phone or laptop stays low
+- The cap never reaches 100% — 70% max leaves headroom so the device stays responsive, cool, and safe even when contributing hard
+- Raising the cap is explicit, per-resource, and instantly reversible from the portal
+- On mobile, a thermal/battery guard sits on top of the cap; the cap itself applies to all nodes
 
 ## 10.1 Resource Sharing Controls and Reciprocity
 Members stay in control of what they give, and what they give determines what they get:

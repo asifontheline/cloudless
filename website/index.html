@@ -191,6 +191,11 @@
   <details><summary>🚀 Onboarding</summary><ul>
     <li><button class="feat" data-f="oneup">One-command mesh</button> <span class="b-live">●</span></li>
     <li><button class="feat" data-f="qr">Join links / QR</button></li></ul></details>
+  <details><summary>🧩 Build &amp; extend</summary><ul>
+    <li><button class="feat" data-f="polyglot">Any language</button></li>
+    <li><button class="feat" data-f="pysdk">Python SDK</button></li>
+    <li><button class="feat" data-f="jssdk">JS / TS SDK</button></li>
+    <li><button class="feat" data-f="plugins">Plugins (WASM/any)</button></li></ul></details>
 </aside>
 <main>
 
@@ -366,15 +371,15 @@ result shows it.</p>
     which connects nodes across any network with no router setup at all.</li>
 </ul>
 
-<p><strong>Step 4 — Set how much you share.</strong> Your machine, your rules. Every device <strong>starts at a
-safe 5% cap</strong> — barely noticeable, never hot, nothing like a resource-gulping virus. Raise it only if you
-want to:</p>
-<pre>$ cloudless up                          # starts at 5% — safe default
-$ cloudless up -share-cpu 40% -share-when charging   # opt in to more, anytime</pre>
-<p class="muted" style="font-size:.9rem">On phones and tablets a thermal &amp; battery guard pauses sharing if the
-device warms up or runs low, and defaults to charging-only. Contribution is metered on the ledger and you get
-service back in proportion. Safe defaults &amp; share controls are
-<a href="https://github.com/asifontheline/cloudless/issues/47" target="_blank" rel="noopener">in-build (#47, #47/J3)</a>.</p>
+<p><strong>Step 4 — Set how much you share.</strong> Your machine, your rules — entirely your discretion. Every
+node <strong>starts at a safe 5%</strong> (barely noticeable, never hot, nothing like a resource-gulping virus),
+and you can <strong>tune it up to 70%</strong>. Got an idle spare box? Turn it up. Personal phone? Leave it low.</p>
+<pre>$ cloudless up                       # 5% — safe default, any device
+$ cloudless up -share-cpu 70%        # dedicated / idle machine: turn it up (70% max)</pre>
+<p class="muted" style="font-size:.9rem">The ceiling is 70%, never 100% — your machine always stays responsive and
+cool. On phones a thermal &amp; battery guard pauses sharing if it warms up or runs low (charging-only by default).
+Contribution is metered on the ledger and earns you service in return. Tunable share controls are
+<a href="https://github.com/asifontheline/cloudless/issues/47" target="_blank" rel="noopener">in-build (#47, J3)</a>.</p>
 
 <p><strong>That's it.</strong> Your node is now part of the mesh, serving up to your limits and earning you
 access to everyone else's. Point any standard chat app at <code>http://localhost:8080/v1</code> to use it;
@@ -455,15 +460,18 @@ const F = {
     demo:CON+'<div class="msg u">Register → [ Touch fingerprint ]</div><div class="msg a">✓ Signed in. No password created.<br><span class="muted">key never leaves your device</span></div>'},
   mobile:{t:"Mobile devices as nodes", s:"planned", d:"Phones and tablets are the most common hand-carried hardware — they join the mesh too, with a thermal & battery guard so a device never overheats or drains. Manage everything from a passkey mobile portal.",
     demo:CON+'<div class="row"><span>📱 phone (charging)</span><span class="ok">sharing 5%</span></div><div class="row"><span>🌡️ getting warm</span><span class="b-progress">paused — cooling</span></div><div class="row"><span>🔋 battery 18%</span><span class="bad">stopped</span></div>'},
-  share:{t:"Resource share controls", s:"planned", d:"You decide how much of your machine to give — and it starts at a safe 5% so it's never disruptive. Raise it only if you want; instantly reversible. What you contribute earns you service in return.",
-    demo:CON+'<div class="row"><span>CPU share</span><span>5% <span class="muted">(default)</span></span></div><div class="row"><span>Only while</span><span>charging</span></div><div class="row"><span>Your earned service</span><span class="ok">↑ grows with contribution</span></div>'},
+  share:{t:"Resource share controls", s:"planned", d:"You decide how much of your machine to give. It starts at a safe 5% and tunes up to a 70% ceiling — idle machines can go high, personal devices stay low. Never 100%, so your device stays responsive. Instantly reversible; what you contribute earns you service back.",
+    demo:CON+'<div class="row"><span>CPU share</span><span>5% ──●──────── 70%</span></div><div class="row"><span>Ceiling</span><span>70% <span class="muted">(never 100%)</span></span></div><div class="row"><span>Earned service</span><span class="ok">↑ grows with contribution</span></div>'},
+  polyglot:{t:"Build in any language", s:"planned", d:"The whole platform is an open, versioned API — the extension surface. Build and extend in any language: a first-class Python SDK (the AI/ML default), JavaScript/TypeScript, or plug in services as sandboxed WASM or subprocesses. Never locked to one language.",
+    demo:CON+'<div class="msg u">import cloudless   # Python, first-class</div><div class="msg a">mesh.chat("hi")  →  answered by the mesh<br><span class="muted">same open API from JS, Go, or any language</span></div>'},
 };
 const PLANNED = {
   embeddings:"Embeddings",speech:"Speech to/from text",vision:"Vision & OCR",images:"Image generation",vectors:"Vector search",
   batch:"Batch jobs",scheduled:"Scheduled jobs",containers:"Containers",object:"Object store",backup:"Backup & archive",
   queues:"Queues & events",kv:"Key-value store",workflows:"Workflows",overlay:"One-click global overlay",dataguard:"Data Guard",
   audit:"Signed audit log",share:"Resource share controls",reciprocity:"Reciprocity & entitlement",geomap:"Geo network map",
-  mobile:"Mobile devices as nodes",qr:"Join links / QR codes"
+  mobile:"Mobile devices as nodes",qr:"Join links / QR codes",
+  pysdk:"Python SDK (first-class)",jssdk:"JavaScript / TypeScript SDK",plugins:"Plugins in any language (WASM / subprocess)"
 };
 const badge = s => s==="live" ? '<span class="status" style="color:var(--ok)">● live</span>'
   : s==="in progress" ? '<span class="status" style="color:var(--warn)">◐ in progress</span>'
