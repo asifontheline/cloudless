@@ -1,0 +1,172 @@
+openapi: "3.0.3"
+info:
+  title: Cloudless node API
+  description: >
+    The language-agnostic contract every Cloudless node serves. Inference uses
+    the standard chat-completions wire format, so any existing client works
+    with a base-URL swap. Platform endpoints manage the node and the mesh.
+    Admin endpoints require the cluster admin key; inference accepts any
+    active per-user key.
+  version: "0.1.0"
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+servers:
+  - url: http://localhost:8080
+security:
+  - bearer: []
+paths:
+  /v1/chat/completions:
+    post:
+      summary: Chat completion (standard wire format)
+      description: >
+        Routed to the best healthy node; fails over to the next-ranked node on
+        any error before the first response byte reaches the client. Streaming
+        (text/event-stream) and non-streaming both supported.
+      requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+      responses:
+        "200": { description: Completion (JSON or event stream) }
+        "401": { description: Invalid API key }
+        "429": { description: Per-key quota exceeded }
+        "503": { description: Backpressure — retry after Retry-After seconds }
+        "502": { description: All backends unavailable }
+  /v1/batch:
+    post:
+      summary: Parallel fan-out of independent requests
+      description: >
+        1-64 independent requests divided across healthy nodes concurrently;
+        results return in submission order. Each item keeps single-request
+        semantics (failover, backpressure, quota, metering).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requests]
+              properties:
+                path: { type: string, default: /v1/chat/completions }
+                requests: { type: array, minItems: 1, maxItems: 64, items: { type: object } }
+      responses:
+        "200":
+          description: Ordered results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        status: { type: integer }
+                        backend: { type: string }
+                        body: { type: object }
+        "400": { description: Bad batch (size or shape) }
+  /healthz:
+    get: { summary: Liveness probe, security: [], responses: { "200": { description: OK } } }
+  /status:
+    get:
+      summary: Mesh status — nodes, routes, load
+      security: []
+      responses:
+        "200": { description: "Backends with health/latency, recent routes, in-flight load" }
+  /usage:
+    get:
+      summary: Per-key usage and quota status
+      security: []
+      responses: { "200": { description: Usage records, limits, quota state } }
+  /ledger:
+    get: { summary: Contribution & consumption ledger, security: [], responses: { "200": { description: Ledger } } }
+  /capacity:
+    get: { summary: Idle capacity surfacing, security: [], responses: { "200": { description: Capacity } } }
+  /savings:
+    get: { summary: Cost comparison vs commercial clouds, security: [], responses: { "200": { description: Savings } } }
+  /audit:
+    get:
+      summary: Hash-chained audit log with integrity verdict
+      security: []
+      responses: { "200": { description: Entries plus intact/broken_at verdict } }
+  /share:
+    get:
+      summary: This node's resource-share limits
+      security: []
+      responses: { "200": { description: "Limits, ceiling (70%), default (5%)" } }
+    put:
+      summary: Set share limits (admin; partial update)
+      responses:
+        "200": { description: Applied limits }
+        "403": { description: Admin key required }
+  /keys:
+    get:
+      summary: List per-user API keys, redacted (admin)
+      responses: { "200": { description: Keys }, "403": { description: Admin key required } }
+    post:
+      summary: Create a per-user API key (admin)
+      responses: { "200": { description: Full key, shown once }, "403": { description: Admin key required } }
+  /keys/{prefix}:
+    delete:
+      summary: Revoke keys by redacted prefix (admin)
+      parameters: [ { name: prefix, in: path, required: true, schema: { type: string } } ]
+      responses: { "204": { description: Revoked }, "403": { description: Admin key required } }
+  /join-tokens:
+    post:
+      summary: Mint a single-use expiring join token (admin, CA node)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, properties: { ttl_minutes: { type: integer, default: 15 } } }
+      responses:
+        "200": { description: "{token, expires}; recorded in the audit log" }
+        "403": { description: Admin key required }
+        "404": { description: Not the CA-holding node }
+  /join-info:
+    get:
+      summary: What a new machine needs to join (admin — reveals the mesh secret)
+      responses:
+        "200": { description: "{secret, gossip_addr, api_url}" }
+        "403": { description: Admin key required }
+        "404": { description: Unavailable on this node }
+  /enroll:
+    post:
+      summary: Enroll a joining node's public key for a certificate
+      description: >
+        HMAC over name|pub binds the request to the cluster secret; an optional
+        single-use join token is validated and burned. Served only by the
+        CA-holding node.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, pub, mac]
+              properties:
+                name: { type: string }
+                pub: { type: string, description: base64 PKIX DER }
+                mac: { type: string, description: base64 HMAC-SHA256(secret, name|pub) }
+                token: { type: string, description: optional single-use join token }
+      responses:
+        "200": { description: "{ca (PEM), cert (base64 DER)}" }
+        "401": { description: Rejected (bad MAC or bad/expired/reused token) }
+  /revocations:
+    get: { summary: Current node revocations, security: [], responses: { "200": { description: Revoked nodes } } }
+  /revoke/{name}:
+    post:
+      summary: Evict a node mesh-wide (admin)
+      parameters: [ { name: name, in: path, required: true, schema: { type: string } } ]
+      responses:
+        "204": { description: Revoked and broadcast }
+        "403": { description: Admin key required }
+        "409": { description: Already revoked or unknown }
+  /store:
+    get: { summary: List model artifacts (content-addressed), security: [], responses: { "200": { description: Artifacts } } }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: Cluster admin key (admin endpoints) or an active per-user key (inference).

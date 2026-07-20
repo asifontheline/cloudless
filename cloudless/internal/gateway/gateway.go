@@ -29,6 +29,9 @@ import (
 //go:embed ui/index.html
 var consoleHTML []byte
 
+//go:embed openapi.yaml
+var openapiYAML []byte
+
 type RouteEntry struct {
 	Time    time.Time `json:"time"`
 	Path    string    `json:"path"`
@@ -217,6 +220,10 @@ func (g *Gateway) Handler() http.Handler {
 		json.NewEncoder(w).Encode(map[string]any{
 			"usage": g.Usage.Snapshot(), "limits": limits, "quotas": quotas,
 		})
+	})
+	mux.HandleFunc("GET /openapi.yaml", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml")
+		w.Write(openapiYAML)
 	})
 	mux.HandleFunc("GET /ui", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

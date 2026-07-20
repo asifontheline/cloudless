@@ -14,6 +14,7 @@ POST /v1/chat/completions      # streaming or non-streaming; routed + failed ove
 POST /v1/batch                 # parallel fan-out: many independent requests, divided across nodes
 POST /v1/embeddings            # (planned)
 GET  /v1/models
+GET  /openapi.yaml               # this contract, as a formal machine-readable spec (served by every node)
 ```
 
 Batch fan-out: `{"path": "/v1/chat/completions", "requests": [ {...}, ... ]}` (1–64 items)

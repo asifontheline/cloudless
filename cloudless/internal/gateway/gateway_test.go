@@ -264,3 +264,20 @@ func TestBatchLimits(t *testing.T) {
 		}
 	}
 }
+
+// The formal API spec is served by every node and stays valid YAML (K1).
+func TestOpenAPIServed(t *testing.T) {
+	g := newTestGateway(t)
+	req := httptest.NewRequest(http.MethodGet, "/openapi.yaml", nil)
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"openapi:", "/v1/chat/completions", "/v1/batch", "/enroll", "/join-tokens"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("spec missing %q", want)
+		}
+	}
+}
