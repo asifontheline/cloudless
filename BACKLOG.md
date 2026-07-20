@@ -67,7 +67,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #57 J5 | Mobile packaging & distribution | ⬜ |
 
 ## EPIC K — Open Platform & Polyglot
-| #58 K1 | Stable open API specification | ⬜ (PROTOCOL.md published; formal OpenAPI pending) |
+| #58 K1 | Stable open API specification | ✅ (PROTOCOL.md + formal spec served at /openapi.yaml) |
 | #59 K2 | Python SDK (first-class) | ✅ |
 | #60 K3 | JavaScript/TypeScript SDK | ⬜ |
 | #61 K4 | Polyglot extension model | ⬜ |
