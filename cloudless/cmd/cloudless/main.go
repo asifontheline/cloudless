@@ -22,6 +22,7 @@ import (
 	"cloudless/internal/audit"
 	"cloudless/internal/backup"
 	"cloudless/internal/config"
+	"cloudless/internal/ext"
 	"cloudless/internal/gateway"
 	"cloudless/internal/gossip"
 	"cloudless/internal/inflight"
@@ -67,6 +68,8 @@ func main() {
 		restoreCmd(os.Args[2:])
 	case "backup":
 		backupCmd(os.Args[2:])
+	case "ext":
+		extCmd(os.Args[2:])
 	case "models":
 		modelsCmd(os.Args[2:])
 	case "share":
@@ -404,6 +407,14 @@ func runServe(cfg *config.Config) {
 		gw.NodeName = cfg.Gossip.NodeName
 	}
 
+	// K4: polyglot extensions — any-language services behind the gateway.
+	extPath := "extensions.json"
+	if cfg.PKIDir != "" {
+		extPath = filepath.Join(filepath.Dir(cfg.PKIDir), "extensions.json")
+	}
+	gw.Ext = ext.Open(extPath)
+	go gw.Ext.Run(ctx, 15*time.Second, nil)
+
 	// M5: scheduled off-mesh export — the archive survives the whole mesh.
 	if cfg.Backup != nil && dataVault != nil && cfg.Backup.Path != "" && cfg.Backup.Passphrase != "" {
 		every := time.Duration(cfg.Backup.EveryHours) * time.Hour
@@ -704,6 +715,78 @@ func keysCmd(args []string) {
 
 // modelsCmd manages the content-addressed model store:
 // list | add <file> [name] | verify <name> | rm <name>
+// extCmd manages polyglot extensions (K4): services in any language,
+// registered with the node and reachable at /x/<name>/... .
+func extCmd(args []string) {
+	fs := flag.NewFlagSet("ext", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	runtime := fs.String("runtime", "", "informational runtime label (python, node, rust, ...)")
+	desc := fs.String("desc", "", "one-line description for the console")
+	fs.Parse(args)
+	if *adminKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*adminKey = cfg.APIKey
+			}
+		}
+	}
+	do := func(method, path string, body io.Reader) *http.Response {
+		req, _ := http.NewRequest(method, *addr+path, body)
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return resp
+	}
+	sub := "list"
+	if fs.NArg() > 0 {
+		sub = fs.Arg(0)
+	}
+	switch sub {
+	case "list":
+		resp := do("GET", "/extensions", nil)
+		defer resp.Body.Close()
+		var out struct {
+			Extensions []ext.Extension `json:"extensions"`
+		}
+		json.NewDecoder(resp.Body).Decode(&out)
+		fmt.Printf("%-20s %-28s %-8s %-8s %s\n", "NAME", "BASE URL", "RUNTIME", "HEALTH", "ROUTE")
+		for _, e := range out.Extensions {
+			health := "down"
+			if e.Healthy {
+				health = "up"
+			}
+			fmt.Printf("%-20s %-28s %-8s %-8s /x/%s/…\n", e.Name, e.BaseURL, e.Runtime, health, e.Name)
+		}
+	case "add":
+		if fs.NArg() < 3 {
+			log.Fatal("usage: cloudless ext add <name> <base-url> [-runtime python] [-desc ...]")
+		}
+		body, _ := json.Marshal(ext.Extension{Name: fs.Arg(1), BaseURL: fs.Arg(2), Runtime: *runtime, Description: *desc})
+		resp := do("POST", "/extensions", strings.NewReader(string(body)))
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("add failed: %s", raw)
+		}
+		fmt.Printf("registered: %s\nreachable at %s/x/%s/... (same bearer keys as inference)\n", raw, *addr, fs.Arg(1))
+	case "rm":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless ext rm <name>")
+		}
+		resp := do("DELETE", "/extensions/"+fs.Arg(1), nil)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusNoContent {
+			log.Fatalf("rm failed: %d", resp.StatusCode)
+		}
+		fmt.Println("removed")
+	default:
+		log.Fatal("usage: cloudless ext [list|add|rm]")
+	}
+}
+
 // backupCmd exports/imports the off-mesh encrypted archive (M5).
 func backupCmd(args []string) {
 	fs := flag.NewFlagSet("backup", flag.ExitOnError)

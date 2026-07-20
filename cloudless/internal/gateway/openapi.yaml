@@ -256,6 +256,44 @@ paths:
       security: []
       responses:
         "200": { description: "{target, objects: [{name, replicas, target, holders, domains, healthy}], scanned}" }
+  /extensions:
+    get:
+      summary: List registered polyglot extensions (K4)
+      security: []
+      responses: { "200": { description: "{extensions: [{name, base_url, runtime, description, healthy}]}" } }
+    post:
+      summary: Register an extension (admin)
+      description: >
+        An extension is any HTTP service, in any language. Once registered it
+        is reachable at /x/{name}/... with the same bearer keys as inference;
+        the gateway strips mesh credentials before proxying and
+        health-checks the service.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, base_url]
+              properties:
+                name: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,63}$" }
+                base_url: { type: string }
+                runtime: { type: string }
+                description: { type: string }
+      responses:
+        "200": { description: Registered }
+        "403": { description: Admin key required }
+        "422": { description: Invalid name/URL or duplicate }
+  /extensions/{name}:
+    delete:
+      summary: Deregister an extension (admin)
+      parameters: [ { name: name, in: path, required: true, schema: { type: string } } ]
+      responses: { "204": { description: Removed }, "403": { description: Admin key required } }
+  /x/{name}/{path}:
+    description: >
+      Proxy to the named extension: all methods, path and query preserved,
+      bearer auth enforced at the gateway, Authorization header stripped
+      before the extension sees the request.
 components:
   securitySchemes:
     bearer:

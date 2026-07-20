@@ -88,6 +88,7 @@ const SECTIONS = [
     ["vectors","Vector Search","Semantic search store paired with the inference gateway.","planned"],
   ]},
   { id:"compute", label:"Cloud Compute", items:[
+    ["extensions","Extensions","Services in any language behind the gateway at /x/name/… (live below).","live"],
     ["batch","Batch Jobs","Parallel jobs (render, transcode, data prep) spread across peers.","planned"],
     ["cron","Scheduled Jobs","Recurring tasks that survive node failure via failover.","planned"],
     ["containers","Containers","Sandboxed container workloads dispatched to nodes.","planned"],
@@ -173,6 +174,7 @@ function renderItem(sec, id) {
   if (sec.id === "ops" && id === "dr") return renderReplication();
   if (sec.id === "storage" && id === "models") return renderModels();
   if (sec.id === "storage" && id === "backup") return renderVault();
+  if (sec.id === "compute" && id === "extensions") return renderExtensions();
   const it = sec.items.find(i => i[0] === id);
   if (!it) return renderSection(sec);
   const [, name, desc, st] = it;
@@ -414,6 +416,57 @@ function renderModels() {
     load();
   };
   load();
+}
+
+// ---- extensions (live, K4) --------------------------------------------------
+function renderExtensions() {
+  main.innerHTML = `<p class="crumb"><a href="#/compute">Cloud Compute</a> / Extensions</p>
+  <h1>Extensions <span class="badge b-live">Live</span></h1>
+  <p>Add services in <strong>any language</strong> without touching the core: run an ordinary HTTP
+  service (Python, JS, Rust, anything), register it here, and it's reachable through the gateway
+  at <code>/x/&lt;name&gt;/…</code> with the same member keys as inference. The node health-checks
+  it; your credentials never reach the extension.</p>
+  <p>
+  <input id="xname" placeholder="name (e.g. summarize)" style="padding:.4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+  <input id="xurl" placeholder="base URL (e.g. http://127.0.0.1:9090)" size="28" style="padding:.4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+  <input id="xrt" placeholder="runtime" size="8" style="padding:.4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+  <button id="xadd" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Register</button>
+  <span class="muted">(admin key from the Members page is used)</span></p>
+  <p id="xmsg" class="principle" style="display:none"></p>
+  <table><thead><tr><th>Name</th><th>Route</th><th>Runtime</th><th>Health</th><th>Description</th><th></th></tr></thead>
+  <tbody id="xlist"></tbody></table>
+  <p class="muted">Python example in the repo: <code>examples/extensions/summarize.py</code> —
+  a stdlib-only service that self-registers on startup.</p>`;
+  const hdr = () => ({'Authorization': 'Bearer ' + (localStorage.getItem('adminKey') || '')});
+  const msg = (t, bad) => { const m = document.getElementById('xmsg'); m.style.display = 'block';
+    m.style.borderColor = bad ? 'var(--bad, #d64545)' : 'var(--accent)'; m.textContent = t; };
+  const load = async () => {
+    try {
+      const d = await (await fetch('/extensions')).json();
+      document.getElementById('xlist').innerHTML = (d.extensions || []).map(e =>
+        `<tr><td>${esc(e.name)}</td><td><code>/x/${esc(e.name)}/…</code></td><td>${esc(e.runtime || '—')}</td>` +
+        `<td class="${e.healthy?'ok':'bad'}">${e.healthy?'up':'down'}</td><td class="muted">${esc(e.description || '')}</td>` +
+        `<td><a href="#" data-rm="${esc(e.name)}">remove</a></td></tr>`).join('')
+        || `<tr><td colspan="6" class="muted">No extensions yet — register one above.</td></tr>`;
+      document.querySelectorAll('[data-rm]').forEach(a => a.onclick = async e => {
+        e.preventDefault();
+        await fetch('/extensions/' + encodeURIComponent(a.dataset.rm), {method: 'DELETE', headers: hdr()});
+        load();
+      });
+    } catch {}
+  };
+  document.getElementById('xadd').onclick = async () => {
+    const name = document.getElementById('xname').value.trim();
+    const url = document.getElementById('xurl').value.trim();
+    if (!name || !url) { msg('Name and base URL are required.', true); return; }
+    const r = await fetch('/extensions', {method: 'POST', headers: hdr(),
+      body: JSON.stringify({name, base_url: url, runtime: document.getElementById('xrt').value.trim()})});
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { msg(d.error || 'Registration failed.', true); return; }
+    msg('Registered ' + name + ' — reachable at /x/' + name + '/… with member keys.', false);
+    load();
+  };
+  load(); timer = setInterval(load, 5000);
 }
 
 // ---- data vault (live, M3) --------------------------------------------------
