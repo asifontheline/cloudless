@@ -18,6 +18,7 @@ import (
 
 	"cloudless/internal/audit"
 	"cloudless/internal/backup"
+	"cloudless/internal/ext"
 	"cloudless/internal/inflight"
 	"cloudless/internal/keys"
 	"cloudless/internal/quota"
@@ -110,6 +111,10 @@ type Gateway struct {
 
 	// NodeName identifies this node in backup archives (M5).
 	NodeName string
+
+	// Ext, when set, is the polyglot extension registry (K4): services in
+	// any language reachable through the gateway at /x/<name>/... .
+	Ext *ext.Registry
 }
 
 const routeLogSize = 20
@@ -356,6 +361,45 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/ui", http.StatusTemporaryRedirect)
 	})
+	// K4 extensions: any-language services behind the gateway.
+	mux.HandleFunc("GET /extensions", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if g.Ext == nil {
+			json.NewEncoder(w).Encode(map[string]any{"extensions": []any{}})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"extensions": g.Ext.List()})
+	})
+	mux.HandleFunc("POST /extensions", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
+		if g.Ext == nil {
+			http.Error(w, `{"error":"extensions unavailable on this node"}`, http.StatusNotFound)
+			return
+		}
+		var e ext.Extension
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&e); err != nil {
+			http.Error(w, `{"error":"bad request"}`, http.StatusBadRequest)
+			return
+		}
+		reg, err := g.Ext.Register(e)
+		if err != nil {
+			http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusUnprocessableEntity)
+			return
+		}
+		g.Audit.Append("cluster", "ext.register", reg.Name, reg.BaseURL)
+		log.Printf("ext: registered %s -> %s (%s)", reg.Name, reg.BaseURL, reg.Runtime)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(reg)
+	}))
+	mux.HandleFunc("DELETE /extensions/{name}", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
+		if g.Ext == nil || !g.Ext.Remove(r.PathValue("name")) {
+			http.Error(w, `{"error":"unknown extension"}`, http.StatusNotFound)
+			return
+		}
+		g.Audit.Append("cluster", "ext.remove", r.PathValue("name"), "")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	mux.HandleFunc("/x/{name}/", g.auth(g.handleExtProxy))
+
 	mux.HandleFunc("POST /v1/batch", g.auth(g.handleBatch))
 	mux.HandleFunc("/v1/", g.auth(g.handleProxy))
 	return mux
@@ -476,6 +520,55 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		log.Printf("all backends failed: %v", lastErr)
 	}
 	http.Error(w, `{"error":"all backends unavailable"}`, http.StatusBadGateway)
+}
+
+// handleExtProxy forwards /x/<name>/<rest> to the named extension with the
+// gateway's bearer auth already checked. The Authorization header is
+// stripped — an extension never sees mesh credentials.
+func (g *Gateway) handleExtProxy(w http.ResponseWriter, r *http.Request) {
+	if g.Ext == nil {
+		http.Error(w, `{"error":"extensions unavailable on this node"}`, http.StatusNotFound)
+		return
+	}
+	name := r.PathValue("name")
+	e, ok := g.Ext.Get(name)
+	if !ok {
+		http.Error(w, `{"error":"unknown extension"}`, http.StatusNotFound)
+		return
+	}
+	rest := strings.TrimPrefix(r.URL.Path, "/x/"+name)
+	target := e.BaseURL + rest
+	if r.URL.RawQuery != "" {
+		target += "?" + r.URL.RawQuery
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20+1))
+	if err != nil {
+		http.Error(w, `{"error":"read body"}`, http.StatusBadRequest)
+		return
+	}
+	if len(body) > 10<<20 {
+		http.Error(w, `{"error":"request body exceeds 10MB"}`, http.StatusRequestEntityTooLarge)
+		return
+	}
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, target, bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, `{"error":"bad request"}`, http.StatusBadRequest)
+		return
+	}
+	for k, vv := range r.Header {
+		if http.CanonicalHeaderKey(k) == "Authorization" {
+			continue // mesh credentials stay at the gateway
+		}
+		for _, v := range vv {
+			req.Header.Add(k, v)
+		}
+	}
+	resp, err := g.client.Do(req)
+	if err != nil {
+		http.Error(w, `{"error":"extension unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	copyResponse(w, resp, nil)
 }
 
 // trimV1 maps the gateway path onto the backend base URL, which already
