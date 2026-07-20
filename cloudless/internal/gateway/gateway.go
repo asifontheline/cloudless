@@ -48,6 +48,11 @@ type Gateway struct {
 	mu     sync.Mutex
 	routes []RouteEntry // ring buffer of recent routing decisions
 
+	// Recent request latencies, raced vs single, for the console's
+	// "is racing worth it" comparison (O2).
+	racedLat  []time.Duration
+	singleLat []time.Duration
+
 	// EnrollHandler, when set (CA-holding node), serves POST /enroll.
 	EnrollHandler http.HandlerFunc
 
@@ -284,6 +289,31 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Speculative racing (O2): opt-in via X-Race. Buffered only — the
+	// winner's whole answer is compared, not its first byte.
+	if k := raceK(r); k > 1 {
+		start := time.Now()
+		a, raced := g.race(r.Context(), r.URL.Path, body, k)
+		g.recordLatency(true, time.Since(start))
+		g.logRoute(r.URL.Path+" [race]", a.backend, a.status, raced-1)
+		if a.status < 400 {
+			var parsed struct {
+				Usage struct {
+					PromptTokens     int64 `json:"prompt_tokens"`
+					CompletionTokens int64 `json:"completion_tokens"`
+				} `json:"usage"`
+			}
+			json.Unmarshal(a.body, &parsed)
+			g.Usage.Add(key, a.backend, 1, parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens)
+			g.Quota.AddTokens(key, parsed.Usage.PromptTokens+parsed.Usage.CompletionTokens)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(a.status)
+		w.Write(a.body)
+		return
+	}
+
+	start := time.Now()
 	var lastErr error
 	for i, b := range backends {
 		req, err := http.NewRequestWithContext(r.Context(), r.Method, b.Backend.BaseURL+trimV1(r.URL.Path), bytes.NewReader(body))
@@ -312,6 +342,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 			log.Printf("backend %s failed before first byte, trying next", b.Backend.Name)
 			continue
 		}
+		g.recordLatency(false, time.Since(start))
 		g.logRoute(r.URL.Path, b.Backend.Name, resp.StatusCode, i)
 		return
 	}
@@ -730,5 +761,6 @@ func (g *Gateway) handleStatus(w http.ResponseWriter, _ *http.Request) {
 		"load": map[string]any{
 			"inflight": inflightN, "waiting": waiting, "max_concurrent": g.Limiter.Capacity(),
 		},
+		"racing": g.raceStats(),
 	})
 }
