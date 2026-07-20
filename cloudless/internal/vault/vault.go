@@ -10,6 +10,7 @@
 package vault
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -185,6 +186,51 @@ func (v *Vault) Get(name string) ([]byte, error) {
 	plain, err := gcm.Open(nil, sealed[:gcm.NonceSize()], sealed[gcm.NonceSize():], []byte(name))
 	if err != nil {
 		return nil, ErrNoKey // wrong key or tampered ciphertext — indistinguishable by design
+	}
+	return plain, nil
+}
+
+// KeyCopy returns a copy of the sealing key for the off-mesh backup
+// archive (M5) — the one sanctioned way the key leaves this machine, and
+// only inside a passphrase-encrypted export.
+func (v *Vault) KeyCopy() []byte {
+	out := make([]byte, len(v.key))
+	copy(out, v.key)
+	return out
+}
+
+// SealedBytes returns an object's stored ciphertext for export.
+func (v *Vault) SealedBytes(name string) ([]byte, error) {
+	p, ok := v.Path(name)
+	if !ok {
+		return nil, fmt.Errorf("unknown object %q", name)
+	}
+	return os.ReadFile(p)
+}
+
+// PutBytes seals plaintext already held in memory (backup import path).
+func (v *Vault) PutBytes(name string, plain []byte) (Entry, error) {
+	return v.Put(name, bytes.NewReader(plain))
+}
+
+// OpenSealed decrypts one sealed blob with an explicit key — used by backup
+// import to recover objects archived under a previous node's key. The name
+// is bound as AAD exactly as in Get.
+func OpenSealed(key []byte, name string, sealed []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	if len(sealed) < gcm.NonceSize() {
+		return nil, ErrNoKey
+	}
+	plain, err := gcm.Open(nil, sealed[:gcm.NonceSize()], sealed[gcm.NonceSize():], []byte(name))
+	if err != nil {
+		return nil, ErrNoKey
 	}
 	return plain, nil
 }

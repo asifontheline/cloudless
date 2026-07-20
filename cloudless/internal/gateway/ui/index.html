@@ -427,6 +427,12 @@ function renderVault() {
   <p><input id="vfile" type="file" style="font-size:.9rem">
   <button id="vup" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Seal &amp; store</button>
   <span class="muted">(admin key from the Members page is used)</span></p>
+  <p><input id="bpass" type="password" placeholder="backup passphrase" style="padding:.4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit">
+  <button id="bexp" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Export off-mesh backup</button>
+  &nbsp;·&nbsp;
+  <input id="bfile" type="file" style="font-size:.9rem">
+  <button id="bimp" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Import backup</button>
+  <span class="muted">the escape hatch: an encrypted archive that survives even the whole mesh going away</span></p>
   <p id="vmsg" class="principle" style="display:none"></p>
   <table><thead><tr><th>Name</th><th>Size</th><th>Kind</th><th>Ciphertext SHA-256</th><th></th><th></th></tr></thead>
   <tbody id="vlist"></tbody></table>`;
@@ -458,6 +464,33 @@ function renderVault() {
         load();
       });
     } catch {}
+  };
+  document.getElementById('bexp').onclick = async () => {
+    const pass = document.getElementById('bpass').value;
+    if (!pass) { msg('A passphrase is required — the archive leaves the mesh.', true); return; }
+    const r = await fetch('/backup/export', {method: 'POST', headers: hdr(),
+      body: JSON.stringify({passphrase: pass})});
+    if (!r.ok) { const d = await r.json().catch(() => ({})); msg(d.error || 'Export failed.', true); return; }
+    const blob = await r.blob(); const u = URL.createObjectURL(blob);
+    const link = document.createElement('a'); link.href = u;
+    link.download = 'cloudless-backup-' + new Date().toISOString().slice(0,10) + '.sealed'; link.click();
+    URL.revokeObjectURL(u);
+    msg('Backup exported (' + (blob.size/1024).toFixed(1) + ' KB, encrypted). Keep it off the mesh; the passphrase is the only way back in.', false);
+  };
+  document.getElementById('bimp').onclick = async () => {
+    const pass = document.getElementById('bpass').value;
+    const f = document.getElementById('bfile').files[0];
+    if (!pass || !f) { msg('Pick an archive and enter its passphrase.', true); return; }
+    const r = await fetch('/backup/import', {method: 'POST',
+      headers: Object.assign({'X-Backup-Passphrase': pass}, hdr()), body: f});
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { msg(d.error || 'Import failed.', true); return; }
+    const objs = d.objects || [];
+    const failed = objs.filter(x => x.outcome === 'failed');
+    msg(objs.filter(x => x.outcome === 'restored').length + ' restored (re-sealed under this node\'s key and re-replicated), ' +
+      objs.filter(x => x.outcome === 'present').length + ' already present' +
+      (failed.length ? ' — FAILED: ' + failed.map(x => x.name).join(', ') : '.'), failed.length > 0);
+    load();
   };
   document.getElementById('vup').onclick = async () => {
     const f = document.getElementById('vfile').files[0];

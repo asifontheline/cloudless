@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"cloudless/internal/audit"
+	"cloudless/internal/backup"
 	"cloudless/internal/config"
 	"cloudless/internal/gateway"
 	"cloudless/internal/gossip"
@@ -64,6 +65,8 @@ func main() {
 		vaultCmd(os.Args[2:])
 	case "restore":
 		restoreCmd(os.Args[2:])
+	case "backup":
+		backupCmd(os.Args[2:])
 	case "models":
 		modelsCmd(os.Args[2:])
 	case "share":
@@ -397,6 +400,50 @@ func runServe(cfg *config.Config) {
 	gw.Share = shareStore
 
 	gw.Vault = dataVault
+	if cfg.Gossip != nil {
+		gw.NodeName = cfg.Gossip.NodeName
+	}
+
+	// M5: scheduled off-mesh export — the archive survives the whole mesh.
+	if cfg.Backup != nil && dataVault != nil && cfg.Backup.Path != "" && cfg.Backup.Passphrase != "" {
+		every := time.Duration(cfg.Backup.EveryHours) * time.Hour
+		if every <= 0 {
+			every = 24 * time.Hour
+		}
+		go func() {
+			t := time.NewTicker(every)
+			defer t.Stop()
+			write := func() {
+				var refs []backup.ModelRef
+				if modelStore != nil {
+					for _, e := range modelStore.List() {
+						refs = append(refs, backup.ModelRef{Name: e.Name, SHA256: e.SHA256})
+					}
+				}
+				arch, err := backup.Export(dataVault, gw.NodeName, refs, cfg.Backup.Passphrase)
+				if err != nil {
+					log.Printf("backup: scheduled export failed: %v", err)
+					return
+				}
+				tmp := cfg.Backup.Path + ".tmp"
+				if err := os.WriteFile(tmp, arch, 0o600); err == nil {
+					os.Rename(tmp, cfg.Backup.Path)
+					log.Printf("backup: exported %d bytes to %s", len(arch), cfg.Backup.Path)
+				} else {
+					log.Printf("backup: write failed: %v", err)
+				}
+			}
+			write()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-t.C:
+					write()
+				}
+			}
+		}()
+	}
 
 	// M1/M3: keep every stored object on N nodes across failure domains —
 	// model artifacts as-is, vault objects as owner-sealed ciphertext.
@@ -657,6 +704,76 @@ func keysCmd(args []string) {
 
 // modelsCmd manages the content-addressed model store:
 // list | add <file> [name] | verify <name> | rm <name>
+// backupCmd exports/imports the off-mesh encrypted archive (M5).
+func backupCmd(args []string) {
+	fs := flag.NewFlagSet("backup", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	pass := fs.String("passphrase", "", "archive passphrase (required)")
+	file := fs.String("file", "", "archive path (default cloudless-backup.sealed)")
+	fs.Parse(args)
+	if *adminKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*adminKey = cfg.APIKey
+			}
+		}
+	}
+	if *pass == "" {
+		log.Fatal("-passphrase is required — the archive leaves the mesh encrypted")
+	}
+	if *file == "" {
+		*file = "cloudless-backup.sealed"
+	}
+	sub := "export"
+	if fs.NArg() > 0 {
+		sub = fs.Arg(0)
+	}
+	switch sub {
+	case "export":
+		body, _ := json.Marshal(map[string]string{"passphrase": *pass})
+		req, _ := http.NewRequest("POST", *addr+"/backup/export", strings.NewReader(string(body)))
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			raw, _ := io.ReadAll(resp.Body)
+			log.Fatalf("export failed: %s", raw)
+		}
+		arch, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := os.WriteFile(*file, arch, 0o600); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("exported %d bytes to %s — store it off the mesh, remember the passphrase\n", len(arch), *file)
+	case "import":
+		arch, err := os.ReadFile(*file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		req, _ := http.NewRequest("POST", *addr+"/backup/import", strings.NewReader(string(arch)))
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		req.Header.Set("X-Backup-Passphrase", *pass)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("import failed: %s", raw)
+		}
+		fmt.Printf("import report: %s\n", raw)
+	default:
+		log.Fatal("usage: cloudless backup [export|import] -passphrase <p> [-file <path>]")
+	}
+}
+
 // restoreCmd rebuilds local data from surviving mesh replicas (M4).
 func restoreCmd(args []string) {
 	fs := flag.NewFlagSet("restore", flag.ExitOnError)
