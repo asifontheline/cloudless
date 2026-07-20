@@ -189,6 +189,23 @@ func (v *Vault) Get(name string) ([]byte, error) {
 	return plain, nil
 }
 
+// Verify re-hashes the ciphertext on disk against the recorded hash — a
+// corrupted or missing blob is detected without needing the sealing key.
+func (v *Vault) Verify(name string) (bool, error) {
+	v.mu.Lock()
+	e, ok := v.index[name]
+	v.mu.Unlock()
+	if !ok {
+		return false, fmt.Errorf("unknown object %q", name)
+	}
+	raw, err := os.ReadFile(filepath.Join(v.dir, e.SHA256))
+	if err != nil {
+		return false, err
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:]) == e.SHA256, nil
+}
+
 func (v *Vault) List() []Entry {
 	v.mu.Lock()
 	defer v.mu.Unlock()

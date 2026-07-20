@@ -50,8 +50,15 @@ type Manager struct {
 	List     func() []Blob                    // local objects
 	Path     func(name string) (string, bool) // local blob path for pushing
 	Endpoint string                           // peer collection path, e.g. "/store"
-	Peers    func() []Peer                    // healthy peers, excluding self
-	Client   *http.Client                     // carries the node's mTLS client cert
+
+	// Add and Verify enable owner-initiated restore (M4): Add writes a blob
+	// fetched from a peer (returning its content hash), Verify re-checks a
+	// local blob against its recorded hash. Either may be nil — restore then
+	// treats local copies as absent or trusted respectively.
+	Add    func(name string, r io.Reader) (sha string, err error)
+	Verify func(name string) bool
+	Peers  func() []Peer // healthy peers, excluding self
+	Client *http.Client  // carries the node's mTLS client cert
 
 	mu      sync.Mutex
 	status  []ObjectStatus
@@ -327,6 +334,93 @@ func (m *Manager) Scan(ctx context.Context) []ObjectStatus {
 	m.scanned = time.Now()
 	m.mu.Unlock()
 	return out
+}
+
+// blobEndpoint maps the collection path to its blob-fetch path on the relay.
+func (m *Manager) blobEndpoint() string {
+	if m.endpoint() == "/store" {
+		return "/blob"
+	}
+	return m.endpoint() + "-blob"
+}
+
+// RestoreResult is one object's outcome from an owner-initiated restore.
+type RestoreResult struct {
+	Name    string `json:"name"`
+	Outcome string `json:"outcome"` // present | restored | failed | irrecoverable
+	From    string `json:"from,omitempty"`
+	SHA256  string `json:"sha256,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// Restore rebuilds local objects from surviving replicas (M4). With no names
+// given it covers everything known locally or anywhere in the mesh. Every
+// object gets an explicit outcome — an object nobody holds is reported
+// irrecoverable, never silently dropped.
+func (m *Manager) Restore(ctx context.Context, names []string) []RestoreResult {
+	peers := m.Peers()
+	holders := m.survey(ctx, peers)
+	local := map[string]bool{}
+	for _, e := range m.List() {
+		local[e.Name] = true
+	}
+	if len(names) == 0 {
+		for name := range holders {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+	}
+	byName := map[string]Peer{}
+	for _, p := range peers {
+		byName[p.Name] = p
+	}
+	out := make([]RestoreResult, 0, len(names))
+	for _, name := range names {
+		if local[name] && (m.Verify == nil || m.Verify(name)) {
+			out = append(out, RestoreResult{Name: name, Outcome: "present"})
+			continue
+		}
+		if m.Add == nil {
+			out = append(out, RestoreResult{Name: name, Outcome: "failed", Error: "restore not supported for this collection"})
+			continue
+		}
+		res := RestoreResult{Name: name, Outcome: "irrecoverable",
+			Error: "no surviving replica holds this object"}
+		for _, holder := range holders[name] {
+			p, ok := byName[holder]
+			if !ok {
+				continue // the local (possibly corrupt) copy is not a source
+			}
+			sha, err := m.fetch(ctx, p, name)
+			if err != nil {
+				res = RestoreResult{Name: name, Outcome: "failed", From: p.Name, Error: err.Error()}
+				continue
+			}
+			res = RestoreResult{Name: name, Outcome: "restored", From: p.Name, SHA256: sha}
+			break
+		}
+		out = append(out, res)
+	}
+	return out
+}
+
+// fetch pulls one blob from a peer and writes it locally; the write path
+// re-hashes (and for models re-validates format), so a lying peer is caught.
+func (m *Manager) fetch(ctx context.Context, p Peer, name string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		base(p.BaseURL)+m.blobEndpoint()+"?name="+url.QueryEscape(name), nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := m.Client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("peer %s returned %d", p.Name, resp.StatusCode)
+	}
+	return m.Add(name, resp.Body)
 }
 
 // Run scans on a fixed interval until ctx ends — the self-healing loop.

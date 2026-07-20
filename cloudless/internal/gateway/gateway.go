@@ -102,6 +102,10 @@ type Gateway struct {
 	// sealed on this machine before they replicate; peers hold ciphertext.
 	Vault               *vault.Vault
 	VaultReplicateWrite func(ctx context.Context, name string) (int, []string)
+
+	// Restore, when set, rebuilds local objects from surviving replicas
+	// (M4), reporting an explicit outcome per object.
+	Restore func(ctx context.Context, names []string) map[string]any
 }
 
 const routeLogSize = 20
@@ -223,6 +227,20 @@ func (g *Gateway) Handler() http.Handler {
 		log.Printf("share: limits set to %d%% CPU (ceiling %d%%), when=%s", applied.CPUPercent, share.Ceiling, applied.ShareWhen)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"limits": applied, "ceiling": share.Ceiling, "shared_cores": g.Share.MaxProcs()})
+	}))
+	mux.HandleFunc("POST /restore", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
+		if g.Restore == nil {
+			http.Error(w, `{"error":"restore unavailable on this node"}`, http.StatusNotFound)
+			return
+		}
+		var body struct {
+			Names []string `json:"names"`
+		}
+		json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body) // empty body = restore everything
+		report := g.Restore(r.Context(), body.Names)
+		g.Audit.Append("cluster", "restore.run", strings.Join(body.Names, ","), "")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(report)
 	}))
 	mux.HandleFunc("GET /replication", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

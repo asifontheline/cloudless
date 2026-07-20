@@ -62,6 +62,8 @@ func main() {
 		capacityCmd(os.Args[2:])
 	case "vault":
 		vaultCmd(os.Args[2:])
+	case "restore":
+		restoreCmd(os.Args[2:])
 	case "models":
 		modelsCmd(os.Args[2:])
 	case "share":
@@ -431,6 +433,14 @@ func runServe(cfg *config.Config) {
 				}
 				return out
 			}, modelStore.Path)
+			modelMgr.Add = func(name string, r io.Reader) (string, error) {
+				e, err := modelStore.Add(name, r)
+				return e.SHA256, err
+			}
+			modelMgr.Verify = func(name string) bool {
+				ok, err := modelStore.Verify(name)
+				return err == nil && ok
+			}
 			go modelMgr.Run(ctx, time.Minute)
 			gw.ReplicateWrite = modelMgr.AckWrite
 		}
@@ -442,8 +452,45 @@ func runServe(cfg *config.Config) {
 				}
 				return out
 			}, dataVault.Path)
+			vaultMgr.Add = func(name string, r io.Reader) (string, error) {
+				e, err := dataVault.AddSealed(name, r)
+				return e.SHA256, err
+			}
+			vaultMgr.Verify = func(name string) bool {
+				ok, err := dataVault.Verify(name)
+				return err == nil && ok
+			}
 			go vaultMgr.Run(ctx, time.Minute)
 			gw.VaultReplicateWrite = vaultMgr.AckWrite
+		}
+		gw.Restore = func(rctx context.Context, names []string) map[string]any {
+			var models, vaultRes []replicate.RestoreResult
+			if modelMgr != nil {
+				models = modelMgr.Restore(rctx, names)
+			}
+			if vaultMgr != nil {
+				vaultRes = vaultMgr.Restore(rctx, names)
+			}
+			// A name recovered in one collection is not "irrecoverable" just
+			// because the other collection never held it; a name found in
+			// neither stays explicitly irrecoverable in both reports.
+			found := map[string]bool{}
+			for _, r := range append(append([]replicate.RestoreResult{}, models...), vaultRes...) {
+				if r.Outcome != "irrecoverable" {
+					found[r.Name] = true
+				}
+			}
+			drop := func(rs []replicate.RestoreResult) []replicate.RestoreResult {
+				out := rs[:0]
+				for _, r := range rs {
+					if r.Outcome == "irrecoverable" && found[r.Name] {
+						continue
+					}
+					out = append(out, r)
+				}
+				return out
+			}
+			return map[string]any{"models": drop(models), "vault": drop(vaultRes)}
 		}
 		gw.Replication = func() map[string]any {
 			out := map[string]any{"target": cfg.ReplicationFactor}
@@ -610,6 +657,57 @@ func keysCmd(args []string) {
 
 // modelsCmd manages the content-addressed model store:
 // list | add <file> [name] | verify <name> | rm <name>
+// restoreCmd rebuilds local data from surviving mesh replicas (M4).
+func restoreCmd(args []string) {
+	fs := flag.NewFlagSet("restore", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	fs.Parse(args)
+	if *adminKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*adminKey = cfg.APIKey
+			}
+		}
+	}
+	body, _ := json.Marshal(map[string]any{"names": fs.Args()})
+	req, _ := http.NewRequest("POST", *addr+"/restore", strings.NewReader(string(body)))
+	req.Header.Set("Authorization", "Bearer "+*adminKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		log.Fatalf("restore failed: %s", raw)
+	}
+	var report map[string][]replicate.RestoreResult
+	json.NewDecoder(resp.Body).Decode(&report)
+	bad := 0
+	for _, coll := range []string{"models", "vault"} {
+		if len(report[coll]) == 0 {
+			continue
+		}
+		fmt.Println(strings.ToUpper(coll))
+		for _, r := range report[coll] {
+			line := fmt.Sprintf("  %-28s %s", r.Name, r.Outcome)
+			if r.From != "" {
+				line += " (from " + r.From + ")"
+			}
+			if r.Error != "" && r.Outcome != "present" && r.Outcome != "restored" {
+				line += " — " + r.Error
+				bad++
+			}
+			fmt.Println(line)
+		}
+	}
+	if bad > 0 {
+		fmt.Printf("\n%d object(s) could not be restored — listed above, not silently dropped.\n", bad)
+		os.Exit(1)
+	}
+}
+
 // vaultCmd manages owner-encrypted vault objects (M3): sealed on this
 // node before replication; only this node can open them.
 func vaultCmd(args []string) {
