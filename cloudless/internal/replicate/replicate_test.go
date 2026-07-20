@@ -127,6 +127,48 @@ func TestScanCountsExistingReplicas(t *testing.T) {
 	}
 }
 
+// M2 acceptance: kill a node holding replicas; the next scan restores the
+// replication factor on the surviving mesh.
+func TestKillNodeFullReReplication(t *testing.T) {
+	p1 := newFakePeer(t, "p1")
+	p2 := newFakePeer(t, "p2")
+	m, st := newManager(t, p1.peer("eu/fr/paris"), p2.peer("us/ny/nyc"))
+	m.Target = 2
+	if _, err := st.Add("m.gguf", strings.NewReader(gguf)); err != nil {
+		t.Fatal(err)
+	}
+	// First scan reaches the target of 2 somewhere in the mesh.
+	first := m.Scan(context.Background())[0]
+	if first.Replicas < 2 {
+		t.Fatalf("initial replication never reached target: %+v", first)
+	}
+	// Kill whichever peer holds the second copy; the mesh shrinks to the
+	// other one. (If both held copies, kill p1.)
+	var dead, alive *fakePeer = p1, p2
+	if _, ok := p1.st.Path("m.gguf"); !ok {
+		dead, alive = p2, p1
+	}
+	dead.srv.Close()
+	if _, held := alive.st.Path("m.gguf"); held {
+		t.Skip("both peers already hold copies — loss cannot be simulated")
+	}
+	m.Peers = func() []Peer { return []Peer{alive.peer("somewhere/else")} }
+
+	// Self-healing: the next scan must restore N=2 on the survivors.
+	s := m.Scan(context.Background())[0]
+	if s.Replicas < 2 || !s.Healthy {
+		t.Fatalf("re-replication after node loss failed: %+v", s)
+	}
+	if _, ok := alive.st.Path("m.gguf"); !ok {
+		t.Fatal("surviving peer never received the repaired copy")
+	}
+	// The console's repair feed recorded the action.
+	status := m.Status()
+	if repairs, ok := status["repairs"].([]RepairAction); !ok || len(repairs) == 0 {
+		t.Fatalf("repair activity missing from status: %+v", status["repairs"])
+	}
+}
+
 // Placement prefers distinct failure domains when the mesh allows it.
 func TestDesiredSpreadsAcrossDomains(t *testing.T) {
 	cands := []Peer{
