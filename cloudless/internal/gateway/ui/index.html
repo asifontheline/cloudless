@@ -537,6 +537,9 @@ function renderReplication() {
   <p>Every stored artifact targets <strong>N</strong> copies on nodes in different failure domains
   (different homes, networks, regions) — never on only one machine. A self-healing scan pushes
   fresh copies whenever a node is lost, furthest-below-target first.</p>
+  <p><button id="restore" style="padding:.4rem .9rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Restore from surviving replicas</button>
+  <span class="muted">rebuilds anything missing or corrupt on this node; hashes verified (admin key from the Members page is used)</span></p>
+  <p id="restoremsg" class="principle" style="display:none"></p>
   <p id="repsum" class="principle"></p>
   <table><thead><tr><th>Artifact</th><th>Replicas</th><th>Domains</th><th>Holders</th><th>Health</th></tr></thead>
   <tbody id="repbody"></tbody></table>
@@ -565,6 +568,20 @@ function renderReplication() {
         `<td class="${a.ok?'ok':'bad'}">${a.ok?'replicated':'failed'}</td></tr>`
       ).join('') || `<tr><td colspan="4" class="muted">No repairs needed recently.</td></tr>`;
     } catch {}
+  };
+  document.getElementById('restore').onclick = async () => {
+    const m = document.getElementById('restoremsg'); m.style.display = 'block';
+    m.textContent = 'Restoring from surviving replicas…';
+    const r = await fetch('/restore', {method: 'POST',
+      headers: {'Authorization': 'Bearer ' + (localStorage.getItem('adminKey') || '')}, body: '{}'});
+    if (!r.ok) { m.textContent = 'Restore failed (' + r.status + ') — is the admin key set on the Members page?'; return; }
+    const d = await r.json();
+    const all = [...(d.models || []), ...(d.vault || [])];
+    const restored = all.filter(x => x.outcome === 'restored');
+    const lost = all.filter(x => x.outcome === 'irrecoverable' || x.outcome === 'failed');
+    m.textContent = restored.length + ' restored, ' + all.filter(x => x.outcome === 'present').length + ' already intact' +
+      (lost.length ? ' — NOT RECOVERED: ' + lost.map(x => x.name + ' (' + (x.error || x.outcome) + ')').join('; ') : '.');
+    load();
   };
   load(); timer = setInterval(load, 3000);
 }

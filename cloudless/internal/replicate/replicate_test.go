@@ -169,6 +169,40 @@ func TestKillNodeFullReReplication(t *testing.T) {
 	}
 }
 
+// M4: an owner whose node lost its data rebuilds it from surviving
+// replicas, hash-verified; what nobody holds is reported irrecoverable.
+func TestRestoreFromSurvivingReplicas(t *testing.T) {
+	p1 := newFakePeer(t, "p1")
+	if _, err := p1.st.Add("m.gguf", strings.NewReader(gguf)); err != nil {
+		t.Fatal(err)
+	}
+	m, st := newManager(t, p1.peer("eu/fr/paris"))
+	m.Add = func(name string, r io.Reader) (string, error) {
+		e, err := st.Add(name, r)
+		return e.SHA256, err
+	}
+	m.Verify = func(name string) bool {
+		ok, err := st.Verify(name)
+		return err == nil && ok
+	}
+	got := m.Restore(context.Background(), nil)
+	if len(got) != 1 || got[0].Outcome != "restored" || got[0].From != "p1" {
+		t.Fatalf("restore = %+v, want m.gguf restored from p1", got)
+	}
+	if ok, err := st.Verify("m.gguf"); err != nil || !ok {
+		t.Fatalf("restored blob failed hash verification: %v", err)
+	}
+	// A second run reports the object present, not re-fetched.
+	if got := m.Restore(context.Background(), nil); got[0].Outcome != "present" {
+		t.Fatalf("second restore = %+v, want present", got)
+	}
+	// An object nobody holds is explicitly irrecoverable.
+	got = m.Restore(context.Background(), []string{"gone.gguf"})
+	if len(got) != 1 || got[0].Outcome != "irrecoverable" {
+		t.Fatalf("lost object = %+v, want explicit irrecoverable", got)
+	}
+}
+
 // Placement prefers distinct failure domains when the mesh allows it.
 func TestDesiredSpreadsAcrossDomains(t *testing.T) {
 	cands := []Peer{

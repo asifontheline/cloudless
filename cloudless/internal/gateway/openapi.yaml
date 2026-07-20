@@ -204,6 +204,23 @@ paths:
       summary: Delete a vault object (admin)
       parameters: [ { name: name, in: path, required: true, schema: { type: string } } ]
       responses: { "204": { description: Deleted }, "403": { description: Admin key required } }
+  /restore:
+    post:
+      summary: Rebuild local objects from surviving replicas (admin, M4)
+      description: >
+        Pulls anything missing or hash-corrupt on this node back from mesh
+        replicas, verifying hashes on write. Every requested object gets an
+        explicit outcome — irrecoverable objects are listed, never silently
+        dropped. Empty body restores everything known locally or in the mesh.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, properties: { names: { type: array, items: { type: string } } } }
+      responses:
+        "200": { description: "{models: [{name, outcome, from, sha256, error}], vault: [...]}" }
+        "403": { description: Admin key required }
+        "404": { description: Restore unavailable (no secure mesh) }
   /replication:
     get:
       summary: Per-object replica count and placement health (M1)
