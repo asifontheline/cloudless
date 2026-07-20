@@ -60,6 +60,8 @@ func main() {
 		savingsCmd(os.Args[2:])
 	case "capacity":
 		capacityCmd(os.Args[2:])
+	case "vault":
+		vaultCmd(os.Args[2:])
 	case "models":
 		modelsCmd(os.Args[2:])
 	case "share":
@@ -608,6 +610,105 @@ func keysCmd(args []string) {
 
 // modelsCmd manages the content-addressed model store:
 // list | add <file> [name] | verify <name> | rm <name>
+// vaultCmd manages owner-encrypted vault objects (M3): sealed on this
+// node before replication; only this node can open them.
+func vaultCmd(args []string) {
+	fs := flag.NewFlagSet("vault", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	fs.Parse(args)
+	if *adminKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*adminKey = cfg.APIKey
+			}
+		}
+	}
+	do := func(method, path string, body io.Reader) *http.Response {
+		req, _ := http.NewRequest(method, *addr+path, body)
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return resp
+	}
+	sub := "list"
+	if fs.NArg() > 0 {
+		sub = fs.Arg(0)
+	}
+	switch sub {
+	case "list":
+		resp := do("GET", "/vault", nil)
+		defer resp.Body.Close()
+		var out struct {
+			Objects []vault.Entry `json:"objects"`
+		}
+		json.NewDecoder(resp.Body).Decode(&out)
+		fmt.Printf("%-28s %10s  %-8s %s\n", "NAME", "SIZE", "KIND", "CIPHERTEXT SHA256")
+		for _, e := range out.Objects {
+			kind := "owned"
+			if e.Sealed {
+				kind = "hosted" // ciphertext held for another node — unreadable here
+			}
+			fmt.Printf("%-28s %10d  %-8s %s\n", e.Name, e.Size, kind, e.SHA256[:16]+"…")
+		}
+	case "put":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless vault put <file> [name]")
+		}
+		path := fs.Arg(1)
+		name := filepath.Base(path)
+		if fs.NArg() > 2 {
+			name = fs.Arg(2)
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		resp := do("PUT", "/vault/"+name, f)
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("put failed: %s", body)
+		}
+		fmt.Printf("sealed and replicated: %s\n", body)
+	case "get":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless vault get <name> [outfile]")
+		}
+		resp := do("GET", "/vault/"+fs.Arg(1), nil)
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			log.Fatalf("get failed: %s", body)
+		}
+		out := os.Stdout
+		if fs.NArg() > 2 {
+			f, err := os.Create(fs.Arg(2))
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer f.Close()
+			out = f
+		}
+		io.Copy(out, resp.Body)
+	case "rm":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless vault rm <name>")
+		}
+		resp := do("DELETE", "/vault/"+fs.Arg(1), nil)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusNoContent {
+			log.Fatalf("rm failed: %d", resp.StatusCode)
+		}
+		fmt.Println("deleted")
+	default:
+		log.Fatal("usage: cloudless vault [list|put|get|rm]")
+	}
+}
+
 func modelsCmd(args []string) {
 	fs := flag.NewFlagSet("models", flag.ExitOnError)
 	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
