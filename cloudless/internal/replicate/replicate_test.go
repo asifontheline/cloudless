@@ -203,6 +203,38 @@ func TestRestoreFromSurvivingReplicas(t *testing.T) {
 	}
 }
 
+// M6: durability is measured from live state — survives-k is the weakest
+// object's spare copies, and repair timings appear once a repair happened.
+func TestDurabilityMeasured(t *testing.T) {
+	p1 := newFakePeer(t, "p1")
+	m, st := newManager(t, p1.peer("eu/fr/paris"))
+	m.Target = 2
+	if _, err := st.Add("m.gguf", strings.NewReader(gguf)); err != nil {
+		t.Fatal(err)
+	}
+	m.Scan(context.Background()) // repairs to p1
+	d, ok := m.Status()["durability"].(map[string]any)
+	if !ok {
+		t.Fatal("durability block missing from status")
+	}
+	if d["objects"] != 1 || d["at_target"] != 1 {
+		t.Fatalf("objects/at_target wrong: %+v", d)
+	}
+	if d["survives_loss"] != 1 {
+		t.Fatalf("2 replicas must survive 1 loss, got %v", d["survives_loss"])
+	}
+	if _, ok := d["repair_median_ms"]; !ok {
+		t.Fatalf("a repair ran but no observed repair time reported: %+v", d)
+	}
+	// No objects → nothing to claim.
+	empty, _ := newManager(t)
+	empty.Scan(context.Background())
+	de := empty.Status()["durability"].(map[string]any)
+	if de["objects"] != 0 || de["survives_loss"] != 0 {
+		t.Fatalf("empty mesh must claim nothing: %+v", de)
+	}
+}
+
 // Placement prefers distinct failure domains when the mesh allows it.
 func TestDesiredSpreadsAcrossDomains(t *testing.T) {
 	cands := []Peer{

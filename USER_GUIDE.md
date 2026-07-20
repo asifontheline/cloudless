@@ -107,6 +107,9 @@ once on the Members page; it's stored only in your browser.
 | See who gave/used | `cloudless ledger` | Operations → Contribution Ledger | `GET /ledger` |
 | Cost vs cloud | `cloudless savings` | Operations → Cost Calculator | `GET /savings` |
 | Find idle nodes | `cloudless capacity` | Operations → Idle Capacity | `GET /capacity` |
+| Seal private data | `cloudless vault put notes.txt` | Storage → Data Vault | `PUT /vault/{name}` |
+| Restore lost data | `cloudless restore` | Operations → Replication & Recovery | `POST /restore` |
+| Off-mesh backup | `cloudless backup export -passphrase …` | Storage → Data Vault | `POST /backup/export` |
 | Evict a node | `cloudless nodes revoke <name>` | Map → revoke | `POST /revoke/{name}` |
 | Check the audit log | `cloudless audit` | Security → Audit Log | `GET /audit` |
 
@@ -130,21 +133,41 @@ Add a model once, and peers can pull it from each other instead of re-downloadin
 tensor formats are accepted (`.gguf`, `.safetensors`, `.onnx`) — pickle-based files are rejected
 because they can execute code. Every artifact is SHA-256 verified on the way in and on demand.
 
-## 8. Security you get for free
+## 8. Your data: durable and yours
+
+Every stored object targets N copies (default 3) on nodes in different places; a lost node
+triggers automatic repair, and the console's **Replication & Recovery** page shows the numbers
+that matter, measured from your mesh — not promised:
+
+- **Survives node losses**: how many machines can vanish *at once* with every object still
+  having a copy. This is your weakest object's spare copies, so it can honestly read 0.
+- **Objects at target** and **observed repair time**: replication health right now, and how long
+  repairs actually took when they ran.
+- **Restore**: one click rebuilds anything missing or corrupt on this node from surviving
+  copies; anything unrecoverable is listed explicitly.
+- **Off-mesh backup**: export a passphrase-encrypted archive to a drive; re-import it later into
+  the same mesh or a brand-new one. Data in the **Data Vault** is encrypted on your machine
+  before it replicates — other nodes hold ciphertext they cannot read.
+
+Plain words on limits: replication narrows the window for loss, it does not close it. Losing
+more nodes simultaneously than an object has spare copies loses that object — that's why the
+off-mesh backup exists.
+
+## 9. Security you get for free
 
 - Encrypted, authenticated gossip; cluster CA with mutual-TLS between nodes.
 - Node revocation: evict a machine and its certificate is refused mesh-wide.
 - Tamper-evident audit log of every admin action.
 - Data stays on your hardware; nothing is sent to a vendor.
 
-## 9. Contribute
+## 10. Contribute
 
 You don't need to know Go. Build in any language against the open API (see
 [PROTOCOL.md](https://github.com/asifontheline/cloudless/blob/main/PROTOCOL.md)); Python is
 first-class. Changes flow through: branch → pull request → CI validation → review → merge queue.
 Full guide: [CONTRIBUTING.md](https://github.com/asifontheline/cloudless/blob/main/CONTRIBUTING.md).
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 - **"no local runtime detected"** — start a local inference runtime first, or `-backend <url>`.
 - **A peer won't join** — the first node must be reachable (LAN, VPN, public IP, or forwarded

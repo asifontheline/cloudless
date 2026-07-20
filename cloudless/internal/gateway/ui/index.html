@@ -573,6 +573,14 @@ function renderReplication() {
   <p><button id="restore" style="padding:.4rem .9rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Restore from surviving replicas</button>
   <span class="muted">rebuilds anything missing or corrupt on this node; hashes verified (admin key from the Members page is used)</span></p>
   <p id="restoremsg" class="principle" style="display:none"></p>
+  <div class="grid" id="durastrip" style="display:none">
+    <div class="card"><h3 style="margin:0">Survives node losses</h3><p style="font-size:1.6rem;margin:.2rem 0" id="dloss">—</p><p class="muted" id="dlossnote"></p></div>
+    <div class="card"><h3 style="margin:0">Objects at target</h3><p style="font-size:1.6rem;margin:.2rem 0" id="dtarget">—</p><p class="muted">replication health right now</p></div>
+    <div class="card"><h3 style="margin:0">Observed repair time</h3><p style="font-size:1.6rem;margin:.2rem 0" id="drepair">—</p><p class="muted" id="drepairnote"></p></div>
+  </div>
+  <p class="muted">Measured, not marketed: these numbers come from this mesh's live state and its
+  actual repair history. Losing more nodes at once than the weakest object's spare copies loses
+  that object — replication narrows the window, it does not close it.</p>
   <p id="repsum" class="principle"></p>
   <table><thead><tr><th>Artifact</th><th>Replicas</th><th>Domains</th><th>Holders</th><th>Health</th></tr></thead>
   <tbody id="repbody"></tbody></table>
@@ -591,6 +599,32 @@ function renderReplication() {
         (d.pending || 0) === 0
           ? `All objects at their durability target (N=${d.target}). Last scan ${d.scanned ? esc(String(d.scanned).slice(11,19)) : '—'}.`
           : `${d.pending} object(s) below target — repair in progress.`;
+      // M6: measured durability across collections — the weakest link rules.
+      const duras = [d.durability, d.vault && d.vault.durability].filter(x => x && x.objects > 0);
+      const strip = document.getElementById('durastrip');
+      if (duras.length) {
+        strip.style.display = '';
+        const k = Math.min(...duras.map(x => x.survives_loss));
+        document.getElementById('dloss').textContent = k;
+        document.getElementById('dlossnote').textContent = k === 0
+          ? 'at least one object has no spare copy yet — repair or add nodes'
+          : `any ${k} node(s) can vanish at once; every object still has a copy`;
+        const objs = duras.reduce((s,x) => s + x.objects, 0);
+        const at = duras.reduce((s,x) => s + x.at_target, 0);
+        document.getElementById('dtarget').textContent = at + ' / ' + objs;
+        const meds = duras.filter(x => x.repair_median_ms != null);
+        if (meds.length) {
+          const med = Math.max(...meds.map(x => x.repair_median_ms));
+          const mx = Math.max(...meds.map(x => x.repair_max_ms));
+          document.getElementById('drepair').textContent = (med/1000).toFixed(1) + ' s';
+          document.getElementById('drepairnote').textContent =
+            `median push time once detected (max ${(mx/1000).toFixed(1)} s); detection is bounded by the ${duras[0].scan_seconds || 60} s scan`;
+        } else {
+          document.getElementById('drepair').textContent = 'no repairs yet';
+          document.getElementById('drepairnote').textContent =
+            `nothing has needed repair; detection is bounded by the ${duras[0].scan_seconds || 60} s scan`;
+        }
+      } else { strip.style.display = 'none'; }
       document.getElementById('repbody').innerHTML = (d.objects || []).map(o =>
         `<tr><td>${esc(o.name)}</td><td>${o.replicas} / ${o.target}</td><td>${o.domains}</td>` +
         `<td class="muted">${(o.holders||[]).map(esc).join(', ')}</td>` +
