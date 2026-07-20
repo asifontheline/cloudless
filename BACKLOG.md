@@ -69,7 +69,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 ## EPIC K — Open Platform & Polyglot
 | #58 K1 | Stable open API specification | ✅ (PROTOCOL.md + formal spec served at /openapi.yaml) |
 | #59 K2 | Python SDK (first-class) | ✅ |
-| #60 K3 | JavaScript/TypeScript SDK | ⬜ |
+| #60 K3 | JavaScript/TypeScript SDK | ✅ (zero-dep fetch client + .d.ts; parity with Python) |
 | #61 K4 | Polyglot extension model | ✅ (HTTP-register V1; WASM sandbox later) |
 | #62 K5 | Polyglot runtime backends | ⬜ |
 
