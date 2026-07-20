@@ -97,7 +97,7 @@ const SECTIONS = [
   { id:"storage", label:"Cloud Storage", items:[
     ["models","Model Commons","Hash-verified artifact store; safe formats only.","live"],
     ["objects","Object Store","Replicated content-addressed storage across trusted peers.","planned"],
-    ["backup","Backup & Archive","Encrypted k-of-n replicated backups on community disks.","planned"],
+    ["backup","Data Vault","Owner-sealed objects: encrypted here before replication — hosts hold unreadable ciphertext (live below).","live"],
     ["artifacts","Artifact Registry","Container images and build artifacts on the same blob store.","planned"],
   ]},
   { id:"data", label:"Cloud Data", items:[
@@ -172,6 +172,7 @@ function renderItem(sec, id) {
   if (sec.id === "ops" && id === "capacity") return renderCapacity();
   if (sec.id === "ops" && id === "dr") return renderReplication();
   if (sec.id === "storage" && id === "models") return renderModels();
+  if (sec.id === "storage" && id === "backup") return renderVault();
   const it = sec.items.find(i => i[0] === id);
   if (!it) return renderSection(sec);
   const [, name, desc, st] = it;
@@ -410,6 +411,62 @@ function renderModels() {
     const d = await r.json().catch(() => ({}));
     if (r.ok) msg('Added ' + f.name + ' (' + d.format + ', sha256 ' + d.sha256.slice(0,16) + '…)', false);
     else msg(d.error || 'Upload rejected.', true);
+    load();
+  };
+  load();
+}
+
+// ---- data vault (live, M3) --------------------------------------------------
+function renderVault() {
+  main.innerHTML = `<p class="crumb"><a href="#/storage">Cloud Storage</a> / Data Vault</p>
+  <h1>Data Vault <span class="badge b-live">Live</span></h1>
+  <p>Objects are <strong>sealed on this machine</strong> (AES-256-GCM) before they replicate; the
+  sealing key never leaves this node. Other nodes store ciphertext they cannot read — a breached or
+  curious host yields nothing. Layered defense, honestly stated: names, sizes, and timing stay
+  visible to hosts, and this node itself still holds its key.</p>
+  <p><input id="vfile" type="file" style="font-size:.9rem">
+  <button id="vup" style="padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer">Seal &amp; store</button>
+  <span class="muted">(admin key from the Members page is used)</span></p>
+  <p id="vmsg" class="principle" style="display:none"></p>
+  <table><thead><tr><th>Name</th><th>Size</th><th>Kind</th><th>Ciphertext SHA-256</th><th></th><th></th></tr></thead>
+  <tbody id="vlist"></tbody></table>`;
+  const hdr = () => ({'Authorization': 'Bearer ' + (localStorage.getItem('adminKey') || '')});
+  const msg = (t, bad) => { const m = document.getElementById('vmsg'); m.style.display = 'block';
+    m.style.borderColor = bad ? 'var(--bad, #d64545)' : 'var(--accent)'; m.textContent = t; };
+  const load = async () => {
+    try {
+      const d = await (await fetch('/vault')).json();
+      if (d.enabled === false) { msg('Vault needs the secure mesh — start this node with cloudless up.', true); return; }
+      document.getElementById('vlist').innerHTML = (d.objects || []).map(e =>
+        `<tr><td>${esc(e.name)}</td><td>${(e.size/1024).toFixed(1)} KB</td>` +
+        `<td>${e.sealed ? '<span class="muted">hosted (unreadable here)</span>' : '<span class="ok">owned</span>'}</td>` +
+        `<td><code>${esc(e.sha256.slice(0,16))}…</code></td>` +
+        `<td>${e.sealed ? '' : `<a href="#" data-dl="${esc(e.name)}">open</a>`}</td>` +
+        `<td><a href="#" data-rm="${esc(e.name)}">delete</a></td></tr>`).join('')
+        || `<tr><td colspan="6" class="muted">Nothing sealed yet — add a file above.</td></tr>`;
+      document.querySelectorAll('[data-dl]').forEach(a => a.onclick = async e => {
+        e.preventDefault();
+        const r = await fetch('/vault/' + encodeURIComponent(a.dataset.dl), {headers: hdr()});
+        if (!r.ok) { const d2 = await r.json().catch(() => ({})); msg(d2.error || 'This node cannot open that object.', true); return; }
+        const blob = await r.blob(); const u = URL.createObjectURL(blob);
+        const link = document.createElement('a'); link.href = u; link.download = a.dataset.dl; link.click();
+        URL.revokeObjectURL(u);
+      });
+      document.querySelectorAll('[data-rm]').forEach(a => a.onclick = async e => {
+        e.preventDefault();
+        await fetch('/vault/' + encodeURIComponent(a.dataset.rm), {method: 'DELETE', headers: hdr()});
+        load();
+      });
+    } catch {}
+  };
+  document.getElementById('vup').onclick = async () => {
+    const f = document.getElementById('vfile').files[0];
+    if (!f) return;
+    msg('Sealing ' + f.name + ' on this machine…', false);
+    const r = await fetch('/vault/' + encodeURIComponent(f.name), {method: 'PUT', headers: hdr(), body: f});
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) msg('Sealed ' + f.name + (d.replicas ? ' — ' + d.replicas + ' replica(s) on: ' + (d.holders || []).join(', ') : ' (no peers to replicate to yet)'), false);
+    else msg(d.error || 'Rejected.', true);
     load();
   };
   load();

@@ -35,7 +35,7 @@ func newFakePeer(t *testing.T, name string) *fakePeer {
 		return out
 	}
 	add := func(n string, r io.Reader) error { _, err := st.Add(n, r); return err }
-	srv := httptest.NewServer(relay.NewServer("", list, st.Path, add, nil).Handler())
+	srv := httptest.NewServer(relay.NewServer("", &relay.BlobSet{List: list, Path: st.Path, Add: add}, nil, nil).Handler())
 	t.Cleanup(srv.Close)
 	return &fakePeer{name: name, st: st, srv: srv}
 }
@@ -46,26 +46,33 @@ func (p *fakePeer) peer(loc string) Peer {
 
 const gguf = "GGUF\x00\x00\x00\x00tensor-bytes"
 
-func newManager(t *testing.T, peers ...Peer) *Manager {
+func newManager(t *testing.T, peers ...Peer) (*Manager, *store.Store) {
 	t.Helper()
 	st, err := store.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
+	list := func() []Blob {
+		out := []Blob{}
+		for _, e := range st.List() {
+			out = append(out, Blob{Name: e.Name, SHA256: e.SHA256})
+		}
+		return out
+	}
 	return &Manager{
 		Target: 3, Self: "self", Location: "eu/de/berlin",
-		Store:  st,
+		List: list, Path: st.Path,
 		Client: &http.Client{Timeout: 5 * time.Second},
 		Peers:  func() []Peer { return peers },
-	}
+	}, st
 }
 
 // M1: a write is replicated to the desired holders before it is acknowledged.
 func TestAckWriteMeetsDurabilityTarget(t *testing.T) {
 	p1 := newFakePeer(t, "p1")
 	p2 := newFakePeer(t, "p2")
-	m := newManager(t, p1.peer("eu/fr/paris"), p2.peer("us/ny/nyc"))
-	if _, err := m.Store.Add("m.gguf", strings.NewReader(gguf)); err != nil {
+	m, st := newManager(t, p1.peer("eu/fr/paris"), p2.peer("us/ny/nyc"))
+	if _, err := st.Add("m.gguf", strings.NewReader(gguf)); err != nil {
 		t.Fatal(err)
 	}
 	replicas, holders := m.AckWrite(context.Background(), "m.gguf")
@@ -85,8 +92,8 @@ func TestAckWriteMeetsDurabilityTarget(t *testing.T) {
 // Self-healing: a scan pushes under-replicated artifacts to fresh nodes.
 func TestScanRepairsUnderReplication(t *testing.T) {
 	p1 := newFakePeer(t, "p1")
-	m := newManager(t, p1.peer("eu/fr/paris"))
-	if _, err := m.Store.Add("m.gguf", strings.NewReader(gguf)); err != nil {
+	m, st := newManager(t, p1.peer("eu/fr/paris"))
+	if _, err := st.Add("m.gguf", strings.NewReader(gguf)); err != nil {
 		t.Fatal(err)
 	}
 	status := m.Scan(context.Background())
@@ -110,13 +117,55 @@ func TestScanCountsExistingReplicas(t *testing.T) {
 	if _, err := p1.st.Add("m.gguf", strings.NewReader(gguf)); err != nil {
 		t.Fatal(err)
 	}
-	m := newManager(t, p1.peer("eu/fr/paris"))
-	if _, err := m.Store.Add("m.gguf", strings.NewReader(gguf)); err != nil {
+	m, st := newManager(t, p1.peer("eu/fr/paris"))
+	if _, err := st.Add("m.gguf", strings.NewReader(gguf)); err != nil {
 		t.Fatal(err)
 	}
 	s := m.Scan(context.Background())[0]
 	if s.Replicas != 2 || s.Domains != 2 {
 		t.Fatalf("replicas=%d domains=%d, want 2/2", s.Replicas, s.Domains)
+	}
+}
+
+// M2 acceptance: kill a node holding replicas; the next scan restores the
+// replication factor on the surviving mesh.
+func TestKillNodeFullReReplication(t *testing.T) {
+	p1 := newFakePeer(t, "p1")
+	p2 := newFakePeer(t, "p2")
+	m, st := newManager(t, p1.peer("eu/fr/paris"), p2.peer("us/ny/nyc"))
+	m.Target = 2
+	if _, err := st.Add("m.gguf", strings.NewReader(gguf)); err != nil {
+		t.Fatal(err)
+	}
+	// First scan reaches the target of 2 somewhere in the mesh.
+	first := m.Scan(context.Background())[0]
+	if first.Replicas < 2 {
+		t.Fatalf("initial replication never reached target: %+v", first)
+	}
+	// Kill whichever peer holds the second copy; the mesh shrinks to the
+	// other one. (If both held copies, kill p1.)
+	var dead, alive *fakePeer = p1, p2
+	if _, ok := p1.st.Path("m.gguf"); !ok {
+		dead, alive = p2, p1
+	}
+	dead.srv.Close()
+	if _, held := alive.st.Path("m.gguf"); held {
+		t.Skip("both peers already hold copies — loss cannot be simulated")
+	}
+	m.Peers = func() []Peer { return []Peer{alive.peer("somewhere/else")} }
+
+	// Self-healing: the next scan must restore N=2 on the survivors.
+	s := m.Scan(context.Background())[0]
+	if s.Replicas < 2 || !s.Healthy {
+		t.Fatalf("re-replication after node loss failed: %+v", s)
+	}
+	if _, ok := alive.st.Path("m.gguf"); !ok {
+		t.Fatal("surviving peer never received the repaired copy")
+	}
+	// The console's repair feed recorded the action.
+	status := m.Status()
+	if repairs, ok := status["repairs"].([]RepairAction); !ok || len(repairs) == 0 {
+		t.Fatalf("repair activity missing from status: %+v", status["repairs"])
 	}
 }
 

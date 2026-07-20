@@ -75,7 +75,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 
 ## EPIC L — Test & Quality
 | #84 L1 | Regression test cases for every shipped feature | ⬜ |
-| #85 L2 | Multi-node end-to-end mesh test in CI | ⬜ |
+| #85 L2 | Multi-node end-to-end mesh test in CI | ✅ |
 | #86 L3 | Pre-merge gate — re-run tests against latest main just before merging | ✅ |
 | #87 L4 | SDK conformance test cases (Python & JS) against a live node | ⬜ |
 | #88 L5 | Tests-required policy for all future features | ⬜ |
@@ -85,8 +85,8 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 ## EPIC M — Data Durability & Recovery (MUST-DO)
 Node churn must never mean lost or breached data. Prerequisite for Epic N recruitment.
 | #92 M1 | N-copy replication across failure domains | ✅ |
-| #93 M2 | Self-healing re-replication on node loss | 🔶 (periodic push-repair live; console repair progress pending) |
-| #94 M3 | Encrypt before data leaves the owner's machine (breach containment) | ⬜ P1 |
+| #93 M2 | Self-healing re-replication on node loss | ✅ |
+| #94 M3 | Encrypt before data leaves the owner's machine (breach containment) | ✅ |
 | #95 M4 | Restore lost data — owner-initiated recovery flow | ⬜ P1 |
 | #96 M5 | Off-mesh backup export & re-import (escape hatch) | ⬜ P1 |
 | #97 M6 | Measured durability guarantees on the console | ⬜ P2 |

@@ -35,6 +35,7 @@ import (
 	"cloudless/internal/share"
 	"cloudless/internal/store"
 	"cloudless/internal/usage"
+	"cloudless/internal/vault"
 )
 
 func main() {
@@ -59,6 +60,8 @@ func main() {
 		savingsCmd(os.Args[2:])
 	case "capacity":
 		capacityCmd(os.Args[2:])
+	case "vault":
+		vaultCmd(os.Args[2:])
 	case "models":
 		modelsCmd(os.Args[2:])
 	case "share":
@@ -249,6 +252,7 @@ func runServe(cfg *config.Config) {
 	// the relay can serve blobs, enforce the share budget, and refuse
 	// revoked peers.
 	var modelStore *store.Store
+	var dataVault *vault.Vault
 	var shareStore *share.Store
 	var revoked *revoke.Set
 	if cfg.PKIDir != "" {
@@ -257,6 +261,11 @@ func runServe(cfg *config.Config) {
 			modelStore = st
 		} else {
 			log.Printf("store: %v", err)
+		}
+		if v, err := vault.Open(filepath.Join(base, "vault")); err == nil {
+			dataVault = v
+		} else {
+			log.Printf("vault: %v", err)
 		}
 		shareStore = share.Open(filepath.Join(base, "share.json"))
 		revoked = revoke.Open(filepath.Join(base, "revocations.json"))
@@ -281,25 +290,41 @@ func runServe(cfg *config.Config) {
 		if cfg.Gossip != nil {
 			backendURL = cfg.Gossip.BackendURL
 		}
-		var list func() []relay.Entry
-		var path func(string) (string, bool)
-		var add func(string, io.Reader) error
+		var models, vaultSet *relay.BlobSet
 		if modelStore != nil {
-			list = func() []relay.Entry {
-				out := []relay.Entry{}
-				for _, e := range modelStore.List() {
-					out = append(out, relay.Entry{Name: e.Name, SHA256: e.SHA256, Size: e.Size, Format: e.Format})
-				}
-				return out
+			models = &relay.BlobSet{
+				List: func() []relay.Entry {
+					out := []relay.Entry{}
+					for _, e := range modelStore.List() {
+						out = append(out, relay.Entry{Name: e.Name, SHA256: e.SHA256, Size: e.Size, Format: e.Format})
+					}
+					return out
+				},
+				Path: modelStore.Path,
+				Add: func(name string, r io.Reader) error {
+					_, err := modelStore.Add(name, r)
+					return err
+				},
 			}
-			path = modelStore.Path
-			add = func(name string, r io.Reader) error {
-				_, err := modelStore.Add(name, r)
-				return err
+		}
+		if dataVault != nil {
+			vaultSet = &relay.BlobSet{
+				List: func() []relay.Entry {
+					out := []relay.Entry{}
+					for _, e := range dataVault.List() {
+						out = append(out, relay.Entry{Name: e.Name, SHA256: e.SHA256, Size: e.Size, Format: "sealed"})
+					}
+					return out
+				},
+				Path: dataVault.Path,
+				Add: func(name string, r io.Reader) error {
+					_, err := dataVault.AddSealed(name, r)
+					return err
+				},
 			}
 		}
 		go func() {
-			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL, list, path, add, shareStore.MaxProcs, revoked.Has); err != nil {
+			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL, models, vaultSet, shareStore.MaxProcs, revoked.Has); err != nil {
 				log.Fatalf("relay: %v", err)
 			}
 		}()
@@ -369,31 +394,67 @@ func runServe(cfg *config.Config) {
 	gw.Models = modelStore
 	gw.Share = shareStore
 
-	// M1: keep every stored artifact on N nodes across failure domains.
+	gw.Vault = dataVault
+
+	// M1/M3: keep every stored object on N nodes across failure domains —
+	// model artifacts as-is, vault objects as owner-sealed ciphertext.
 	// Needs the mTLS relay (secure) to survey peers and push replicas.
-	if secure && modelStore != nil {
+	if secure {
 		self, loc := "this-node", ""
 		if cfg.Gossip != nil {
 			self, loc = cfg.Gossip.NodeName, cfg.Gossip.Location
 		}
-		mgr := &replicate.Manager{
-			Target: cfg.ReplicationFactor, Self: self, Location: loc,
-			Store:  modelStore,
-			Client: &http.Client{Timeout: 5 * time.Minute, Transport: &http.Transport{TLSClientConfig: peerTLS}},
-			Peers: func() []replicate.Peer {
-				out := []replicate.Peer{}
-				for _, b := range reg.Ranked() {
-					if !b.Healthy || b.Backend.Name == self || !strings.HasPrefix(b.Backend.BaseURL, "https://") {
-						continue
-					}
-					out = append(out, replicate.Peer{Name: b.Backend.Name, BaseURL: b.Backend.BaseURL, Location: b.Backend.Location})
+		peers := func() []replicate.Peer {
+			out := []replicate.Peer{}
+			for _, b := range reg.Ranked() {
+				if !b.Healthy || b.Backend.Name == self || !strings.HasPrefix(b.Backend.BaseURL, "https://") {
+					continue
+				}
+				out = append(out, replicate.Peer{Name: b.Backend.Name, BaseURL: b.Backend.BaseURL, Location: b.Backend.Location})
+			}
+			return out
+		}
+		peerClient := &http.Client{Timeout: 5 * time.Minute, Transport: &http.Transport{TLSClientConfig: peerTLS}}
+		newMgr := func(endpoint string, list func() []replicate.Blob, path func(string) (string, bool)) *replicate.Manager {
+			return &replicate.Manager{
+				Target: cfg.ReplicationFactor, Self: self, Location: loc,
+				List: list, Path: path, Endpoint: endpoint,
+				Client: peerClient, Peers: peers,
+			}
+		}
+		var modelMgr, vaultMgr *replicate.Manager
+		if modelStore != nil {
+			modelMgr = newMgr("/store", func() []replicate.Blob {
+				out := []replicate.Blob{}
+				for _, e := range modelStore.List() {
+					out = append(out, replicate.Blob{Name: e.Name, SHA256: e.SHA256})
 				}
 				return out
-			},
+			}, modelStore.Path)
+			go modelMgr.Run(ctx, time.Minute)
+			gw.ReplicateWrite = modelMgr.AckWrite
 		}
-		go mgr.Run(ctx, time.Minute)
-		gw.Replication = mgr.Status
-		gw.ReplicateWrite = mgr.AckWrite
+		if dataVault != nil {
+			vaultMgr = newMgr("/vault", func() []replicate.Blob {
+				out := []replicate.Blob{}
+				for _, e := range dataVault.List() {
+					out = append(out, replicate.Blob{Name: e.Name, SHA256: e.SHA256})
+				}
+				return out
+			}, dataVault.Path)
+			go vaultMgr.Run(ctx, time.Minute)
+			gw.VaultReplicateWrite = vaultMgr.AckWrite
+		}
+		gw.Replication = func() map[string]any {
+			out := map[string]any{"target": cfg.ReplicationFactor}
+			if modelMgr != nil {
+				out = modelMgr.Status()
+			}
+			if vaultMgr != nil {
+				out["vault"] = vaultMgr.Status()
+			}
+			return out
+		}
 	}
 	auditPath := "audit.log"
 	if cfg.PKIDir != "" {
@@ -549,6 +610,105 @@ func keysCmd(args []string) {
 
 // modelsCmd manages the content-addressed model store:
 // list | add <file> [name] | verify <name> | rm <name>
+// vaultCmd manages owner-encrypted vault objects (M3): sealed on this
+// node before replication; only this node can open them.
+func vaultCmd(args []string) {
+	fs := flag.NewFlagSet("vault", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	fs.Parse(args)
+	if *adminKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*adminKey = cfg.APIKey
+			}
+		}
+	}
+	do := func(method, path string, body io.Reader) *http.Response {
+		req, _ := http.NewRequest(method, *addr+path, body)
+		req.Header.Set("Authorization", "Bearer "+*adminKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return resp
+	}
+	sub := "list"
+	if fs.NArg() > 0 {
+		sub = fs.Arg(0)
+	}
+	switch sub {
+	case "list":
+		resp := do("GET", "/vault", nil)
+		defer resp.Body.Close()
+		var out struct {
+			Objects []vault.Entry `json:"objects"`
+		}
+		json.NewDecoder(resp.Body).Decode(&out)
+		fmt.Printf("%-28s %10s  %-8s %s\n", "NAME", "SIZE", "KIND", "CIPHERTEXT SHA256")
+		for _, e := range out.Objects {
+			kind := "owned"
+			if e.Sealed {
+				kind = "hosted" // ciphertext held for another node — unreadable here
+			}
+			fmt.Printf("%-28s %10d  %-8s %s\n", e.Name, e.Size, kind, e.SHA256[:16]+"…")
+		}
+	case "put":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless vault put <file> [name]")
+		}
+		path := fs.Arg(1)
+		name := filepath.Base(path)
+		if fs.NArg() > 2 {
+			name = fs.Arg(2)
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		resp := do("PUT", "/vault/"+name, f)
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("put failed: %s", body)
+		}
+		fmt.Printf("sealed and replicated: %s\n", body)
+	case "get":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless vault get <name> [outfile]")
+		}
+		resp := do("GET", "/vault/"+fs.Arg(1), nil)
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			log.Fatalf("get failed: %s", body)
+		}
+		out := os.Stdout
+		if fs.NArg() > 2 {
+			f, err := os.Create(fs.Arg(2))
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer f.Close()
+			out = f
+		}
+		io.Copy(out, resp.Body)
+	case "rm":
+		if fs.NArg() < 2 {
+			log.Fatal("usage: cloudless vault rm <name>")
+		}
+		resp := do("DELETE", "/vault/"+fs.Arg(1), nil)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusNoContent {
+			log.Fatalf("rm failed: %d", resp.StatusCode)
+		}
+		fmt.Println("deleted")
+	default:
+		log.Fatal("usage: cloudless vault [list|put|get|rm]")
+	}
+}
+
 func modelsCmd(args []string) {
 	fs := flag.NewFlagSet("models", flag.ExitOnError)
 	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")

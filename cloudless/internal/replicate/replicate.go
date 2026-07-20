@@ -24,8 +24,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"cloudless/internal/store"
 )
 
 const DefaultFactor = 3
@@ -37,14 +35,23 @@ type Peer struct {
 	Location string
 }
 
-// Manager surveys and repairs replication for the local store.
+// Blob is the minimal view of a stored object the manager replicates.
+type Blob struct {
+	Name   string
+	SHA256 string
+}
+
+// Manager surveys and repairs replication for one local blob collection —
+// model artifacts ("/store") or sealed vault objects ("/vault").
 type Manager struct {
 	Target   int    // replication factor (N)
 	Self     string // this node's name
 	Location string
-	Store    *store.Store
-	Peers    func() []Peer // healthy peers, excluding self
-	Client   *http.Client  // carries the node's mTLS client cert
+	List     func() []Blob                    // local objects
+	Path     func(name string) (string, bool) // local blob path for pushing
+	Endpoint string                           // peer collection path, e.g. "/store"
+	Peers    func() []Peer                    // healthy peers, excluding self
+	Client   *http.Client                     // carries the node's mTLS client cert
 
 	mu      sync.Mutex
 	status  []ObjectStatus
@@ -82,14 +89,21 @@ func (m *Manager) target() int {
 
 func base(u string) string { return strings.TrimSuffix(u, "/v1") }
 
+func (m *Manager) endpoint() string {
+	if m.Endpoint != "" {
+		return m.Endpoint
+	}
+	return "/store"
+}
+
 // survey asks every peer what it holds. Returns name → holder peer names.
 func (m *Manager) survey(ctx context.Context, peers []Peer) map[string][]string {
 	holders := map[string][]string{}
-	for _, e := range m.Store.List() {
+	for _, e := range m.List() {
 		holders[e.Name] = append(holders[e.Name], m.Self)
 	}
 	for _, p := range peers {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, base(p.BaseURL)+"/store", nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, base(p.BaseURL)+m.endpoint(), nil)
 		if err != nil {
 			continue
 		}
@@ -98,7 +112,7 @@ func (m *Manager) survey(ctx context.Context, peers []Peer) map[string][]string 
 			continue
 		}
 		var lr struct {
-			Artifacts []store.Entry `json:"artifacts"`
+			Artifacts []Blob `json:"artifacts"`
 		}
 		json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&lr)
 		resp.Body.Close()
@@ -164,7 +178,7 @@ func desired(sha string, cands []Peer, n int) []Peer {
 // push copies a local artifact to one peer via the relay's PUT /store.
 // The receiver re-verifies format and hash on write.
 func (m *Manager) push(ctx context.Context, p Peer, name string) error {
-	path, ok := m.Store.Path(name)
+	path, ok := m.Path(name)
 	if !ok {
 		return fmt.Errorf("artifact %q not held locally", name)
 	}
@@ -174,7 +188,7 @@ func (m *Manager) push(ctx context.Context, p Peer, name string) error {
 	}
 	defer f.Close()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
-		base(p.BaseURL)+"/store?name="+url.QueryEscape(name), f)
+		base(p.BaseURL)+m.endpoint()+"?name="+url.QueryEscape(name), f)
 	if err != nil {
 		return err
 	}
@@ -215,13 +229,13 @@ func (m *Manager) AckWrite(ctx context.Context, name string) (int, []string) {
 	return achieved, holders
 }
 
-func (m *Manager) entry(name string) (store.Entry, bool) {
-	for _, e := range m.Store.List() {
+func (m *Manager) entry(name string) (Blob, bool) {
+	for _, e := range m.List() {
 		if e.Name == name {
 			return e, true
 		}
 	}
-	return store.Entry{}, false
+	return Blob{}, false
 }
 
 // Scan surveys the mesh and repairs: any artifact this node holds that is
@@ -239,11 +253,11 @@ func (m *Manager) Scan(ctx context.Context) []ObjectStatus {
 
 	type job struct {
 		name string
-		e    store.Entry
+		e    Blob
 		have map[string]bool
 	}
 	var jobs []job
-	for _, e := range m.Store.List() {
+	for _, e := range m.List() {
 		have := map[string]bool{}
 		for _, h := range holders[e.Name] {
 			have[h] = true
