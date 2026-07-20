@@ -397,9 +397,15 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		}
 		defer release()
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
+	// Read one byte past the cap so an oversized request is rejected
+	// outright instead of silently truncated into corrupt JSON.
+	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20+1))
 	if err != nil {
 		http.Error(w, `{"error":"read body"}`, http.StatusBadRequest)
+		return
+	}
+	if len(body) > 10<<20 {
+		http.Error(w, `{"error":"request body exceeds 10MB"}`, http.StatusRequestEntityTooLarge)
 		return
 	}
 	backends := g.reg.Ranked()
