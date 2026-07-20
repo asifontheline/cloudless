@@ -25,6 +25,7 @@ import (
 	"cloudless/internal/share"
 	"cloudless/internal/store"
 	"cloudless/internal/usage"
+	"cloudless/internal/vault"
 )
 
 //go:embed ui/index.html
@@ -96,6 +97,11 @@ type Gateway struct {
 	// write is acknowledged, returning achieved replicas and holder names.
 	Replication    func() map[string]any
 	ReplicateWrite func(ctx context.Context, name string) (int, []string)
+
+	// Vault, when set, is the owner-encrypted data store (M3): objects are
+	// sealed on this machine before they replicate; peers hold ciphertext.
+	Vault               *vault.Vault
+	VaultReplicateWrite func(ctx context.Context, name string) (int, []string)
 }
 
 const routeLogSize = 20
@@ -226,6 +232,27 @@ func (g *Gateway) Handler() http.Handler {
 		}
 		json.NewEncoder(w).Encode(g.Replication())
 	})
+	// M3 vault: owner-encrypted objects. List is public like /store (names
+	// and hashes only); contents and writes are admin — and Get succeeds
+	// only on the node holding the sealing key.
+	mux.HandleFunc("GET /vault", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if g.Vault == nil {
+			json.NewEncoder(w).Encode(map[string]any{"enabled": false})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"objects": g.Vault.List()})
+	})
+	mux.HandleFunc("PUT /vault/{name}", g.adminOnly(g.handleVaultPut))
+	mux.HandleFunc("GET /vault/{name}", g.adminOnly(g.handleVaultGet))
+	mux.HandleFunc("DELETE /vault/{name}", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
+		if g.Vault == nil || !g.Vault.Delete(r.PathValue("name")) {
+			http.Error(w, `{"error":"unknown object"}`, http.StatusNotFound)
+			return
+		}
+		g.Audit.Append("cluster", "vault.delete", r.PathValue("name"), "")
+		w.WriteHeader(http.StatusNoContent)
+	}))
 	mux.HandleFunc("GET /store", g.handleStoreList)
 	mux.HandleFunc("PUT /store", g.adminOnly(g.handleStoreAdd))
 	mux.HandleFunc("POST /store/pull", g.adminOnly(g.handleStorePull))
@@ -582,6 +609,44 @@ func (g *Gateway) handleStoreDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleVaultPut seals an object on this machine (M3) and replicates the
+// ciphertext to its desired holders before acknowledging.
+func (g *Gateway) handleVaultPut(w http.ResponseWriter, r *http.Request) {
+	if g.Vault == nil {
+		http.Error(w, `{"error":"vault unavailable on this node"}`, http.StatusNotFound)
+		return
+	}
+	name := r.PathValue("name")
+	e, err := g.Vault.Put(name, io.LimitReader(r.Body, vault.MaxObject+1))
+	if err != nil {
+		http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusUnprocessableEntity)
+		return
+	}
+	g.Audit.Append("cluster", "vault.put", name, fmt.Sprintf("%d bytes sealed", e.Size))
+	resp := map[string]any{"name": e.Name, "sha256": e.SHA256, "size": e.Size, "added": e.Added}
+	if g.VaultReplicateWrite != nil {
+		replicas, holders := g.VaultReplicateWrite(r.Context(), name)
+		resp["replicas"], resp["holders"] = replicas, holders
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// handleVaultGet opens a sealed object — only the owner's node can.
+func (g *Gateway) handleVaultGet(w http.ResponseWriter, r *http.Request) {
+	if g.Vault == nil {
+		http.Error(w, `{"error":"vault unavailable on this node"}`, http.StatusNotFound)
+		return
+	}
+	plain, err := g.Vault.Get(r.PathValue("name"))
+	if err != nil {
+		http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Write(plain)
 }
 
 // adminOnly gates key management behind the cluster (admin) key.

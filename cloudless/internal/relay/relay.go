@@ -32,72 +32,96 @@ type storeEntry struct {
 // Server is the node's mutual-TLS front door for peer traffic: peers holding
 // a CA-signed cert may proxy inference requests to this node's local runtime
 // and pull model blobs from its store.
+// BlobSet wires one blob collection the relay serves to peers: model
+// artifacts or sealed vault objects. Any func may be nil.
+type BlobSet struct {
+	List func() []storeEntry
+	Path func(string) (string, bool)
+	Add  func(name string, r io.Reader) error // accept a replica push (M1)
+}
+
 type Server struct {
 	backendURL string // local runtime base, e.g. http://127.0.0.1:11434/v1
-	list       func() []storeEntry
-	path       func(string) (string, bool)
-	add        func(name string, r io.Reader) error // accept a replica push (M1)
-	slots      func() int                           // shared-work concurrency budget (0 = not sharing)
+	models     *BlobSet
+	vault      *BlobSet   // sealed (owner-encrypted) objects — ciphertext only (M3)
+	slots      func() int // shared-work concurrency budget (0 = not sharing)
 	inflight   atomic.Int64
 	client     *http.Client
 }
 
-func NewServer(backendURL string, list func() []storeEntry, path func(string) (string, bool), add func(string, io.Reader) error, slots func() int) *Server {
+func NewServer(backendURL string, models, vault *BlobSet, slots func() int) *Server {
 	if slots == nil {
 		slots = func() int { return 1 }
 	}
-	return &Server{backendURL: backendURL, list: list, path: path, add: add, slots: slots, client: &http.Client{}}
+	if models == nil {
+		models = &BlobSet{}
+	}
+	if vault == nil {
+		vault = &BlobSet{}
+	}
+	return &Server{backendURL: backendURL, models: models, vault: vault, slots: slots, client: &http.Client{}}
 }
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/", s.proxy)
-	mux.HandleFunc("GET /store", s.storeList)
-	mux.HandleFunc("GET /blob", s.blob)
-	mux.HandleFunc("PUT /store", s.storePut)
+	mux.HandleFunc("GET /store", s.listOf(s.models))
+	mux.HandleFunc("GET /blob", s.blobOf(s.models))
+	mux.HandleFunc("PUT /store", s.putOf(s.models))
+	mux.HandleFunc("GET /vault", s.listOf(s.vault))
+	mux.HandleFunc("GET /vault-blob", s.blobOf(s.vault))
+	mux.HandleFunc("PUT /vault", s.putOf(s.vault))
 	return mux
 }
 
-// storePut accepts a replica pushed by an mTLS-authenticated peer (M1).
-// The store re-verifies format and content hash on write, so a compromised
-// peer cannot plant an artifact that fails the allowlist or lies about bytes.
-func (s *Server) storePut(w http.ResponseWriter, r *http.Request) {
-	if s.add == nil {
-		http.Error(w, `{"error":"no store"}`, http.StatusServiceUnavailable)
-		return
+// putOf accepts a replica pushed by an mTLS-authenticated peer (M1). The
+// receiving side re-verifies what it can — the model store enforces format
+// allowlist and content hash; the vault stores opaque ciphertext it hashes
+// itself — so a compromised peer cannot plant an artifact that lies about
+// its bytes.
+func (s *Server) putOf(b *BlobSet) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if b.Add == nil {
+			http.Error(w, `{"error":"no store"}`, http.StatusServiceUnavailable)
+			return
+		}
+		name := r.URL.Query().Get("name")
+		if name == "" {
+			http.Error(w, `{"error":"name required"}`, http.StatusBadRequest)
+			return
+		}
+		if err := b.Add(name, r.Body); err != nil {
+			http.Error(w, `{"error":"rejected"}`, http.StatusUnprocessableEntity)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 	}
-	name := r.URL.Query().Get("name")
-	if name == "" {
-		http.Error(w, `{"error":"name required"}`, http.StatusBadRequest)
-		return
-	}
-	if err := s.add(name, r.Body); err != nil {
-		http.Error(w, `{"error":"rejected"}`, http.StatusUnprocessableEntity)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Server) storeList(w http.ResponseWriter, _ *http.Request) {
-	var list []storeEntry
-	if s.list != nil {
-		list = s.list()
+func (s *Server) listOf(b *BlobSet) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		var list []storeEntry
+		if b.List != nil {
+			list = b.List()
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"artifacts": list})
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"artifacts": list})
 }
 
-func (s *Server) blob(w http.ResponseWriter, r *http.Request) {
-	if s.path == nil {
-		http.Error(w, "no store", http.StatusServiceUnavailable)
-		return
+func (s *Server) blobOf(b *BlobSet) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if b.Path == nil {
+			http.Error(w, "no store", http.StatusServiceUnavailable)
+			return
+		}
+		p, ok := b.Path(r.URL.Query().Get("name"))
+		if !ok {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		http.ServeFile(w, r, p)
 	}
-	p, ok := s.path(r.URL.Query().Get("name"))
-	if !ok {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
-	http.ServeFile(w, r, p)
 }
 
 func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
@@ -163,12 +187,12 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 
 // ListenAndServe runs the relay with mutual TLS from the cluster PKI.
 // list/path (may be nil) expose the local model store to peers for pulls.
-func ListenAndServe(addr, pkiDir, backendURL string, list func() []storeEntry, path func(string) (string, bool), add func(string, io.Reader) error, slots func() int, revoked pki.RevokedFn) error {
+func ListenAndServe(addr, pkiDir, backendURL string, models, vault *BlobSet, slots func() int, revoked pki.RevokedFn) error {
 	tlsCfg, err := pki.ServerTLS(pkiDir, revoked)
 	if err != nil {
 		return err
 	}
-	srv := &http.Server{Addr: addr, Handler: NewServer(backendURL, list, path, add, slots).Handler(), TLSConfig: tlsCfg}
+	srv := &http.Server{Addr: addr, Handler: NewServer(backendURL, models, vault, slots).Handler(), TLSConfig: tlsCfg}
 	log.Printf("relay: mutual-TLS peer endpoint on %s", addr)
 	return srv.ListenAndServeTLS("", "")
 }
