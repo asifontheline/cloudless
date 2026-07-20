@@ -54,7 +54,9 @@ These are project principles, enforced in review:
 
 ```sh
 git clone https://github.com/asifontheline/cloudless
-cd cloudless/cloudless
+cd cloudless
+git config core.hooksPath .githooks   # pre-commit: gofmt/vet/build/test — catches CI failures before they leave your machine
+cd cloudless
 go build ./... && go test ./...   # or just run: cloudless up
 ```
 

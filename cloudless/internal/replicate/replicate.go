@@ -48,8 +48,19 @@ type Manager struct {
 
 	mu      sync.Mutex
 	status  []ObjectStatus
+	repairs []RepairAction // recent repair pushes, newest last
 	scanned time.Time
 }
+
+// RepairAction is one repair push, kept for the console's progress view (M2).
+type RepairAction struct {
+	Time time.Time `json:"time"`
+	Name string    `json:"name"`
+	To   string    `json:"to"`
+	OK   bool      `json:"ok"`
+}
+
+const repairLogSize = 50
 
 // ObjectStatus is one artifact's replication health for the console.
 type ObjectStatus struct {
@@ -243,6 +254,7 @@ func (m *Manager) Scan(ctx context.Context) []ObjectStatus {
 	sort.Slice(jobs, func(i, j int) bool { return len(jobs[i].have) < len(jobs[j].have) })
 
 	n := m.target()
+	var acted []RepairAction
 	for _, j := range jobs {
 		if len(j.have) >= n {
 			continue
@@ -251,7 +263,9 @@ func (m *Manager) Scan(ctx context.Context) []ObjectStatus {
 			if len(j.have) >= n || p.Name == m.Self || j.have[p.Name] {
 				continue
 			}
-			if err := m.push(ctx, p, j.name); err == nil {
+			err := m.push(ctx, p, j.name)
+			acted = append(acted, RepairAction{Time: time.Now(), Name: j.name, To: p.Name, OK: err == nil})
+			if err == nil {
 				j.have[p.Name] = true
 				holders[j.name] = append(holders[j.name], p.Name)
 			}
@@ -292,6 +306,10 @@ func (m *Manager) Scan(ctx context.Context) []ObjectStatus {
 	}
 	m.mu.Lock()
 	m.status = out
+	m.repairs = append(m.repairs, acted...)
+	if len(m.repairs) > repairLogSize {
+		m.repairs = m.repairs[len(m.repairs)-repairLogSize:]
+	}
 	m.scanned = time.Now()
 	m.mu.Unlock()
 	return out
@@ -316,9 +334,19 @@ func (m *Manager) Run(ctx context.Context, interval time.Duration) {
 func (m *Manager) Status() map[string]any {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	pending := 0
+	for _, s := range m.status {
+		if !s.Healthy {
+			pending++
+		}
+	}
+	repairs := make([]RepairAction, len(m.repairs))
+	copy(repairs, m.repairs)
 	return map[string]any{
 		"target":  m.target(),
 		"objects": m.status,
+		"repairs": repairs,
+		"pending": pending,
 		"scanned": m.scanned,
 	}
 }

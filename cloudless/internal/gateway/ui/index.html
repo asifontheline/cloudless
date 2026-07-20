@@ -128,7 +128,7 @@ const SECTIONS = [
     ["ledger","Contribution Ledger","Who gave compute and who consumed it — the fairness view.","live"],
     ["savings","Cost Calculator","What the mesh's work would have cost on a metered hosted API.","live"],
     ["capacity","Idle Capacity","Healthy nodes with nothing to do — capacity already paid for.","live"],
-    ["dr","Replication & Recovery","k-of-n redundancy and automatic failover policy.","progress"],
+    ["dr","Replication & Recovery","Every artifact on N nodes across failure domains, self-healing (live below).","live"],
   ]},
 ];
 const BADGE = { live:["Live","b-live"], progress:["In progress","b-progress"], planned:["Planned","b-planned"] };
@@ -170,6 +170,7 @@ function renderItem(sec, id) {
   if (sec.id === "security" && id === "audit") return renderAudit();
   if (sec.id === "ops" && id === "savings") return renderSavings();
   if (sec.id === "ops" && id === "capacity") return renderCapacity();
+  if (sec.id === "ops" && id === "dr") return renderReplication();
   if (sec.id === "storage" && id === "models") return renderModels();
   const it = sec.items.find(i => i[0] === id);
   if (!it) return renderSection(sec);
@@ -467,6 +468,45 @@ function renderCapacity() {
         return `<tr><td>${esc(n.node)}</td><td class="${n.healthy?'ok':'bad'}">${n.healthy?'healthy':'down'}</td>` +
           `<td>${n.requests}</td><td>${last}</td><td>${verdict}</td></tr>`;
       }).join('') || `<tr><td colspan="5" class="muted">No nodes.</td></tr>`;
+    } catch {}
+  };
+  load(); timer = setInterval(load, 3000);
+}
+
+// ---- replication & recovery (live, M1/M2) -----------------------------------
+function renderReplication() {
+  main.innerHTML = `<p class="crumb"><a href="#/ops">Operations</a> / Replication &amp; Recovery</p>
+  <h1>Replication &amp; Recovery <span class="badge b-live">Live</span></h1>
+  <p>Every stored artifact targets <strong>N</strong> copies on nodes in different failure domains
+  (different homes, networks, regions) — never on only one machine. A self-healing scan pushes
+  fresh copies whenever a node is lost, furthest-below-target first.</p>
+  <p id="repsum" class="principle"></p>
+  <table><thead><tr><th>Artifact</th><th>Replicas</th><th>Domains</th><th>Holders</th><th>Health</th></tr></thead>
+  <tbody id="repbody"></tbody></table>
+  <h2 style="margin-top:1rem">Repair activity</h2>
+  <table><thead><tr><th>Time</th><th>Artifact</th><th>Pushed to</th><th>Result</th></tr></thead>
+  <tbody id="repactions"></tbody></table>`;
+  const load = async () => {
+    try {
+      const d = await (await fetch('/replication')).json();
+      if (d.enabled === false) {
+        document.getElementById('repsum').textContent =
+          "Replication needs the secure mesh (PKI + model store) — start this node with cloudless up.";
+        return;
+      }
+      document.getElementById('repsum').textContent =
+        (d.pending || 0) === 0
+          ? `All objects at their durability target (N=${d.target}). Last scan ${d.scanned ? esc(String(d.scanned).slice(11,19)) : '—'}.`
+          : `${d.pending} object(s) below target — repair in progress.`;
+      document.getElementById('repbody').innerHTML = (d.objects || []).map(o =>
+        `<tr><td>${esc(o.name)}</td><td>${o.replicas} / ${o.target}</td><td>${o.domains}</td>` +
+        `<td class="muted">${(o.holders||[]).map(esc).join(', ')}</td>` +
+        `<td>${o.healthy ? '<span class="ok">durable</span>' : '<span class="b-progress">repairing</span>'}</td></tr>`
+      ).join('') || `<tr><td colspan="5" class="muted">Nothing stored yet.</td></tr>`;
+      document.getElementById('repactions').innerHTML = (d.repairs || []).slice().reverse().map(a =>
+        `<tr><td>${esc(String(a.time).slice(11,19))}</td><td>${esc(a.name)}</td><td>${esc(a.to)}</td>` +
+        `<td class="${a.ok?'ok':'bad'}">${a.ok?'replicated':'failed'}</td></tr>`
+      ).join('') || `<tr><td colspan="4" class="muted">No repairs needed recently.</td></tr>`;
     } catch {}
   };
   load(); timer = setInterval(load, 3000);
