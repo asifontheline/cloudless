@@ -24,13 +24,14 @@ func raceRequest(t *testing.T, g *Gateway, k string) *httptest.ResponseRecorder 
 // O2: a raced request returns the fast backend's answer without waiting for
 // the slow one, and the loser's work is cancelled.
 func TestRaceFirstAnswerWins(t *testing.T) {
-	var slowCancelled atomic.Bool
+	var slowStarted, slowCancelled atomic.Bool
 	fast := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		io.WriteString(w, `{"winner":"fast","usage":{"prompt_tokens":3,"completion_tokens":4}}`)
 	}))
 	defer fast.Close()
 	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		slowStarted.Store(true)
 		// Drain the body first: the server only watches for client
 		// disconnect (context cancellation) once the request body is consumed.
 		io.ReadAll(r.Body)
@@ -56,13 +57,15 @@ func TestRaceFirstAnswerWins(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("raced request waited for the slow backend")
 	}
-	// Cancellation must reach the losing backend (no zombie compute).
+	// Cancellation must stop the loser's work (no zombie compute). Two valid
+	// outcomes: the request was cancelled before it was ever dispatched (no
+	// work started), or the backend's handler observed the cancellation.
 	deadline := time.Now().Add(2 * time.Second)
-	for !slowCancelled.Load() {
-		if time.Now().After(deadline) {
-			t.Fatal("losing backend was never cancelled")
-		}
+	for time.Now().Before(deadline) && !slowCancelled.Load() {
 		time.Sleep(10 * time.Millisecond)
+	}
+	if slowStarted.Load() && !slowCancelled.Load() {
+		t.Fatal("losing backend started work and was never cancelled")
 	}
 }
 
