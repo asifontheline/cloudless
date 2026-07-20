@@ -1,10 +1,13 @@
 package gateway
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -158,5 +161,106 @@ func TestJoinInfoAdminGate(t *testing.T) {
 	g2.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("unset JoinInfo: status %d, want 404", rec.Code)
+	}
+}
+
+// O1: a batch fans out across backends concurrently, returns results in
+// submission order, and spreads load over more than one node.
+func TestBatchFanOut(t *testing.T) {
+	var hitsA, hitsB atomic.Int64
+	mk := func(hits *atomic.Int64) *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			hits.Add(1)
+			var in struct {
+				N int `json:"n"`
+			}
+			json.NewDecoder(r.Body).Decode(&in)
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"echo":%d,"usage":{"prompt_tokens":1,"completion_tokens":1}}`, in.N)
+		}))
+	}
+	a, b := mk(&hitsA), mk(&hitsB)
+	defer a.Close()
+	defer b.Close()
+
+	g := newTestGateway(t, a.URL, b.URL)
+	items := make([]string, 12)
+	for i := range items {
+		items[i] = fmt.Sprintf(`{"n":%d}`, i)
+	}
+	body := `{"path":"/v1/chat/completions","requests":[` + strings.Join(items, ",") + `]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/batch", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-key")
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Results []struct {
+			Status int             `json:"status"`
+			Body   json.RawMessage `json:"body"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Results) != 12 {
+		t.Fatalf("want 12 results, got %d", len(out.Results))
+	}
+	for i, res := range out.Results {
+		if res.Status != 200 {
+			t.Fatalf("item %d status %d", i, res.Status)
+		}
+		var echo struct {
+			Echo int `json:"echo"`
+		}
+		json.Unmarshal(res.Body, &echo)
+		if echo.Echo != i {
+			t.Fatalf("order broken: item %d echoed %d", i, echo.Echo)
+		}
+	}
+	if hitsA.Load() == 0 || hitsB.Load() == 0 {
+		t.Fatalf("fan-out must spread across nodes: a=%d b=%d", hitsA.Load(), hitsB.Load())
+	}
+}
+
+// A batch item that hits a dead backend fails over like a single request.
+func TestBatchItemFailover(t *testing.T) {
+	good := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"ok":true}`)
+	}))
+	defer good.Close()
+	g := newTestGateway(t, "http://127.0.0.1:1", good.URL)
+	body := `{"requests":[{},{},{},{}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/batch", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-key")
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	var out struct {
+		Results []struct {
+			Status int `json:"status"`
+		} `json:"results"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &out)
+	for i, res := range out.Results {
+		if res.Status != 200 {
+			t.Fatalf("item %d must fail over to the healthy node, got %d", i, res.Status)
+		}
+	}
+}
+
+// Batch size limits are enforced.
+func TestBatchLimits(t *testing.T) {
+	g := newTestGateway(t, "http://127.0.0.1:1")
+	for _, body := range []string{`{"requests":[]}`, `{"requests":[` + strings.Repeat(`{},`, 64) + `{}]}`} {
+		req := httptest.NewRequest(http.MethodPost, "/v1/batch", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-key")
+		rec := httptest.NewRecorder()
+		g.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("bad batch size must 400, got %d", rec.Code)
+		}
 	}
 }
