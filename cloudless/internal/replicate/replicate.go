@@ -60,10 +60,12 @@ type Manager struct {
 	Peers  func() []Peer // healthy peers, excluding self
 	Client *http.Client  // carries the node's mTLS client cert
 
-	mu      sync.Mutex
-	status  []ObjectStatus
-	repairs []RepairAction // recent repair pushes, newest last
-	scanned time.Time
+	mu        sync.Mutex
+	status    []ObjectStatus
+	repairs   []RepairAction  // recent repair pushes, newest last
+	repairDur []time.Duration // repair-phase wall time of recent scans that repaired
+	interval  time.Duration   // scan cadence set by Run — bounds detection time
+	scanned   time.Time
 }
 
 // RepairAction is one repair push, kept for the console's progress view (M2).
@@ -276,6 +278,7 @@ func (m *Manager) Scan(ctx context.Context) []ObjectStatus {
 
 	n := m.target()
 	var acted []RepairAction
+	repairStart := time.Now()
 	for _, j := range jobs {
 		if len(j.have) >= n {
 			continue
@@ -331,8 +334,51 @@ func (m *Manager) Scan(ctx context.Context) []ObjectStatus {
 	if len(m.repairs) > repairLogSize {
 		m.repairs = m.repairs[len(m.repairs)-repairLogSize:]
 	}
+	if len(acted) > 0 {
+		m.repairDur = append(m.repairDur, time.Since(repairStart))
+		if len(m.repairDur) > 20 {
+			m.repairDur = m.repairDur[len(m.repairDur)-20:]
+		}
+	}
 	m.scanned = time.Now()
 	m.mu.Unlock()
+	return out
+}
+
+// durability summarizes measured guarantees (M6). Callers hold m.mu.
+// "Survives k losses" is the weakest object's replica count minus one — a
+// measured floor, not a promise; with zero objects there is nothing to lose
+// and nothing to claim.
+func (m *Manager) durability() map[string]any {
+	out := map[string]any{
+		"objects":       len(m.status),
+		"at_target":     0,
+		"survives_loss": 0,
+		"scan_seconds":  int(m.interval.Seconds()),
+	}
+	if len(m.status) == 0 {
+		return out
+	}
+	atTarget, minReplicas := 0, m.status[0].Replicas
+	for _, s := range m.status {
+		if s.Healthy {
+			atTarget++
+		}
+		if s.Replicas < minReplicas {
+			minReplicas = s.Replicas
+		}
+	}
+	out["at_target"] = atTarget
+	if minReplicas > 0 {
+		out["survives_loss"] = minReplicas - 1
+	}
+	if len(m.repairDur) > 0 {
+		sorted := make([]time.Duration, len(m.repairDur))
+		copy(sorted, m.repairDur)
+		sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+		out["repair_median_ms"] = sorted[len(sorted)/2].Milliseconds()
+		out["repair_max_ms"] = sorted[len(sorted)-1].Milliseconds()
+	}
 	return out
 }
 
@@ -425,6 +471,9 @@ func (m *Manager) fetch(ctx context.Context, p Peer, name string) (string, error
 
 // Run scans on a fixed interval until ctx ends — the self-healing loop.
 func (m *Manager) Run(ctx context.Context, interval time.Duration) {
+	m.mu.Lock()
+	m.interval = interval
+	m.mu.Unlock()
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	m.Scan(ctx)
@@ -451,10 +500,11 @@ func (m *Manager) Status() map[string]any {
 	repairs := make([]RepairAction, len(m.repairs))
 	copy(repairs, m.repairs)
 	return map[string]any{
-		"target":  m.target(),
-		"objects": m.status,
-		"repairs": repairs,
-		"pending": pending,
-		"scanned": m.scanned,
+		"target":     m.target(),
+		"objects":    m.status,
+		"repairs":    repairs,
+		"pending":    pending,
+		"scanned":    m.scanned,
+		"durability": m.durability(),
 	}
 }
