@@ -30,6 +30,7 @@ import (
 	"cloudless/internal/quota"
 	"cloudless/internal/registry"
 	"cloudless/internal/relay"
+	"cloudless/internal/replicate"
 	"cloudless/internal/revoke"
 	"cloudless/internal/share"
 	"cloudless/internal/store"
@@ -282,6 +283,7 @@ func runServe(cfg *config.Config) {
 		}
 		var list func() []relay.Entry
 		var path func(string) (string, bool)
+		var add func(string, io.Reader) error
 		if modelStore != nil {
 			list = func() []relay.Entry {
 				out := []relay.Entry{}
@@ -291,9 +293,13 @@ func runServe(cfg *config.Config) {
 				return out
 			}
 			path = modelStore.Path
+			add = func(name string, r io.Reader) error {
+				_, err := modelStore.Add(name, r)
+				return err
+			}
 		}
 		go func() {
-			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL, list, path, shareStore.MaxProcs, revoked.Has); err != nil {
+			if err := relay.ListenAndServe(cfg.Relay, cfg.PKIDir, backendURL, list, path, add, shareStore.MaxProcs, revoked.Has); err != nil {
 				log.Fatalf("relay: %v", err)
 			}
 		}()
@@ -362,6 +368,33 @@ func runServe(cfg *config.Config) {
 	}
 	gw.Models = modelStore
 	gw.Share = shareStore
+
+	// M1: keep every stored artifact on N nodes across failure domains.
+	// Needs the mTLS relay (secure) to survey peers and push replicas.
+	if secure && modelStore != nil {
+		self, loc := "this-node", ""
+		if cfg.Gossip != nil {
+			self, loc = cfg.Gossip.NodeName, cfg.Gossip.Location
+		}
+		mgr := &replicate.Manager{
+			Target: cfg.ReplicationFactor, Self: self, Location: loc,
+			Store:  modelStore,
+			Client: &http.Client{Timeout: 5 * time.Minute, Transport: &http.Transport{TLSClientConfig: peerTLS}},
+			Peers: func() []replicate.Peer {
+				out := []replicate.Peer{}
+				for _, b := range reg.Ranked() {
+					if !b.Healthy || b.Backend.Name == self || !strings.HasPrefix(b.Backend.BaseURL, "https://") {
+						continue
+					}
+					out = append(out, replicate.Peer{Name: b.Backend.Name, BaseURL: b.Backend.BaseURL, Location: b.Backend.Location})
+				}
+				return out
+			},
+		}
+		go mgr.Run(ctx, time.Minute)
+		gw.Replication = mgr.Status
+		gw.ReplicateWrite = mgr.AckWrite
+	}
 	auditPath := "audit.log"
 	if cfg.PKIDir != "" {
 		auditPath = filepath.Join(filepath.Dir(cfg.PKIDir), "audit.log")

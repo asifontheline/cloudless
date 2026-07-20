@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"crypto/tls"
 	_ "embed"
@@ -89,6 +90,12 @@ type Gateway struct {
 	// JoinInfo, when set, reports what a new machine needs to join this
 	// mesh: the gossip secret and the address peers dial (E2 join links).
 	JoinInfo func() (secret, gossipAddr, apiURL string)
+
+	// Replication, when set, reports per-object replica health (M1).
+	// ReplicateWrite pushes a fresh write to its desired holders before the
+	// write is acknowledged, returning achieved replicas and holder names.
+	Replication    func() map[string]any
+	ReplicateWrite func(ctx context.Context, name string) (int, []string)
 }
 
 const routeLogSize = 20
@@ -211,6 +218,14 @@ func (g *Gateway) Handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"limits": applied, "ceiling": share.Ceiling, "shared_cores": g.Share.MaxProcs()})
 	}))
+	mux.HandleFunc("GET /replication", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if g.Replication == nil {
+			json.NewEncoder(w).Encode(map[string]any{"enabled": false})
+			return
+		}
+		json.NewEncoder(w).Encode(g.Replication())
+	})
 	mux.HandleFunc("GET /store", g.handleStoreList)
 	mux.HandleFunc("PUT /store", g.adminOnly(g.handleStoreAdd))
 	mux.HandleFunc("POST /store/pull", g.adminOnly(g.handleStorePull))
@@ -477,6 +492,16 @@ func (g *Gateway) handleStoreAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("store: added %s (%s, %d bytes, sha256 %s…)", e.Name, e.Format, e.Size, e.SHA256[:12])
 	w.Header().Set("Content-Type", "application/json")
+	// M1: the write is acknowledged only after replication to the desired
+	// holders has been attempted; the response reports the durability reached.
+	if g.ReplicateWrite != nil {
+		replicas, holders := g.ReplicateWrite(r.Context(), e.Name)
+		json.NewEncoder(w).Encode(map[string]any{
+			"name": e.Name, "sha256": e.SHA256, "size": e.Size, "format": e.Format,
+			"added": e.Added, "replicas": replicas, "holders": holders,
+		})
+		return
+	}
 	json.NewEncoder(w).Encode(e)
 }
 

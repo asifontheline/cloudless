@@ -36,16 +36,17 @@ type Server struct {
 	backendURL string // local runtime base, e.g. http://127.0.0.1:11434/v1
 	list       func() []storeEntry
 	path       func(string) (string, bool)
-	slots      func() int // shared-work concurrency budget (0 = not sharing)
+	add        func(name string, r io.Reader) error // accept a replica push (M1)
+	slots      func() int                           // shared-work concurrency budget (0 = not sharing)
 	inflight   atomic.Int64
 	client     *http.Client
 }
 
-func NewServer(backendURL string, list func() []storeEntry, path func(string) (string, bool), slots func() int) *Server {
+func NewServer(backendURL string, list func() []storeEntry, path func(string) (string, bool), add func(string, io.Reader) error, slots func() int) *Server {
 	if slots == nil {
 		slots = func() int { return 1 }
 	}
-	return &Server{backendURL: backendURL, list: list, path: path, slots: slots, client: &http.Client{}}
+	return &Server{backendURL: backendURL, list: list, path: path, add: add, slots: slots, client: &http.Client{}}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -53,7 +54,28 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/v1/", s.proxy)
 	mux.HandleFunc("GET /store", s.storeList)
 	mux.HandleFunc("GET /blob", s.blob)
+	mux.HandleFunc("PUT /store", s.storePut)
 	return mux
+}
+
+// storePut accepts a replica pushed by an mTLS-authenticated peer (M1).
+// The store re-verifies format and content hash on write, so a compromised
+// peer cannot plant an artifact that fails the allowlist or lies about bytes.
+func (s *Server) storePut(w http.ResponseWriter, r *http.Request) {
+	if s.add == nil {
+		http.Error(w, `{"error":"no store"}`, http.StatusServiceUnavailable)
+		return
+	}
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, `{"error":"name required"}`, http.StatusBadRequest)
+		return
+	}
+	if err := s.add(name, r.Body); err != nil {
+		http.Error(w, `{"error":"rejected"}`, http.StatusUnprocessableEntity)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) storeList(w http.ResponseWriter, _ *http.Request) {
@@ -141,12 +163,12 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 
 // ListenAndServe runs the relay with mutual TLS from the cluster PKI.
 // list/path (may be nil) expose the local model store to peers for pulls.
-func ListenAndServe(addr, pkiDir, backendURL string, list func() []storeEntry, path func(string) (string, bool), slots func() int, revoked pki.RevokedFn) error {
+func ListenAndServe(addr, pkiDir, backendURL string, list func() []storeEntry, path func(string) (string, bool), add func(string, io.Reader) error, slots func() int, revoked pki.RevokedFn) error {
 	tlsCfg, err := pki.ServerTLS(pkiDir, revoked)
 	if err != nil {
 		return err
 	}
-	srv := &http.Server{Addr: addr, Handler: NewServer(backendURL, list, path, slots).Handler(), TLSConfig: tlsCfg}
+	srv := &http.Server{Addr: addr, Handler: NewServer(backendURL, list, path, add, slots).Handler(), TLSConfig: tlsCfg}
 	log.Printf("relay: mutual-TLS peer endpoint on %s", addr)
 	return srv.ListenAndServeTLS("", "")
 }

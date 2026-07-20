@@ -1,0 +1,17 @@
+#!/bin/sh
+# Catches locally what CI would reject: formatting, vet, build, tests.
+# Enable once per clone:  git config core.hooksPath .githooks
+set -e
+
+if git diff --cached --name-only | grep -q '^cloudless/.*\.go$'; then
+  cd cloudless
+  unformatted=$(gofmt -l .)
+  if [ -n "$unformatted" ]; then
+    echo "gofmt required:"; echo "$unformatted"
+    echo "run: gofmt -w cloudless/"
+    exit 1
+  fi
+  go vet ./...
+  go build ./...
+  go test ./... >/dev/null
+fi
