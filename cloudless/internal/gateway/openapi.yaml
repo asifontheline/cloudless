@@ -23,6 +23,16 @@ paths:
         Routed to the best healthy node; fails over to the next-ranked node on
         any error before the first response byte reaches the client. Streaming
         (text/event-stream) and non-streaming both supported.
+      parameters:
+        - name: X-Race
+          in: header
+          required: false
+          schema: { type: integer, minimum: 2, maximum: 4 }
+          description: >
+            Speculative racing (opt-in): run the same request on the N fastest
+            healthy nodes and return the first complete answer; the rest are
+            cancelled. Buffered responses only (streams take the normal path).
+            Only the winning answer is metered.
       requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
       responses:
         "200": { description: Completion (JSON or event stream) }

@@ -101,8 +101,8 @@ The primary path to expand the mesh: recruit free and willing node hosts. Gated 
 
 ## EPIC O — Speed by Divide & Conquer
 Individual machines are modest; the mesh is not. Speed comes from dividing work across nodes.
-| #102 O1 | Parallel fan-out — split batch work across nodes, merge results | ⬜ P1 |
-| #103 O2 | Speculative racing — first answer wins | ⬜ P1 |
+| #102 O1 | Parallel fan-out — split batch work across nodes, merge results | ✅ |
+| #103 O2 | Speculative racing — first answer wins | ✅ |
 | #104 O3 | Model sharding — run models no single node can | ⬜ P2 |
 | #105 O4 | Chunked parallel transfers from many peers | ⬜ P2 |
 | #106 O5 | Divide-and-conquer batch jobs — map, process, merge | ⬜ P2 |
