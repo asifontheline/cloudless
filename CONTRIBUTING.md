@@ -49,6 +49,9 @@ These are project principles, enforced in review:
   verify artifacts; least privilege.
 - **Safe by default** — a contributed node shares 5% by default (tunable to 70%, never
   100%); nothing should ever make a machine hot or feel like a virus.
+- **Tests are part of the feature** — a feature PR includes test cases covering its
+  acceptance criteria; reviewers reject PRs without them. CI prints per-package coverage
+  and warns when a PR lowers the total — write the tests with the code, not after.
 
 ## Getting set up
 

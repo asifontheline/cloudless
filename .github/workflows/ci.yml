@@ -30,9 +30,30 @@ jobs:
       - name: Vet
         working-directory: cloudless
         run: go vet ./...
-      - name: Test
+      - name: Test with coverage
         working-directory: cloudless
-        run: go test ./...
+        run: |
+          go test -coverprofile=coverage.out ./...
+          echo "## Per-package coverage"
+          go tool cover -func=coverage.out | tail -1
+          go test -cover ./... 2>/dev/null | grep -v "no test files" || true
+
+      # Tests-required policy (L5, #88): a PR may not reduce total coverage.
+      # Soft gate — prints a loud warning; becomes a hard gate once the L1
+      # regression backfill lands.
+      - name: Coverage no-decrease check (soft)
+        if: github.event_name == 'pull_request'
+        working-directory: cloudless
+        run: |
+          head=$(go tool cover -func=coverage.out | tail -1 | grep -oE '[0-9.]+%' | tr -d '%')
+          git fetch --quiet origin "${{ github.base_ref }}"
+          git worktree add --quiet /tmp/base-tree FETCH_HEAD
+          (cd /tmp/base-tree/cloudless && go test -coverprofile=/tmp/base-coverage.out ./...) >/dev/null 2>&1 || true
+          base=$(go tool cover -func=/tmp/base-coverage.out 2>/dev/null | tail -1 | grep -oE '[0-9.]+%' | tr -d '%' || echo 0)
+          echo "coverage: base ${base}% -> head ${head}%"
+          if awk "BEGIN{exit !($head < $base - 0.1)}"; then
+            echo "::warning title=Coverage decreased::Total coverage fell from ${base}% to ${head}%. The tests-required policy (#88) expects features to ship with their tests — this becomes a hard failure once L1 lands."
+          fi
       - name: gofmt check
         working-directory: cloudless
         run: |
