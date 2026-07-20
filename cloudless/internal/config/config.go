@@ -32,6 +32,7 @@ type Config struct {
 	Relay                 string       `json:"relay,omitempty"`       // relay listen address (default :9443 when PKI present)
 	Quotas                *Quotas      `json:"quotas,omitempty"`      // per-key fair-use limits (0 = unlimited)
 	Concurrency           *Concurrency `json:"concurrency,omitempty"` // gateway backpressure (nil = defaults)
+	ReplicationFactor     int          `json:"replication_factor,omitempty"` // copies per stored artifact (default 3)
 }
 
 type Quotas struct {
