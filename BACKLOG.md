@@ -88,7 +88,7 @@ Node churn must never mean lost or breached data. Prerequisite for Epic N recrui
 | #93 M2 | Self-healing re-replication on node loss | ✅ |
 | #94 M3 | Encrypt before data leaves the owner's machine (breach containment) | ✅ |
 | #95 M4 | Restore lost data — owner-initiated recovery flow | ✅ |
-| #96 M5 | Off-mesh backup export & re-import (escape hatch) | ⬜ P1 |
+| #96 M5 | Off-mesh backup export & re-import (escape hatch) | ✅ |
 | #97 M6 | Measured durability guarantees on the console | ⬜ P2 |
 | #108 M7 | Temperature-tiered storage compression (hot fast · cold small) | ⬜ P2 |
 

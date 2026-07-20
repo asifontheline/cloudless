@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"cloudless/internal/audit"
+	"cloudless/internal/backup"
 	"cloudless/internal/inflight"
 	"cloudless/internal/keys"
 	"cloudless/internal/quota"
@@ -106,6 +107,9 @@ type Gateway struct {
 	// Restore, when set, rebuilds local objects from surviving replicas
 	// (M4), reporting an explicit outcome per object.
 	Restore func(ctx context.Context, names []string) map[string]any
+
+	// NodeName identifies this node in backup archives (M5).
+	NodeName string
 }
 
 const routeLogSize = 20
@@ -227,6 +231,61 @@ func (g *Gateway) Handler() http.Handler {
 		log.Printf("share: limits set to %d%% CPU (ceiling %d%%), when=%s", applied.CPUPercent, share.Ceiling, applied.ShareWhen)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"limits": applied, "ceiling": share.Ceiling, "shared_cores": g.Share.MaxProcs()})
+	}))
+	// M5: off-mesh escape hatch — passphrase-encrypted export of this
+	// node's vault, and re-import that re-seals and re-replicates.
+	mux.HandleFunc("POST /backup/export", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
+		if g.Vault == nil {
+			http.Error(w, `{"error":"vault unavailable on this node"}`, http.StatusNotFound)
+			return
+		}
+		var body struct {
+			Passphrase string `json:"passphrase"`
+		}
+		json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body)
+		var refs []backup.ModelRef
+		if g.Models != nil {
+			for _, e := range g.Models.List() {
+				refs = append(refs, backup.ModelRef{Name: e.Name, SHA256: e.SHA256})
+			}
+		}
+		arch, err := backup.Export(g.Vault, g.NodeName, refs, body.Passphrase)
+		if err != nil {
+			http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusUnprocessableEntity)
+			return
+		}
+		g.Audit.Append("cluster", "backup.export", "", fmt.Sprintf("%d bytes", len(arch)))
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition",
+			`attachment; filename="cloudless-backup-`+time.Now().UTC().Format("20060102-150405")+`.sealed"`)
+		w.Write(arch)
+	}))
+	mux.HandleFunc("POST /backup/import", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
+		if g.Vault == nil {
+			http.Error(w, `{"error":"vault unavailable on this node"}`, http.StatusNotFound)
+			return
+		}
+		data, err := io.ReadAll(io.LimitReader(r.Body, 256<<20))
+		if err != nil {
+			http.Error(w, `{"error":"read archive"}`, http.StatusBadRequest)
+			return
+		}
+		results, models, err := backup.Import(g.Vault, data, r.Header.Get("X-Backup-Passphrase"))
+		if err != nil {
+			http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusUnprocessableEntity)
+			return
+		}
+		// Re-replicate what came back so the current mesh holds copies.
+		if g.VaultReplicateWrite != nil {
+			for _, res := range results {
+				if res.Outcome == "restored" {
+					g.VaultReplicateWrite(r.Context(), res.Name)
+				}
+			}
+		}
+		g.Audit.Append("cluster", "backup.import", "", fmt.Sprintf("%d object(s)", len(results)))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"objects": results, "model_refs": models})
 	}))
 	mux.HandleFunc("POST /restore", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
 		if g.Restore == nil {

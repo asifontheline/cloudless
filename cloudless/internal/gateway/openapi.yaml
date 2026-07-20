@@ -204,6 +204,35 @@ paths:
       summary: Delete a vault object (admin)
       parameters: [ { name: name, in: path, required: true, schema: { type: string } } ]
       responses: { "204": { description: Deleted }, "403": { description: Admin key required } }
+  /backup/export:
+    post:
+      summary: Export a passphrase-encrypted off-mesh backup (admin, M5)
+      description: >
+        Archive of this node's owned vault objects, its sealing key, and the
+        model manifest — sealed with a key derived from the owner's
+        passphrase (PBKDF2-SHA256, AES-256-GCM). Survives the whole mesh.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [passphrase], properties: { passphrase: { type: string } } }
+      responses:
+        "200": { description: Encrypted archive (application/octet-stream) }
+        "403": { description: Admin key required }
+        "422": { description: Rejected (empty passphrase) }
+  /backup/import:
+    post:
+      summary: Re-import an off-mesh backup (admin, M5)
+      description: >
+        Objects are opened with the archived key in memory, re-sealed under
+        this node's own key, and re-replicated to current mesh members.
+        Existing local objects are never overwritten. Passphrase travels in
+        the X-Backup-Passphrase header; body is the raw archive.
+      requestBody: { required: true, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+      responses:
+        "200": { description: "{objects: [{name, outcome, error}], model_refs}" }
+        "403": { description: Admin key required }
+        "422": { description: Wrong passphrase or corrupted archive }
   /restore:
     post:
       summary: Rebuild local objects from surviving replicas (admin, M4)

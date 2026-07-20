@@ -33,6 +33,15 @@ type Config struct {
 	Quotas                *Quotas      `json:"quotas,omitempty"`             // per-key fair-use limits (0 = unlimited)
 	Concurrency           *Concurrency `json:"concurrency,omitempty"`        // gateway backpressure (nil = defaults)
 	ReplicationFactor     int          `json:"replication_factor,omitempty"` // copies per stored artifact (default 3)
+	Backup                *Backup      `json:"backup,omitempty"`             // scheduled off-mesh export (M5)
+}
+
+// Backup schedules an automatic off-mesh export: a passphrase-encrypted
+// archive of this node's vault written to a local path.
+type Backup struct {
+	Path       string `json:"path"`        // where the archive is written (overwritten each run)
+	EveryHours int    `json:"every_hours"` // export interval (default 24)
+	Passphrase string `json:"passphrase"`  // encrypts the archive; keep this config file private
 }
 
 type Quotas struct {
