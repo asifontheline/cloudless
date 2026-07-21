@@ -47,6 +47,6 @@ echo "=== Python SDK conformance ==="
 PYTHONPATH="$ROOT/sdk/python" python3 -m unittest discover -s "$ROOT/sdk/python/tests" -v
 
 echo "=== JS SDK conformance ==="
-(cd "$ROOT/sdk/js" && node --test "test/*.test.js")
+(cd "$ROOT/sdk/js" && node --test)
 
 echo "all SDK conformance suites passed"
