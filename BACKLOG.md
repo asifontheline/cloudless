@@ -74,11 +74,11 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #62 K5 | Polyglot runtime backends | ⬜ |
 
 ## EPIC L — Test & Quality
-| #84 L1 | Regression test cases for every shipped feature | ⬜ |
+| #84 L1 | Regression test cases for every shipped feature | 🔶 (registry, relay, store, gateway backfilled; more packages remain) |
 | #85 L2 | Multi-node end-to-end mesh test in CI | ✅ |
 | #86 L3 | Pre-merge gate — re-run tests against latest main just before merging | ✅ |
-| #87 L4 | SDK conformance test cases (Python & JS) against a live node | ⬜ |
-| #88 L5 | Tests-required policy for all future features | ⬜ |
+| #87 L4 | SDK conformance test cases (Python & JS) against a live node | ✅ |
+| #88 L5 | Tests-required policy for all future features | ✅ (soft coverage gate; hardens with L1) |
 | #89 L6 | Browser test cases — console & website smoke tests | ⬜ |
 | #90 L7 | Security regression test cases | ⬜ |
 

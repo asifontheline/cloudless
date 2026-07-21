@@ -89,3 +89,21 @@ jobs:
         run: |
           node --check cloudless.js
           node --input-type=module -e "import {Client,VERSION} from './cloudless.js'; if(typeof Client!=='function') process.exit(1); console.log('cloudless JS SDK', VERSION, 'imports cleanly');"
+
+  sdk-conformance:
+    name: sdk conformance (live node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cloudless/go.mod
+          cache-dependency-path: cloudless/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Build binary, start a node, run both SDKs against it (L4, #87)
+        run: bash sdk/testutil/run_conformance.sh
