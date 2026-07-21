@@ -109,6 +109,20 @@ Individual machines are modest; the mesh is not. Speed comes from dividing work 
 | #107 O6 | Speed-aware scheduling & honest speed-up metrics | ⬜ P2 |
 | #109 O7 | Transfer compression — compress on the wire, decompress at receiver | ⬜ P2 |
 
+## EPIC P — Mesh Cloud Offerings (next wave; after current epics)
+This epic family captures the public-cloud-style service catalog and names it in mesh-native terms. The full catalog lives in [PC2Meshoffering.md](PC2Meshoffering.md).
+| #110 P1 | Mesh Compute & Functions — runtime, scheduling, sandboxed execution, triggers | ⬜ P2 |
+| #111 P2 | Mesh Storage & Recovery — object vault, snapshots, archive, restoration | ⬜ P2 |
+| #112 P3 | Mesh Data Fabric — database, key-value, document, and cache services | ⬜ P2 |
+| #113 P4 | Mesh Transit & Edge — overlay routing, discovery, ingress, edge cache | ⬜ P3 |
+| #114 P5 | Mesh AI Fabric — model endpoints, evaluation, and training hooks | ⬜ P3 |
+| #115 P6 | Mesh Queue & Integration — topics, queues, event bus, and connectors | ⬜ P3 |
+| #116 P7 | Mesh Identity & Security — secrets, key hierarchy, policy enforcement | ⬜ P3 |
+| #117 P8 | Mesh Ops & Observability — metrics, logs, traces, alerts | ⬜ P3 |
+| #118 P9 | Mesh DevOps — build, release, package, and environment provisioning | ⬜ P3 |
+| #119 P10 | Mesh Data Lake & Analytics — ETL, streaming, and query services | ⬜ P3 |
+| #120 P11 | Mesh Edge Relay & IoT — device onboarding, telemetry, and edge execution | ⬜ P3 |
+
 ## Cross-cutting infrastructure (shipped)
 - One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
 - CI validation engine + branch-protected `main` + 2-hourly review-gated merge queue ✅
