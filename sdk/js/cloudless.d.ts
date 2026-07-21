@@ -31,6 +31,15 @@ export declare class Client {
   setShare(opts?: { cpuPercent?: number; shareWhen?: string }): Promise<any>;
   store(): Promise<any[]>;
   pull(name: string): Promise<any>;
+  batch(requests: object[], path?: string): Promise<any[]>;
+  replication(): Promise<any>;
+  restore(names?: string[]): Promise<any>;
+  vault(): Promise<any[]>;
+  vaultPut(name: string, data: BodyInit): Promise<any>;
+  vaultGet(name: string): Promise<Uint8Array>;
+  vaultDelete(name: string): Promise<any>;
+  extensions(): Promise<any[]>;
+  ext(name: string, path: string, body?: unknown, method?: string): Promise<any>;
 }
 
 export default Client;
