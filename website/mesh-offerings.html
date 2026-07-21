@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head>
+<!-- Consent banner -->
+<script data-cfasync="false" type="text/javascript" src="https://cache.consentframework.com/js/pa/53042/c/4Hlz9/stub?source=google-tag"></script>
+<script data-cfasync="false" type="text/javascript" src="https://choices.consentframework.com/js/pa/53042/c/4Hlz9/cmp?source=google-tag" async></script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-5S5RNQSD0Y"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-5S5RNQSD0Y');
+</script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesh Cloud Offerings — CloudLess</title>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="%234a7dbd" stroke-width="7"/><line x1="16" y1="72" x2="84" y2="12" stroke="%23d64545" stroke-width="8" stroke-linecap="round"/></svg>'>
+<style>
+:root { color-scheme: light dark; --line: color-mix(in srgb, currentColor 14%, transparent);
+  --card: color-mix(in srgb, currentColor 4%, transparent); --accent:#4a7dbd; --plan:#8a8f98; }
+body { font: 16px/1.65 system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 1rem 1rem 4rem; }
+h2 { font-size: 1.6rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }
+h3 { font-size: 1.2rem; margin-top: 2rem; }
+a { color: var(--accent); }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { border: 1px solid var(--line); padding: .5rem .6rem; text-align: left; vertical-align: top; }
+th { background: var(--card); }
+.nav { position: sticky; top: 0; background: color-mix(in srgb, Canvas 88%, transparent);
+  backdrop-filter: blur(8px); padding: .7rem 0; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+</style></head><body>
+<div class="nav"><a href="index.html">← CloudLess home</a> &nbsp;·&nbsp;
+<a href="blueprint.html">Blueprint</a> &nbsp;·&nbsp; <a href="protocol.html">Open Protocol</a> &nbsp;·&nbsp;
+<a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">GitHub ↗</a></div>
+
+<h2>Mesh Cloud Offerings Catalog</h2>
+
+<p>Replicating the core families of public cloud offerings as a mesh-native, community-operated
+platform — not vendor branding, but equivalent capability under our own vocabulary, built to run
+on community hardware rather than only centralized data centers.</p>
+
+<h3>Design principles</h3>
+<ul>
+  <li>Service families should be usable on community hardware, not only on centralized data centers.</li>
+  <li>Every offering supports locality-aware placement, encryption, failover, and quota-aware use.</li>
+  <li>Names are simple, durable, and distinct from public cloud vendor brands.</li>
+  <li>Each service is composable: compute, storage, network, identity, operations, and AI can be mixed into higher-level products.</li>
+</ul>
+
+<h3>Service taxonomy</h3>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>Service family</th><th>Mesh-native offering</th><th>Mesh capability scope</th></tr></thead>
+<tbody>
+<tr><td>Compute, VMs, containers</td><td>Mesh Compute</td><td>VM-style runtimes, container execution, autoscaling, placement by locality and hardware fit</td></tr>
+<tr><td>Serverless functions</td><td>Mesh Functions</td><td>Event-driven execution, lightweight tasks, retries, and function chaining</td></tr>
+<tr><td>Object/blob storage</td><td>Mesh Object Vault</td><td>Object storage, versioning, lifecycle tiers, archive, and restore</td></tr>
+<tr><td>Block storage and snapshots</td><td>Mesh Block Store</td><td>Durable disk-like volumes, snapshots, backup, and recovery</td></tr>
+<tr><td>Databases and data services</td><td>Mesh Data Fabric</td><td>SQL, document, key-value, and caching services with mesh replication</td></tr>
+<tr><td>Networking, load balancing, DNS</td><td>Mesh Transit</td><td>Overlay routing, service discovery, ingress, DNS, and edge gateways</td></tr>
+<tr><td>CDN and edge delivery</td><td>Mesh Edge Cache</td><td>Cache-first delivery, locality-aware content release, and edge acceleration</td></tr>
+<tr><td>Messaging and eventing</td><td>Mesh Queue &amp; Event Bus</td><td>Reliable queues, topics, event streams, and workflow triggers</td></tr>
+<tr><td>AI/ML inference and training</td><td>Mesh AI Fabric</td><td>Model hosting, inference endpoints, fine-tuning, and evaluation</td></tr>
+<tr><td>Analytics and data engineering</td><td>Mesh Data Lake</td><td>Batch jobs, ETL, streaming analytics, and structured query services</td></tr>
+<tr><td>Security, identity, and secrets</td><td>Mesh Identity &amp; Key Mesh</td><td>Identity, signed access, secret storage, key rotation, policy enforcement</td></tr>
+<tr><td>Observability and operations</td><td>Mesh Ops Console</td><td>Metrics, logs, traces, health checks, alerts, and operations dashboards</td></tr>
+<tr><td>Developer tools and CI/CD</td><td>Mesh DevOps</td><td>Builds, package distribution, release pipelines, and environment provisioning</td></tr>
+<tr><td>Edge, IoT, and device workloads</td><td>Mesh Edge Relay</td><td>Device registration, telemetry ingestion, offline sync, and edge execution</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Delivery order — Epic P (#110–#120)</h3>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>ID</th><th>Story</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>#110 P1</td><td>Mesh Compute &amp; Functions — runtime, scheduling, sandboxed execution, triggers</td><td>planned</td></tr>
+<tr><td>#111 P2</td><td>Mesh Storage &amp; Recovery — object vault, snapshots, archive, restoration</td><td>planned</td></tr>
+<tr><td>#112 P3</td><td>Mesh Data Fabric — database, key-value, document, and cache services</td><td>planned</td></tr>
+<tr><td>#113 P4</td><td>Mesh Transit &amp; Edge — overlay routing, discovery, ingress, edge cache</td><td>planned</td></tr>
+<tr><td>#114 P5</td><td>Mesh AI Fabric — model endpoints, evaluation, and training hooks</td><td>planned</td></tr>
+<tr><td>#115 P6</td><td>Mesh Queue &amp; Integration — topics, queues, event bus, and connectors</td><td>planned</td></tr>
+<tr><td>#116 P7</td><td>Mesh Identity &amp; Security — secrets, key hierarchy, policy enforcement</td><td>planned</td></tr>
+<tr><td>#117 P8</td><td>Mesh Ops &amp; Observability — metrics, logs, traces, alerts</td><td>planned</td></tr>
+<tr><td>#118 P9</td><td>Mesh DevOps — build, release, package, and environment provisioning</td><td>planned</td></tr>
+<tr><td>#119 P10</td><td>Mesh Data Lake &amp; Analytics — ETL, streaming, and query services</td><td>planned</td></tr>
+<tr><td>#120 P11</td><td>Mesh Edge Relay &amp; IoT — device onboarding, telemetry, and edge execution</td><td>planned</td></tr>
+</tbody>
+</table>
+</div>
+
+<p style="color:var(--plan);font-size:.85rem">Sequenced after the current mesh epics; see the
+<a href="https://github.com/asifontheline/cloudless/blob/main/BACKLOG.md" target="_blank" rel="noopener">full backlog ↗</a>
+and <a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">tracked issues ↗</a> on GitHub.</p>
+
+<p style="color:var(--plan);font-size:.85rem;margin-top:3rem">CloudLess · Apache-2.0 · published from the
+open repository — this page auto-updates when the source document changes.</p>
+</body></html>
