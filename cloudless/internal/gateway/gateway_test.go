@@ -6,11 +6,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"cloudless/internal/audit"
 	"cloudless/internal/config"
 	"cloudless/internal/registry"
 )
@@ -23,6 +25,12 @@ func newTestGateway(t *testing.T, urls ...string) *Gateway {
 		backends[i] = config.Backend{Name: string(rune('a' + i)), BaseURL: u}
 	}
 	return New(registry.New(backends, time.Hour, nil), "test-key", nil)
+}
+
+// newTestAudit opens an audit log backed by a fresh temp file.
+func newTestAudit(t *testing.T) *audit.Log {
+	t.Helper()
+	return audit.Open(filepath.Join(t.TempDir(), "audit.log"))
 }
 
 func proxyRequest(t *testing.T, g *Gateway, body string) *httptest.ResponseRecorder {
