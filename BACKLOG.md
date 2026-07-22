@@ -107,7 +107,7 @@ Individual machines are modest; the mesh is not. Speed comes from dividing work 
 | #105 O4 | Chunked parallel transfers from many peers | ⬜ P2 |
 | #106 O5 | Divide-and-conquer batch jobs — map, process, merge | ⬜ P2 |
 | #107 O6 | Speed-aware scheduling & honest speed-up metrics | ⬜ P2 |
-| #109 O7 | Transfer compression — compress on the wire, decompress at receiver | ⬜ P2 |
+| #109 O7 | Transfer compression — compress on the wire, decompress at receiver | ✅ |
 
 ## EPIC P — Mesh Cloud Offerings (next wave; after current epics)
 This epic family captures the public-cloud-style service catalog and names it in mesh-native terms. The full catalog lives in [PC2Meshoffering.md](PC2Meshoffering.md).
