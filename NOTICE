@@ -1,0 +1,65 @@
+Cloudless
+Copyright 2026 asifontheline
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy
+of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+See the LICENSE file in this repository for the full license text.
+
+--------------------------------------------------------------------------
+Third-party software
+--------------------------------------------------------------------------
+
+This distribution includes the following third-party Go modules, compiled
+into the cloudless binary. Each is used unmodified, under its own license,
+listed below with its upstream copyright notice.
+
+github.com/hashicorp/memberlist (and its Hashicorp-maintained dependencies:
+go-metrics, go-immutable-radix, go-multierror, go-sockaddr, golang-lru,
+errwrap)
+    Mozilla Public License, Version 2.0
+    Copyright IBM Corp. 2013, 2026 / Copyright (c) 2016 HashiCorp, Inc.
+    https://github.com/hashicorp/memberlist
+
+github.com/skip2/go-qrcode
+    MIT License
+    Copyright (c) 2014 Tom Harwood
+    https://github.com/skip2/go-qrcode
+
+github.com/armon/go-metrics
+    MIT License
+    Copyright (c) 2013 Armon Dadgar
+    https://github.com/armon/go-metrics
+
+github.com/hashicorp/go-msgpack/v2
+    MIT License
+    Copyright (c) 2012-2015 Ugorji Nwoke
+    https://github.com/hashicorp/go-msgpack
+
+github.com/sean-/seed
+    MIT License
+    Copyright (c) 2017 Sean Chittenden
+    https://github.com/sean-/seed
+
+github.com/google/btree
+    Apache License, Version 2.0
+    https://github.com/google/btree
+
+github.com/miekg/dns
+    BSD 3-Clause License
+    Copyright (c) 2009, The Go Authors. Extensions copyright (c) 2011, Miek
+    Gieben.
+    https://github.com/miekg/dns
+
+golang.org/x/mod, golang.org/x/net, golang.org/x/sync, golang.org/x/sys,
+golang.org/x/tools (Go standard extended libraries)
+    BSD 3-Clause License
+    Copyright (c) 2009 The Go Authors
+    https://go.googlesource.com/
+
+All licenses above are OSI-approved and compatible with this project's
+Apache-2.0 license. Full license text for each dependency is available at
+its listed source repository, and none has been modified from upstream.
