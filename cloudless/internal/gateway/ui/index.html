@@ -851,7 +851,7 @@ const FEATURES = [
   ["D · Evaluation","Telemetry export",18,"planned"],
   ["D · Evaluation","Paper §8 experiments",19,"planned"],
   ["E · Network","Bundled encrypted overlay",20,"planned"],
-  ["E · Network","Join links/QR from console",21,"planned"],
+  ["E · Network","Join links/QR from console",21,"done"],
   ["E · Network","Internal naming",22,"planned"],
   ["E · Network","Signed release binaries",23,"planned"],
   ["F · Services","Embeddings endpoint",24,"planned"],
@@ -940,7 +940,7 @@ function renderDashboard() {
   main.innerHTML = `<h1>Mesh dashboard</h1>
   <p id="err">Cannot reach gateway.</p>
   <p id="load" class="muted"></p>
-  <h2>Nodes <button id="mint" style="font:inherit;font-size:.78rem;margin-left:.6rem;padding:.15rem .7rem;border:1px solid var(--line);border-radius:6px;background:none;color:var(--accent);cursor:pointer">+ mint join token</button></h2>
+  <h2>Nodes <button id="mint" style="font:inherit;font-size:.78rem;margin-left:.6rem;padding:.15rem .7rem;border:1px solid var(--line);border-radius:6px;background:none;color:var(--accent);cursor:pointer">+ join link</button></h2>
   <p id="minted" class="muted" style="display:none;font-size:.85rem"></p>
   <table><thead><tr><th>Name</th><th>Backend</th><th>State</th><th>Latency</th></tr></thead><tbody id="nodes"></tbody></table>
   <h2>Recent routes</h2>
@@ -950,20 +950,20 @@ function renderDashboard() {
   document.getElementById('mint').onclick = async () => {
     const hdr = {'Authorization':'Bearer '+(localStorage.getItem('adminKey')||''),'Content-Type':'application/json'};
     const el = document.getElementById('minted'); el.style.display = 'block';
-    const r = await fetch('/join-tokens', {method:'POST', headers:hdr, body:'{"ttl_minutes":15}'});
-    if (!r.ok) { el.textContent = r.status === 404 ? 'Only the founding (CA-holding) node can mint join tokens.' : 'Mint failed — set the admin key on the Members page.'; return; }
+    el.textContent = 'Generating…';
+    // E2: one call mints a single-use token, composes the full join
+    // command with this node's address and secret, and returns a QR of
+    // that command — scan on another device to carry it across instead of
+    // transcribing secret, address, and token by hand.
+    const r = await fetch('/join-link', {method:'POST', headers:hdr, body:'{"ttl_minutes":15}'});
+    if (!r.ok) { el.textContent = r.status === 404 ? 'Only the founding (CA-holding) node can generate join links.' : 'Generating a join link failed — set the admin key on the Members page.'; return; }
     const d = await r.json();
-    // Compose the complete invite when this node can share its join info
-    // (E2 join links); fall back to the token-only form otherwise.
-    let cmd = `cloudless up -join <secret>@<host:port> -join-token ${d.token}`;
-    const ji = await fetch('/join-info', {headers:hdr});
-    if (ji.ok) {
-      const j = await ji.json();
-      cmd = `cloudless up -join ${j.secret}@${j.gossip_addr} -seed-api ${j.api_url} -join-token ${d.token}`;
-    }
+    const cmd = d.command;
     el.innerHTML = `Single-use invite — valid until ${esc(new Date(d.expires).toLocaleTimeString())}, works exactly once.<br>` +
       `Paste on the new machine: <code id="invite-cmd">${esc(cmd)}</code> ` +
-      `<button id="copy-invite" style="font:inherit;font-size:.75rem;padding:.1rem .5rem;border:1px solid var(--line);border-radius:5px;background:none;color:var(--accent);cursor:pointer">copy</button>`;
+      `<button id="copy-invite" style="font:inherit;font-size:.75rem;padding:.1rem .5rem;border:1px solid var(--line);border-radius:5px;background:none;color:var(--accent);cursor:pointer">copy</button>` +
+      `<br><span class="muted">Or scan on another device:</span><br>` +
+      `<img alt="QR code of the join command" width="160" height="160" style="margin-top:.4rem;border:1px solid var(--line);border-radius:6px" src="data:image/png;base64,${d.qr_png_base64}">`;
     document.getElementById('copy-invite').onclick = async e => {
       await navigator.clipboard.writeText(cmd);
       e.target.textContent = 'copied ✓'; setTimeout(() => e.target.textContent = 'copy', 1500);

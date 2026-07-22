@@ -362,7 +362,7 @@ services ride the same mesh next.</p>
   <div class="card"><h3>🚀 Onboarding</h3><ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.92rem">
     <li>One-command mesh (<code>up</code>) <span class="b-live">· live</span></li>
     <li>Auto runtime detection <span class="b-live">· live</span></li>
-    <li>Join links / QR from console <span class="b-planned">· planned</span></li>
+    <li>Join links / QR from console <span class="b-live">· live</span></li>
     <li>Signed release binaries <span class="b-planned">· planned</span></li>
   </ul></div>
 
@@ -376,7 +376,7 @@ services ride the same mesh next.</p>
 <tr><td>Epic B — Model Commons (hash-verified store, cache, safe-format guard)</td><td><span class="b-progress">3 / 5</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#6–#10 ↗</a></td></tr>
 <tr><td>Epic C — Accounts (per-user keys, usage, quotas)</td><td><span class="b-progress">3 / 5</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#11–#15 ↗</a></td></tr>
 <tr><td>Epic D — Evaluation &amp; Paper (benchmarks, churn tests)</td><td><span class="b-planned">0 / 4</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#16–#19 ↗</a></td></tr>
-<tr><td>Epic E — Network &amp; Onboarding (overlay, QR joins, releases)</td><td><span class="b-planned">0 / 4</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#20–#23 ↗</a></td></tr>
+<tr><td>Epic E — Network &amp; Onboarding (overlay, QR joins, releases)</td><td><span class="b-progress">1 / 4</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#20–#23 ↗</a></td></tr>
 <tr><td>Epic F — Beyond Inference (speech, images, batch, storage, queues)</td><td><span class="b-planned">0 / 12</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#24–#35 ↗</a></td></tr>
 <tr><td>Epic G — Encryption &amp; Data Guard (at-rest, locality, shredding)</td><td><span class="b-planned">0 / 8</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#36–#43 ↗</a></td></tr>
 <tr><td>Epic H — Billing Freedom (ledger, calculator, idle surfacing)</td><td><span class="b-live">3 / 3 ✓</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#44–#46 ↗</a></td></tr>
@@ -634,6 +634,8 @@ const F = {
     demo:CON+'<div>🌍 asia — <span class="ok">3●</span> <span class="bad">1●</span></div><div style="padding-left:1rem">🇮🇳 india ▸ bengaluru <span class="ok">●●</span></div><div>🌍 europe — <span class="ok">2●</span></div><div style="padding-left:1rem">🇩🇪 germany ▸ berlin <span class="ok">●</span></div>'},
   members:{t:"Members & API keys", s:"live", d:"Each member gets a named key, created and revoked from the browser. Usage, quotas, and the ledger all attribute per person.",
     demo:CON+'<div class="row">alice <span class="ok">active</span></div><div class="row">bob <span class="ok">active</span></div><div class="row">carol <span class="bad">revoked</span></div>'},
+  qr:{t:"Join links / QR codes", s:"live", d:"One click mints a single-use, expiring invite and composes the whole join command — secret, address, token — plus a QR code of it, so onboarding a new machine is a scan instead of transcribing four separate values by hand.",
+    demo:CON+'<div class="msg u">▶ + join link</div><div class="msg a">cloudless up -join 2e5d…@10.0.0.4:7946 -seed-api http://10.0.0.4:8080 -join-token PYrC…<br><span class="muted">+ QR code of the same command · expires in 15 min · works once</span></div>'},
   mtls:{t:"Cluster CA & mutual TLS", s:"live", d:"The mesh runs its own certificate authority; every node enrolls and all peer traffic is mutual-TLS. No plaintext ever crosses the wire.",
     demo:CON+'<div class="msg a">✓ node certificate issued by cluster CA</div><div class="msg a">✓ peer connection: TLS 1.3, both sides verified</div>'},
   usage:{t:"Usage & quotas", s:"live", d:"Requests and tokens counted per key and node, with fair-use rate limits and daily budgets enforced at the gateway.",
@@ -663,7 +665,7 @@ const PLANNED = {
   batch:"Batch jobs",scheduled:"Scheduled jobs",containers:"Containers",object:"Object store",backup:"Backup & archive",
   queues:"Queues & events",kv:"Key-value store",workflows:"Workflows",overlay:"One-click global overlay",dataguard:"Data Guard",
   audit:"Signed audit log",share:"Resource share controls",reciprocity:"Reciprocity & entitlement",geomap:"Geo network map",
-  mobile:"Mobile devices as nodes",qr:"Join links / QR codes",
+  mobile:"Mobile devices as nodes",
   plugins:"Plugins in any language (WASM / subprocess)"
 };
 const badge = s => s==="live" ? '<span class="status" style="color:var(--ok)">● live</span>'
