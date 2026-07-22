@@ -12,7 +12,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #2 A2 | Single-use expiring join tokens | ✅ |
 | #3 A3 | Mutual TLS between nodes | ✅ |
 | #4 A4 | Node revocation (cert refused + dropped, gossip-propagated) | ✅ |
-| #5 A5 | Signed audit log | ⬜ |
+| #5 A5 | Signed audit log | ✅ |
 | #52 A6 | Passwordless sign-in (passkeys/WebAuthn) | ⬜ |
 
 ## EPIC B — Model Commons

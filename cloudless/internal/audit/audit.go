@@ -13,6 +13,13 @@ import (
 // Each entry embeds the SHA-256 of the previous entry, so altering or
 // removing any past entry breaks the chain and is detectable by Verify.
 // Append-only on disk (one JSON object per line).
+//
+// Hash-chaining alone only proves internal self-consistency: anyone with
+// write access to the log file can regenerate a whole new chain from
+// scratch and Verify will call it intact. When a Signer is set (A5), each
+// entry's hash is additionally signed with the node's own PKI key, binding
+// the log to the node's enrolled identity — a forged replacement log is
+// self-consistent but does not carry a valid signature from that identity.
 
 type Entry struct {
 	Seq      int64     `json:"seq"`
@@ -23,13 +30,45 @@ type Entry struct {
 	Detail   string    `json:"detail,omitempty"`
 	PrevHash string    `json:"prev_hash"`
 	Hash     string    `json:"hash"`
+	Sig      string    `json:"sig,omitempty"` // hex signature of Hash, present when a Signer is set
+}
+
+// Signer binds audit entries to a node's cryptographic identity. sign
+// produces a signature over data; verify reports whether sig is a valid
+// signature of data under the same identity.
+type Signer interface {
+	Sign(data []byte) (sig []byte, err error)
+	Verify(data, sig []byte) bool
 }
 
 type Log struct {
-	mu   sync.Mutex
-	path string
-	last string // hash of the most recent entry
-	seq  int64
+	mu     sync.Mutex
+	path   string
+	last   string // hash of the most recent entry
+	seq    int64
+	signer Signer
+}
+
+// SetSigner enables signing for subsequent appends and verification. Entries
+// written before this call (or by a node with no signer) have no Sig and
+// verify on hash-chain integrity alone, same as before A5.
+func (l *Log) SetSigner(s Signer) {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	l.signer = s
+	l.mu.Unlock()
+}
+
+// Signed reports whether new entries are being cryptographically signed.
+func (l *Log) Signed() bool {
+	if l == nil {
+		return false
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.signer != nil
 }
 
 const genesis = "genesis"
@@ -100,6 +139,11 @@ func (l *Log) Append(actor, action, target, detail string) {
 	}
 	e.Hash = hashEntry(e)
 	l.last = e.Hash
+	if l.signer != nil {
+		if sig, err := l.signer.Sign([]byte(e.Hash)); err == nil {
+			e.Sig = hex.EncodeToString(sig)
+		}
+	}
 	f, err := os.OpenFile(l.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return
@@ -123,8 +167,15 @@ func (l *Log) List(limit int) []Entry {
 }
 
 // Verify walks the chain from genesis and reports whether it is intact.
-// Returns (ok, brokenAtSeq). brokenAtSeq is 0 when ok.
+// Returns (ok, brokenAtSeq). brokenAtSeq is 0 when ok. When a Signer is
+// set, every entry must also carry a signature that verifies against it —
+// a log rewritten from scratch (which trivially recomputes a
+// self-consistent hash chain) fails here unless the forger also holds the
+// node's private key.
 func (l *Log) Verify() (bool, int64) {
+	l.mu.Lock()
+	signer := l.signer
+	l.mu.Unlock()
 	entries := readAll(l.path)
 	prev := genesis
 	for _, e := range entries {
@@ -134,6 +185,12 @@ func (l *Log) Verify() (bool, int64) {
 		want := hashEntry(e)
 		if e.Hash != want {
 			return false, e.Seq
+		}
+		if signer != nil {
+			sig, err := hex.DecodeString(e.Sig)
+			if err != nil || len(sig) == 0 || !signer.Verify([]byte(e.Hash), sig) {
+				return false, e.Seq
+			}
 		}
 		prev = e.Hash
 	}

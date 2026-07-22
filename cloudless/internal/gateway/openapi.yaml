@@ -99,9 +99,15 @@ paths:
     get: { summary: Cost comparison vs commercial clouds, security: [], responses: { "200": { description: Savings } } }
   /audit:
     get:
-      summary: Hash-chained audit log with integrity verdict
+      summary: Hash-chained, PKI-signed audit log with integrity verdict (A5)
+      description: >
+        Each entry is hash-chained to the previous one and, on a node with
+        PKI credentials, signed with the node's own key — binding the log
+        to its enrolled identity so a wholesale rewrite (which trivially
+        recomputes a self-consistent hash chain) fails Verify unless the
+        forger also holds the node's private key.
       security: []
-      responses: { "200": { description: Entries plus intact/broken_at verdict } }
+      responses: { "200": { description: "{entries, intact, broken_at, signed}" } }
   /share:
     get:
       summary: This node's resource-share limits

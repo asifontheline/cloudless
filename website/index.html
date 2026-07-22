@@ -347,7 +347,7 @@ services ride the same mesh next.</p>
     <li>Cluster CA &amp; mutual TLS <span class="b-live">· live</span></li>
     <li>Join tokens <span class="b-progress">· in progress</span></li>
     <li>Encryption at rest + Data Guard <span class="b-planned">· planned</span></li>
-    <li>Signed audit log <span class="b-planned">· planned</span></li>
+    <li>Signed audit log <span class="b-live">· live</span></li>
   </ul></div>
 
   <div class="card"><h3>📊 Management &amp; Governance</h3><ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.92rem">
@@ -372,7 +372,7 @@ services ride the same mesh next.</p>
 <table>
 <thead><tr><th>Area</th><th>Implemented</th><th>Tracker</th></tr></thead><tbody>
 <tr><td>Core platform — onboarding, encrypted mesh, failover gateway, console</td><td><span class="b-live">4 / 4 ✓</span></td><td><a href="https://github.com/asifontheline/cloudless" target="_blank" rel="noopener">repo ↗</a></td></tr>
-<tr><td>Epic A — Secure Mesh (CA, mTLS, join tokens, revocation, passkeys, audit)</td><td><span class="b-progress">2 / 6</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#1–#5, #52 ↗</a></td></tr>
+<tr><td>Epic A — Secure Mesh (CA, mTLS, join tokens, revocation, passkeys, signed audit)</td><td><span class="b-progress">3 / 6</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#1–#5, #52 ↗</a></td></tr>
 <tr><td>Epic B — Model Commons (hash-verified store, cache, safe-format guard)</td><td><span class="b-progress">3 / 5</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#6–#10 ↗</a></td></tr>
 <tr><td>Epic C — Accounts (per-user keys, usage, quotas)</td><td><span class="b-progress">3 / 5</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#11–#15 ↗</a></td></tr>
 <tr><td>Epic D — Evaluation &amp; Paper (benchmarks, churn tests)</td><td><span class="b-planned">0 / 4</span></td><td><a href="https://github.com/asifontheline/cloudless/milestones" target="_blank" rel="noopener">#16–#19 ↗</a></td></tr>
@@ -636,6 +636,8 @@ const F = {
     demo:CON+'<div class="row">alice <span class="ok">active</span></div><div class="row">bob <span class="ok">active</span></div><div class="row">carol <span class="bad">revoked</span></div>'},
   qr:{t:"Join links / QR codes", s:"live", d:"One click mints a single-use, expiring invite and composes the whole join command — secret, address, token — plus a QR code of it, so onboarding a new machine is a scan instead of transcribing four separate values by hand.",
     demo:CON+'<div class="msg u">▶ + join link</div><div class="msg a">cloudless up -join 2e5d…@10.0.0.4:7946 -seed-api http://10.0.0.4:8080 -join-token PYrC…<br><span class="muted">+ QR code of the same command · expires in 15 min · works once</span></div>'},
+  audit:{t:"Signed audit log", s:"live", d:"Every administrative action is hash-chained and, on a node with PKI credentials, signed with the node's own key — binding the log to its enrolled identity. A wholesale rewrite recomputes a self-consistent hash chain trivially, but fails verification without the real private key.",
+    demo:CON+'<div class="msg a">✓ keys.create alice — hash-chained + signed</div><div class="msg a">✓ chain intact · signed by this node&#39;s PKI key</div>'},
   mtls:{t:"Cluster CA & mutual TLS", s:"live", d:"The mesh runs its own certificate authority; every node enrolls and all peer traffic is mutual-TLS. No plaintext ever crosses the wire.",
     demo:CON+'<div class="msg a">✓ node certificate issued by cluster CA</div><div class="msg a">✓ peer connection: TLS 1.3, both sides verified</div>'},
   usage:{t:"Usage & quotas", s:"live", d:"Requests and tokens counted per key and node, with fair-use rate limits and daily budgets enforced at the gateway.",
@@ -664,7 +666,7 @@ const PLANNED = {
   embeddings:"Embeddings",speech:"Speech to/from text",vision:"Vision & OCR",images:"Image generation",vectors:"Vector search",
   batch:"Batch jobs",scheduled:"Scheduled jobs",containers:"Containers",object:"Object store",backup:"Backup & archive",
   queues:"Queues & events",kv:"Key-value store",workflows:"Workflows",overlay:"One-click global overlay",dataguard:"Data Guard",
-  audit:"Signed audit log",share:"Resource share controls",reciprocity:"Reciprocity & entitlement",geomap:"Geo network map",
+  share:"Resource share controls",reciprocity:"Reciprocity & entitlement",geomap:"Geo network map",
   mobile:"Mobile devices as nodes",
   plugins:"Plugins in any language (WASM / subprocess)"
 };
