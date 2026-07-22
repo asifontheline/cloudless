@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"crypto/tls"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/skip2/go-qrcode"
 
 	"cloudless/internal/audit"
 	"cloudless/internal/backup"
@@ -197,6 +200,7 @@ func (g *Gateway) Handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"secret": secret, "gossip_addr": addr, "api_url": api})
 	}))
+	mux.HandleFunc("POST /join-link", g.adminOnly(g.handleJoinLink))
 	mux.HandleFunc("GET /share", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
@@ -824,6 +828,40 @@ func (g *Gateway) handleVaultGet(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Write(plain)
+}
+
+// handleJoinLink mints a fresh single-use join token and combines it with
+// this node's join info into one ready-to-run command plus a QR code of
+// that same command (E2) — scan on another device to copy it across
+// instead of transcribing secret, address, and token by hand.
+func (g *Gateway) handleJoinLink(w http.ResponseWriter, r *http.Request) {
+	if g.MintJoinToken == nil || g.JoinInfo == nil {
+		http.Error(w, `{"error":"this node cannot generate join links (not the founding, CA-holding node)"}`, http.StatusNotFound)
+		return
+	}
+	var body struct {
+		TTLMinutes int `json:"ttl_minutes"`
+	}
+	json.NewDecoder(io.LimitReader(r.Body, 1<<12)).Decode(&body) // empty body = default TTL
+	tok, exp, err := g.MintJoinToken(time.Duration(body.TTLMinutes) * time.Minute)
+	if err != nil {
+		http.Error(w, `{"error":"mint failed"}`, http.StatusInternalServerError)
+		return
+	}
+	secret, gossipAddr, apiURL := g.JoinInfo()
+	cmd := fmt.Sprintf("cloudless up -join %s@%s -seed-api %s -join-token %s", secret, gossipAddr, apiURL, tok)
+	png, err := qrcode.Encode(cmd, qrcode.Medium, 320)
+	if err != nil {
+		http.Error(w, `{"error":"qr generation failed"}`, http.StatusInternalServerError)
+		return
+	}
+	g.Audit.Append("cluster", "join-link.mint", "", "expires "+exp.UTC().Format(time.RFC3339))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"command":       cmd,
+		"expires":       exp.UTC(),
+		"qr_png_base64": base64.StdEncoding.EncodeToString(png),
+	})
 }
 
 // defaultHotWindow is how long an object stays in the fast (uncompressed)

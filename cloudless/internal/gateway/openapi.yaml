@@ -139,6 +139,25 @@ paths:
         "200": { description: "{secret, gossip_addr, api_url}" }
         "403": { description: Admin key required }
         "404": { description: Unavailable on this node }
+  /join-link:
+    post:
+      summary: One-call join invite plus QR code (admin, CA node, E2)
+      description: >
+        Mints a fresh single-use join token and combines it with this
+        node's join info into one ready-to-run `cloudless up` command,
+        plus a QR code encoding that same command — scan on another
+        device to carry the invite across instead of transcribing the
+        secret, address, and token by hand.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, properties: { ttl_minutes: { type: integer, default: 15 } } }
+      responses:
+        "200": { description: "{command, expires, qr_png_base64}; recorded in the audit log" }
+        "403": { description: Admin key required }
+        "404": { description: Not the CA-holding node }
+        "500": { description: Mint or QR generation failed }
   /enroll:
     post:
       summary: Enroll a joining node's public key for a certificate
