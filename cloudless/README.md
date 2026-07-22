@@ -5,8 +5,9 @@ format — see [../mvp_design.md](../mvp_design.md).
 Current state: gateway with health probing, latency-ranked routing, automatic
 failover, and gossip-based peer discovery (encrypted with a shared cluster secret).
 
-Dependencies: `hashicorp/memberlist` (MPL-2.0) only. License: Apache-2.0
-(add the canonical LICENSE text before publishing).
+Dependencies: `hashicorp/memberlist` (MPL-2.0), `skip2/go-qrcode` (MIT) — full
+list with upstream licenses in [../NOTICE](../NOTICE). License: Apache-2.0,
+see [../LICENSE](../LICENSE).
 
 ## Run
 
@@ -15,6 +16,33 @@ go build -o cloudless ./cmd/cloudless
 cp config.example.json config.json   # edit backends to point at your local inference runtime /v1 endpoints
 ./cloudless serve -config config.json
 ```
+
+## Stop
+
+`Ctrl+C` (SIGINT) or `SIGTERM` triggers a graceful shutdown: the HTTP server
+stops accepting new requests, in-flight ones get up to 5s to finish, and (in
+gossip mode) the node leaves the mesh cleanly so peers drop it from routing
+right away instead of waiting for a health-check timeout.
+
+**If `Ctrl+C` does nothing:** you're almost certainly pressing it in a
+terminal that isn't the process's controlling terminal — most commonly
+because the process was started backgrounded with `&` (as in `./cloudless
+serve -config config.json &`), which detaches it from the shell's signal
+handling. `Ctrl+C` only reaches the terminal's *foreground* process group.
+
+To stop it from another terminal:
+
+```sh
+# find it
+ps aux | grep '[c]loudless'
+# stop it gracefully (same signal Ctrl+C sends)
+kill -INT <pid>
+# or, if you only know the port it's listening on
+lsof -ti:8080 -sTCP:LISTEN | xargs kill -INT
+```
+
+If it was started with `&` in a shell you still have open, `fg` first (bring
+it to the foreground), then `Ctrl+C` works normally.
 
 Point any standard chat-completions client at it:
 
