@@ -57,14 +57,38 @@ jobs:
               echo "PR #$pr does not merge cleanly onto latest main — leaving for rebase."
               echo "::endgroup::"; continue
             fi
-            if (cd cloudless && go build ./... && go vet ./... && go test ./... && [ -z "$(gofmt -l .)" ]); then
-              echo "PR #$pr validates against latest main — squashing."
-              gh pr merge "$pr" -R "$REPO" --squash --delete-branch --admin
-              merged_any=true
-            else
+            if ! (cd cloudless && go build ./... && go vet ./... && go test ./... && [ -z "$(gofmt -l .)" ]); then
               echo "PR #$pr is green in isolation but fails against latest main — leaving for rebase."
               gh pr comment "$pr" -R "$REPO" --body "Merge queue: checks are green on the branch, but the full test suite fails when this PR is merged onto current \`main\`. Please rebase and fix — the queue will retry next cycle." || true
+              echo "::endgroup::"; continue
             fi
+            echo "PR #$pr validates against latest main — squashing."
+            # Branch protection requires the head be up to date with base. A
+            # prior merge earlier in this same run can leave a later PR
+            # BEHIND even though it just validated clean above — sync it and
+            # wait for checks to re-report on the synced commit instead of
+            # losing a full cron cycle to it.
+            behind=$(gh pr view "$pr" -R "$REPO" --json mergeStateStatus --jq '.mergeStateStatus == "BEHIND"')
+            synced_ok=true
+            if [ "$behind" = "true" ]; then
+              echo "PR #$pr is behind main — syncing and waiting for checks to re-run."
+              gh pr update-branch "$pr" -R "$REPO"
+              deadline=$((SECONDS + 600))
+              synced_ok=false
+              while [ "$SECONDS" -lt "$deadline" ]; do
+                if gh pr checks "$pr" -R "$REPO" >/dev/null 2>&1; then
+                  synced_ok=true
+                  break
+                fi
+                sleep 15
+              done
+            fi
+            if [ "$synced_ok" != "true" ]; then
+              echo "PR #$pr did not go green after syncing within 10m — leaving for next cycle."
+              echo "::endgroup::"; continue
+            fi
+            gh pr merge "$pr" -R "$REPO" --squash --delete-branch --admin
+            merged_any=true
             echo "::endgroup::"
           done
           # A merge done with the default token does not trigger other
