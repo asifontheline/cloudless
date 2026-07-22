@@ -65,26 +65,25 @@ jobs:
             echo "PR #$pr validates against latest main — squashing."
             # Branch protection requires the head be up to date with base. A
             # prior merge earlier in this same run can leave a later PR
-            # BEHIND even though it just validated clean above — sync it and
-            # wait for checks to re-report on the synced commit instead of
-            # losing a full cron cycle to it.
-            behind=$(gh pr view "$pr" -R "$REPO" --json mergeStateStatus --jq '.mergeStateStatus == "BEHIND"')
-            synced_ok=true
-            if [ "$behind" = "true" ]; then
-              echo "PR #$pr is behind main — syncing and waiting for checks to re-run."
-              gh pr update-branch "$pr" -R "$REPO"
-              deadline=$((SECONDS + 600))
-              synced_ok=false
-              while [ "$SECONDS" -lt "$deadline" ]; do
-                if gh pr checks "$pr" -R "$REPO" >/dev/null 2>&1; then
-                  synced_ok=true
-                  break
-                fi
-                sleep 15
-              done
-            fi
+            # BEHIND even though it just validated clean above — but
+            # GitHub's mergeStateStatus is computed asynchronously and can
+            # still read stale (e.g. CLEAN) for seconds after that prior
+            # merge, so checking it here loses the race almost every time.
+            # Sync unconditionally instead of trusting it: a no-op when
+            # already up to date, a real fix when not, either way followed
+            # by waiting for checks to report on the resulting commit.
+            gh pr update-branch "$pr" -R "$REPO" >/dev/null 2>&1 || true
+            deadline=$((SECONDS + 600))
+            synced_ok=false
+            while [ "$SECONDS" -lt "$deadline" ]; do
+              if gh pr checks "$pr" -R "$REPO" >/dev/null 2>&1; then
+                synced_ok=true
+                break
+              fi
+              sleep 15
+            done
             if [ "$synced_ok" != "true" ]; then
-              echo "PR #$pr did not go green after syncing within 10m — leaving for next cycle."
+              echo "PR #$pr did not go green within 10m of squashing — leaving for next cycle."
               echo "::endgroup::"; continue
             fi
             gh pr merge "$pr" -R "$REPO" --squash --delete-branch --admin
