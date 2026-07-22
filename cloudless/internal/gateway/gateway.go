@@ -138,14 +138,14 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("GET /status", g.handleStatus)
+	mux.HandleFunc("GET /status", withGzip(g.handleStatus))
 	if g.EnrollHandler != nil {
 		mux.HandleFunc("POST /enroll", g.EnrollHandler)
 	}
-	mux.HandleFunc("GET /ledger", g.handleLedger)
-	mux.HandleFunc("GET /savings", g.handleSavings)
-	mux.HandleFunc("GET /capacity", g.handleCapacity)
-	mux.HandleFunc("GET /audit", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /ledger", withGzip(g.handleLedger))
+	mux.HandleFunc("GET /savings", withGzip(g.handleSavings))
+	mux.HandleFunc("GET /capacity", withGzip(g.handleCapacity))
+	mux.HandleFunc("GET /audit", withGzip(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ok, at := true, int64(0)
 		var entries []audit.Entry
@@ -154,15 +154,15 @@ func (g *Gateway) Handler() http.Handler {
 			ok, at = g.Audit.Verify()
 		}
 		json.NewEncoder(w).Encode(map[string]any{"entries": entries, "intact": ok, "broken_at": at})
-	})
-	mux.HandleFunc("GET /revocations", func(w http.ResponseWriter, _ *http.Request) {
+	}))
+	mux.HandleFunc("GET /revocations", withGzip(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var list []revoke.Record
 		if g.RevokedList != nil {
 			list = g.RevokedList()
 		}
 		json.NewEncoder(w).Encode(map[string]any{"revoked": list})
-	})
+	}))
 	mux.HandleFunc("POST /revoke/{name}", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
 		name := r.PathValue("name")
 		if g.Revoke == nil || !g.Revoke(name) {
@@ -201,13 +201,13 @@ func (g *Gateway) Handler() http.Handler {
 		json.NewEncoder(w).Encode(map[string]string{"secret": secret, "gossip_addr": addr, "api_url": api})
 	}))
 	mux.HandleFunc("POST /join-link", g.adminOnly(g.handleJoinLink))
-	mux.HandleFunc("GET /share", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /share", withGzip(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"limits": g.Share.Get(), "ceiling": share.Ceiling, "default": share.Default,
 			"shared_cores": g.Share.MaxProcs(),
 		})
-	})
+	}))
 	mux.HandleFunc("PUT /share", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
 		// Partial update: only fields present in the body change; omitted
 		// fields keep their current value (so setting CPU alone doesn't
@@ -310,27 +310,27 @@ func (g *Gateway) Handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(report)
 	}))
-	mux.HandleFunc("GET /replication", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /replication", withGzip(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if g.Replication == nil {
 			json.NewEncoder(w).Encode(map[string]any{"enabled": false})
 			return
 		}
 		json.NewEncoder(w).Encode(g.Replication())
-	})
+	}))
 	// M3 vault: owner-encrypted objects. List is public like /store (names
 	// and hashes only); contents and writes are admin — and Get succeeds
 	// only on the node holding the sealing key.
-	mux.HandleFunc("GET /vault", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /vault", withGzip(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if g.Vault == nil {
 			json.NewEncoder(w).Encode(map[string]any{"enabled": false})
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]any{"objects": g.Vault.List()})
-	})
+	}))
 	mux.HandleFunc("PUT /vault/{name}", g.adminOnly(g.handleVaultPut))
-	mux.HandleFunc("GET /vault/{name}", g.adminOnly(g.handleVaultGet))
+	mux.HandleFunc("GET /vault/{name}", g.adminOnly(g.handleVaultGet)) // secret plaintext: never gzip
 	mux.HandleFunc("DELETE /vault/{name}", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
 		if g.Vault == nil || !g.Vault.Delete(r.PathValue("name")) {
 			http.Error(w, `{"error":"unknown object"}`, http.StatusNotFound)
@@ -340,41 +340,41 @@ func (g *Gateway) Handler() http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	mux.HandleFunc("POST /vault/compact", g.adminOnly(g.handleVaultCompact))
-	mux.HandleFunc("GET /store", g.handleStoreList)
+	mux.HandleFunc("GET /store", withGzip(g.handleStoreList))
 	mux.HandleFunc("PUT /store", g.adminOnly(g.handleStoreAdd))
 	mux.HandleFunc("POST /store/pull", g.adminOnly(g.handleStorePull))
-	mux.HandleFunc("GET /store/verify", g.handleStoreVerify)
+	mux.HandleFunc("GET /store/verify", withGzip(g.handleStoreVerify))
 	mux.HandleFunc("DELETE /store/{name}", g.adminOnly(g.handleStoreDelete))
-	mux.HandleFunc("GET /keys", g.adminOnly(g.handleKeysList))
+	mux.HandleFunc("GET /keys", g.adminOnly(withGzip(g.handleKeysList)))
 	mux.HandleFunc("POST /keys", g.adminOnly(g.handleKeysCreate))
 	mux.HandleFunc("DELETE /keys/{prefix}", g.adminOnly(g.handleKeysRevoke))
-	mux.HandleFunc("GET /usage", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /usage", withGzip(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		limits, quotas := g.Quota.Snapshot()
 		json.NewEncoder(w).Encode(map[string]any{
 			"usage": g.Usage.Snapshot(), "limits": limits, "quotas": quotas,
 		})
-	})
-	mux.HandleFunc("GET /openapi.yaml", func(w http.ResponseWriter, _ *http.Request) {
+	}))
+	mux.HandleFunc("GET /openapi.yaml", withGzip(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/yaml")
 		w.Write(openapiYAML)
-	})
-	mux.HandleFunc("GET /ui", func(w http.ResponseWriter, _ *http.Request) {
+	}))
+	mux.HandleFunc("GET /ui", withGzip(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(consoleHTML)
-	})
+	}))
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/ui", http.StatusTemporaryRedirect)
 	})
 	// K4 extensions: any-language services behind the gateway.
-	mux.HandleFunc("GET /extensions", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /extensions", withGzip(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if g.Ext == nil {
 			json.NewEncoder(w).Encode(map[string]any{"extensions": []any{}})
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]any{"extensions": g.Ext.List()})
-	})
+	}))
 	mux.HandleFunc("POST /extensions", g.adminOnly(func(w http.ResponseWriter, r *http.Request) {
 		if g.Ext == nil {
 			http.Error(w, `{"error":"extensions unavailable on this node"}`, http.StatusNotFound)

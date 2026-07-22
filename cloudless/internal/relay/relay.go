@@ -65,10 +65,10 @@ func NewServer(backendURL string, models, vault *BlobSet, slots func() int) *Ser
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/", s.proxy)
-	mux.HandleFunc("GET /store", s.listOf(s.models))
+	mux.HandleFunc("GET /store", withGzip(s.listOf(s.models)))
 	mux.HandleFunc("GET /blob", s.blobOf(s.models))
 	mux.HandleFunc("PUT /store", s.putOf(s.models))
-	mux.HandleFunc("GET /vault", s.listOf(s.vault))
+	mux.HandleFunc("GET /vault", withGzip(s.listOf(s.vault)))
 	mux.HandleFunc("GET /vault-blob", s.blobOf(s.vault))
 	mux.HandleFunc("PUT /vault", s.putOf(s.vault))
 	return mux

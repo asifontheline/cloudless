@@ -6,7 +6,11 @@ info:
     the standard chat-completions wire format, so any existing client works
     with a base-URL swap. Platform endpoints manage the node and the mesh.
     Admin endpoints require the cluster admin key; inference accepts any
-    active per-user key.
+    active per-user key. JSON/text endpoints transparently gzip the response
+    when the caller sends `Accept-Encoding: gzip` (O7) — binary content
+    (vault reads, model/vault blobs, backup archives) and streaming
+    inference never do, since neither shrinks under gzip nor tolerates its
+    buffering.
   version: "0.1.0"
   license:
     name: Apache-2.0
