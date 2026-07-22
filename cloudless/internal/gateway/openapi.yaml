@@ -178,7 +178,7 @@ paths:
     get:
       summary: List owner-encrypted vault objects (names and ciphertext hashes)
       security: []
-      responses: { "200": { description: "{objects: [{name, sha256, size, sealed, added}]}" } }
+      responses: { "200": { description: "{objects: [{name, sha256, size, sealed, added, compressed, last_accessed}]}" } }
   /vault/{name}:
     put:
       summary: Seal an object on this machine and replicate the ciphertext (admin)
@@ -204,6 +204,26 @@ paths:
       summary: Delete a vault object (admin)
       parameters: [ { name: name, in: path, required: true, schema: { type: string } } ]
       responses: { "204": { description: Deleted }, "403": { description: Admin key required } }
+  /vault/compact:
+    post:
+      summary: Temperature-tier vault storage (admin, M7)
+      description: >
+        Compresses objects untouched past the hot window (cold, small);
+        promotes objects read again since being compressed back to the fast
+        tier (hot). Compression is applied to plaintext before sealing —
+        already-encrypted bytes are pseudorandom and would not compress.
+        Only objects this node holds the key for are eligible.
+      parameters:
+        - name: hot_window_hours
+          in: query
+          required: false
+          schema: { type: number }
+          description: "Hours since last access before an object is considered cold. Default 24."
+      responses:
+        "200": { description: "{compressed, decompressed, hot_window_hours}" }
+        "400": { description: Invalid hot_window_hours }
+        "403": { description: Admin key required }
+        "404": { description: Vault unavailable on this node }
   /backup/export:
     post:
       summary: Export a passphrase-encrypted off-mesh backup (admin, M5)

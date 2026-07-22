@@ -335,6 +335,7 @@ func (g *Gateway) Handler() http.Handler {
 		g.Audit.Append("cluster", "vault.delete", r.PathValue("name"), "")
 		w.WriteHeader(http.StatusNoContent)
 	}))
+	mux.HandleFunc("POST /vault/compact", g.adminOnly(g.handleVaultCompact))
 	mux.HandleFunc("GET /store", g.handleStoreList)
 	mux.HandleFunc("PUT /store", g.adminOnly(g.handleStoreAdd))
 	mux.HandleFunc("POST /store/pull", g.adminOnly(g.handleStorePull))
@@ -823,6 +824,40 @@ func (g *Gateway) handleVaultGet(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Write(plain)
+}
+
+// defaultHotWindow is how long an object stays in the fast (uncompressed)
+// tier after its last access before handleVaultCompact considers it cold.
+const defaultHotWindow = 24 * time.Hour
+
+// handleVaultCompact runs a temperature-tiering pass (M7): objects untouched
+// past the hot window are compressed to shrink storage; objects read again
+// since being compressed are promoted back to the fast tier.
+func (g *Gateway) handleVaultCompact(w http.ResponseWriter, r *http.Request) {
+	if g.Vault == nil {
+		http.Error(w, `{"error":"vault unavailable on this node"}`, http.StatusNotFound)
+		return
+	}
+	hotWindow := defaultHotWindow
+	if v := r.URL.Query().Get("hot_window_hours"); v != "" {
+		hours, err := strconv.ParseFloat(v, 64)
+		if err != nil || hours < 0 {
+			http.Error(w, `{"error":"hot_window_hours must be a non-negative number"}`, http.StatusBadRequest)
+			return
+		}
+		hotWindow = time.Duration(hours * float64(time.Hour))
+	}
+	compressed, decompressed, err := g.Vault.Compact(hotWindow)
+	if err != nil {
+		http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusInternalServerError)
+		return
+	}
+	g.Audit.Append("cluster", "vault.compact", "",
+		fmt.Sprintf("compressed %d, decompressed %d (hot_window=%s)", compressed, decompressed, hotWindow))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"compressed": compressed, "decompressed": decompressed, "hot_window_hours": hotWindow.Hours(),
+	})
 }
 
 // adminOnly gates key management behind the cluster (admin) key.
