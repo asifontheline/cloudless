@@ -147,13 +147,14 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /capacity", withGzip(g.handleCapacity))
 	mux.HandleFunc("GET /audit", withGzip(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		ok, at := true, int64(0)
+		ok, at, signed := true, int64(0), false
 		var entries []audit.Entry
 		if g.Audit != nil {
 			entries = g.Audit.List(200)
 			ok, at = g.Audit.Verify()
+			signed = g.Audit.Signed()
 		}
-		json.NewEncoder(w).Encode(map[string]any{"entries": entries, "intact": ok, "broken_at": at})
+		json.NewEncoder(w).Encode(map[string]any{"entries": entries, "intact": ok, "broken_at": at, "signed": signed})
 	}))
 	mux.HandleFunc("GET /revocations", withGzip(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
