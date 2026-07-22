@@ -566,6 +566,15 @@ func runServe(cfg *config.Config) {
 		auditPath = filepath.Join(filepath.Dir(cfg.PKIDir), "audit.log")
 	}
 	gw.Audit = audit.Open(auditPath)
+	// A5: bind the audit log to this node's PKI identity, not just an
+	// internally self-consistent hash chain.
+	if cfg.PKIDir != "" && pki.HasCreds(cfg.PKIDir) {
+		if signer, err := pki.LoadNodeSigner(cfg.PKIDir); err == nil {
+			gw.Audit.SetSigner(signer)
+		} else {
+			log.Printf("audit: signing unavailable: %v", err)
+		}
+	}
 	// Backpressure defaults: 8 concurrent, up to 64 waiting, 5s wait.
 	cc := cfg.Concurrency
 	if cc == nil {
