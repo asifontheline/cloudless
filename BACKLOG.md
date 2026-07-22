@@ -90,7 +90,7 @@ Node churn must never mean lost or breached data. Prerequisite for Epic N recrui
 | #95 M4 | Restore lost data — owner-initiated recovery flow | ✅ |
 | #96 M5 | Off-mesh backup export & re-import (escape hatch) | ✅ |
 | #97 M6 | Measured durability guarantees on the console | ✅ |
-| #108 M7 | Temperature-tiered storage compression (hot fast · cold small) | ⬜ P2 |
+| #108 M7 | Temperature-tiered storage compression (hot fast · cold small) | ✅ |
 
 ## EPIC N — Mesh Expansion & Node Hosting (PRIMARY growth path)
 The primary path to expand the mesh: recruit free and willing node hosts. Gated on M1–M3.

@@ -11,6 +11,7 @@ package vault
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -33,11 +34,13 @@ const MaxObject = 64 << 20
 // Entry describes one sealed object. SHA256 is the hash of the ciphertext,
 // so replicas can be verified by any node without the key.
 type Entry struct {
-	Name   string    `json:"name"`
-	SHA256 string    `json:"sha256"` // ciphertext hash — verifiable key-free
-	Size   int64     `json:"size"`   // ciphertext bytes
-	Sealed bool      `json:"sealed"` // true when this node holds only ciphertext (replica)
-	Added  time.Time `json:"added"`
+	Name         string    `json:"name"`
+	SHA256       string    `json:"sha256"` // ciphertext hash — verifiable key-free
+	Size         int64     `json:"size"`   // ciphertext bytes
+	Sealed       bool      `json:"sealed"` // true when this node holds only ciphertext (replica)
+	Added        time.Time `json:"added"`
+	Compressed   bool      `json:"compressed"`    // M7: cold tier — plaintext was gzipped before sealing
+	LastAccessed time.Time `json:"last_accessed"` // M7: drives hot/cold tiering
 }
 
 type Vault struct {
@@ -102,9 +105,22 @@ func (v *Vault) aead() (cipher.AEAD, error) {
 	return cipher.NewGCM(block)
 }
 
-// Put seals plaintext on this machine and stores the ciphertext. The wire
-// format is nonce || AES-256-GCM(plaintext, aad=name), so a blob swapped
-// under a different name fails to open.
+// seal encrypts plain under the vault's key, name bound as AAD. The wire
+// format is nonce || AES-256-GCM(plain, aad=name), so a blob swapped under
+// a different name fails to open.
+func (v *Vault) seal(name string, plain []byte) ([]byte, error) {
+	gcm, err := v.aead()
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+	return append(nonce, gcm.Seal(nil, nonce, plain, []byte(name))...), nil
+}
+
+// Put seals plaintext on this machine and stores the ciphertext.
 func (v *Vault) Put(name string, r io.Reader) (Entry, error) {
 	if name == "" {
 		return Entry{}, errors.New("name required")
@@ -116,16 +132,11 @@ func (v *Vault) Put(name string, r io.Reader) (Entry, error) {
 	if len(plain) > MaxObject {
 		return Entry{}, fmt.Errorf("object exceeds %d bytes", MaxObject)
 	}
-	gcm, err := v.aead()
+	sealed, err := v.seal(name, plain)
 	if err != nil {
 		return Entry{}, err
 	}
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return Entry{}, err
-	}
-	sealed := append(nonce, gcm.Seal(nil, nonce, plain, []byte(name))...)
-	return v.store(name, sealed, false)
+	return v.store(name, sealed, false, false, time.Now())
 }
 
 // AddSealed accepts an already-sealed replica pushed by a peer. No key is
@@ -141,16 +152,21 @@ func (v *Vault) AddSealed(name string, r io.Reader) (Entry, error) {
 	if len(sealed) > MaxObject {
 		return Entry{}, fmt.Errorf("object exceeds %d bytes", MaxObject)
 	}
-	return v.store(name, sealed, true)
+	return v.store(name, sealed, true, false, time.Now())
 }
 
-func (v *Vault) store(name string, sealed []byte, replica bool) (Entry, error) {
+// store writes the ciphertext blob and updates the index. compressed and
+// lastAccessed are recorded as given rather than always reset, so a
+// tiering pass (retier) can rewrite an object's storage form without it
+// looking like a fresh write or a fresh access.
+func (v *Vault) store(name string, sealed []byte, replica, compressed bool, lastAccessed time.Time) (Entry, error) {
 	sum := sha256.Sum256(sealed)
 	hexSum := hex.EncodeToString(sum[:])
 	if err := os.WriteFile(filepath.Join(v.dir, hexSum), sealed, 0o600); err != nil {
 		return Entry{}, err
 	}
-	e := Entry{Name: name, SHA256: hexSum, Size: int64(len(sealed)), Sealed: replica, Added: time.Now()}
+	e := Entry{Name: name, SHA256: hexSum, Size: int64(len(sealed)), Sealed: replica, Added: time.Now(),
+		Compressed: compressed, LastAccessed: lastAccessed}
 	v.mu.Lock()
 	old, had := v.index[name]
 	v.index[name] = e
@@ -162,16 +178,9 @@ func (v *Vault) store(name string, sealed []byte, replica bool) (Entry, error) {
 	return e, nil
 }
 
-// Get opens a sealed object. Only the owner's node — the one holding the
-// sealing key that produced it — can succeed; a replica holder gets ErrNoKey
-// behavior via authentication failure of the ciphertext.
-func (v *Vault) Get(name string) ([]byte, error) {
-	v.mu.Lock()
-	e, ok := v.index[name]
-	v.mu.Unlock()
-	if !ok {
-		return nil, fmt.Errorf("unknown object %q", name)
-	}
+// openPlain decrypts a stored entry and, if it was tiered cold, decompresses
+// it back to its original plaintext.
+func (v *Vault) openPlain(name string, e Entry) ([]byte, error) {
 	sealed, err := os.ReadFile(filepath.Join(v.dir, e.SHA256))
 	if err != nil {
 		return nil, err
@@ -187,7 +196,122 @@ func (v *Vault) Get(name string) ([]byte, error) {
 	if err != nil {
 		return nil, ErrNoKey // wrong key or tampered ciphertext — indistinguishable by design
 	}
+	if e.Compressed {
+		gz, err := gzip.NewReader(bytes.NewReader(plain))
+		if err != nil {
+			return nil, fmt.Errorf("corrupt compressed object %q: %w", name, err)
+		}
+		defer gz.Close()
+		plain, err = io.ReadAll(gz)
+		if err != nil {
+			return nil, fmt.Errorf("corrupt compressed object %q: %w", name, err)
+		}
+	}
 	return plain, nil
+}
+
+// Get opens a sealed object. Only the owner's node — the one holding the
+// sealing key that produced it — can succeed; a replica holder gets ErrNoKey
+// behavior via authentication failure of the ciphertext. A successful read
+// marks the object as recently accessed, so the next Compact pass (M7)
+// promotes it back to the fast tier if it had been compressed.
+func (v *Vault) Get(name string) ([]byte, error) {
+	v.mu.Lock()
+	e, ok := v.index[name]
+	v.mu.Unlock()
+	if !ok {
+		return nil, fmt.Errorf("unknown object %q", name)
+	}
+	plain, err := v.openPlain(name, e)
+	if err != nil {
+		return nil, err
+	}
+	v.mu.Lock()
+	if cur, ok := v.index[name]; ok && cur.SHA256 == e.SHA256 {
+		cur.LastAccessed = time.Now()
+		v.index[name] = cur
+		v.persist()
+	}
+	v.mu.Unlock()
+	return plain, nil
+}
+
+// retier re-seals name's plaintext with the requested compression state,
+// preserving LastAccessed — retiering itself must never look like a fresh
+// access or it would fight the next Compact pass.
+func (v *Vault) retier(name string, wantCompressed bool) error {
+	v.mu.Lock()
+	e, ok := v.index[name]
+	v.mu.Unlock()
+	if !ok {
+		return fmt.Errorf("unknown object %q", name)
+	}
+	plain, err := v.openPlain(name, e)
+	if err != nil {
+		return err
+	}
+	toSeal := plain
+	if wantCompressed {
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		if _, err := gz.Write(plain); err != nil {
+			return err
+		}
+		if err := gz.Close(); err != nil {
+			return err
+		}
+		toSeal = buf.Bytes()
+	}
+	sealed, err := v.seal(name, toSeal)
+	if err != nil {
+		return err
+	}
+	_, err = v.store(name, sealed, e.Sealed, wantCompressed, e.LastAccessed)
+	return err
+}
+
+// Compact tiers storage by temperature (M7): objects untouched for
+// hotWindow are gzip-compressed before their ciphertext to shrink them
+// ("cold, small"); objects that were compressed but have been read again
+// within hotWindow are decompressed back to their fast form ("hot, fast").
+// Compression is applied to plaintext before sealing — encrypted bytes are
+// already pseudorandom and would not meaningfully compress.
+//
+// Only objects this node holds the key for are eligible; a replica holder
+// cannot decrypt a peer's ciphertext to retier it.
+func (v *Vault) Compact(hotWindow time.Duration) (compressed, decompressed int, err error) {
+	v.mu.Lock()
+	names := make([]string, 0, len(v.index))
+	for name, e := range v.index {
+		if !e.Sealed {
+			names = append(names, name)
+		}
+	}
+	v.mu.Unlock()
+
+	cutoff := time.Now().Add(-hotWindow)
+	for _, name := range names {
+		v.mu.Lock()
+		e, ok := v.index[name]
+		v.mu.Unlock()
+		if !ok {
+			continue
+		}
+		hot := e.LastAccessed.After(cutoff)
+		switch {
+		case !e.Compressed && !hot:
+			if rerr := v.retier(name, true); rerr != nil {
+				return compressed, decompressed, fmt.Errorf("compress %q: %w", name, rerr)
+			}
+			compressed++
+		case e.Compressed && hot:
+			if rerr := v.retier(name, false); rerr != nil {
+				return compressed, decompressed, fmt.Errorf("decompress %q: %w", name, rerr)
+			}
+			decompressed++
+		}
+	}
+	return compressed, decompressed, nil
 }
 
 // KeyCopy returns a copy of the sealing key for the off-mesh backup
