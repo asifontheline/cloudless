@@ -446,7 +446,9 @@ to be on:</p>
       Return. A window appears where you can type commands — that's all it is.</li>
     <li><strong>Install Go</strong> (one-time) — download the macOS installer from
       <a href="https://go.dev/dl/" target="_blank" rel="noopener">go.dev/dl</a> and run it, like any app.</li>
-    <li><strong>Copy-paste this into Terminal</strong> and press Return:
+    <li><strong>Copy-paste this into Terminal</strong> and press Return. <code>git clone</code> creates its
+      own <code>cloudless</code> folder — don't make one yourself first, or you'll end up nested inside an
+      extra empty folder of the same name:
 <pre>git clone https://github.com/asifontheline/cloudless
 cd cloudless/cloudless
 go build -o cloudless ./cmd/cloudless
@@ -474,7 +476,9 @@ go build -o cloudless ./cmd/cloudless
       <em>fresh</em> window; typing the next commands in the same window that ran the install will fail with
       <code>git : The term 'git' is not recognized...</code>.</li>
     <li><strong>In the new window, first <code>cd $HOME</code> again</strong> (a fresh window can land
-      somewhere new too), <strong>then copy-paste this</strong> and press Enter:
+      somewhere new too), <strong>then copy-paste this</strong> and press Enter. <code>git clone</code>
+      creates its own <code>cloudless</code> folder — don't make one yourself first, or you'll end up nested
+      inside an extra empty folder of the same name:
 <pre>cd $HOME
 git clone https://github.com/asifontheline/cloudless
 cd cloudless\cloudless
@@ -492,7 +496,9 @@ go build -o cloudless.exe ./cmd/cloudless
     <li><strong>Install the tools</strong> (one-time, Go 1.22+):
 <pre>sudo apt install golang-go git     # Debian / Ubuntu
 sudo dnf install golang git        # Fedora / RHEL</pre></li>
-    <li><strong>Copy-paste this</strong> and press Enter:
+    <li><strong>Copy-paste this</strong> and press Enter. <code>git clone</code> creates its own
+      <code>cloudless</code> folder — don't make one yourself first, or you'll end up nested inside an extra
+      empty folder of the same name:
 <pre>git clone https://github.com/asifontheline/cloudless
 cd cloudless/cloudless
 go build -o cloudless ./cmd/cloudless
