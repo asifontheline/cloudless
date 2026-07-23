@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ type Registry struct {
 	states   map[string]*BackendState
 	interval time.Duration
 	client   *http.Client
+	self     string // this node's own hierarchical location (I4)
 }
 
 // New builds a registry; tlsCfg (may be nil) carries the node's client cert
@@ -110,6 +112,16 @@ func (r *Registry) record(name string, healthy bool, latencyMS int64) {
 	}
 }
 
+// SetSelfLocation sets this node's own hierarchical location
+// (continent/country/state/city/village), used to prefer routing to nearby
+// backends (I4). Unset (the default) disables locality preference — pure
+// health/latency ranking, unchanged from before I4.
+func (r *Registry) SetSelfLocation(loc string) {
+	r.mu.Lock()
+	r.self = loc
+	r.mu.Unlock()
+}
+
 // Upsert adds a backend discovered at runtime (e.g. via gossip) or updates
 // its URL if the node rejoined with a new address.
 func (r *Registry) Upsert(b config.Backend) {
@@ -129,18 +141,26 @@ func (r *Registry) Remove(name string) {
 	delete(r.states, name)
 }
 
-// Ranked returns healthy backends fastest-first, then unhealthy ones as a
-// last resort so a request can still be attempted during probe gaps.
+// Ranked returns healthy backends nearest-and-fastest first, then unhealthy
+// ones as a last resort so a request can still be attempted during probe
+// gaps. "Nearest" (I4) means the backend's hierarchical location
+// (continent/country/state/city/village) shares the longest leading prefix
+// with this node's own — a same-city backend outranks a same-country one,
+// which outranks a different-continent one, all else equal. Health always
+// wins over locality; locality wins over raw latency. When this node's own
+// location is unset, every backend has locality depth 0 and ranking is
+// exactly the pre-I4 health/latency order.
 func (r *Registry) Ranked() []BackendState {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
+	self := r.self
 	out := make([]BackendState, 0, len(r.states))
 	for _, s := range r.states {
 		out = append(out, *s)
 	}
+	r.mu.RUnlock()
 	for i := 0; i < len(out); i++ {
 		for j := i + 1; j < len(out); j++ {
-			if less(out[j], out[i]) {
+			if less(out[j], out[i], self) {
 				out[i], out[j] = out[j], out[i]
 			}
 		}
@@ -148,9 +168,31 @@ func (r *Registry) Ranked() []BackendState {
 	return out
 }
 
-func less(a, b BackendState) bool {
+// localityDepth counts matching leading path segments between two
+// hierarchical locations — how "near" b is to ref. 0 when either is unset
+// or they share no common prefix (e.g. different continents).
+func localityDepth(ref, loc string) int {
+	if ref == "" || loc == "" {
+		return 0
+	}
+	refParts := strings.Split(ref, "/")
+	locParts := strings.Split(loc, "/")
+	depth := 0
+	for i := 0; i < len(refParts) && i < len(locParts); i++ {
+		if refParts[i] != locParts[i] {
+			break
+		}
+		depth++
+	}
+	return depth
+}
+
+func less(a, b BackendState, self string) bool {
 	if a.Healthy != b.Healthy {
 		return a.Healthy
+	}
+	if da, db := localityDepth(self, a.Backend.Location), localityDepth(self, b.Backend.Location); da != db {
+		return da > db
 	}
 	return a.LatencyMS < b.LatencyMS
 }

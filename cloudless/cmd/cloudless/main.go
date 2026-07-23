@@ -340,6 +340,10 @@ func runServe(cfg *config.Config) {
 	}
 
 	reg := registry.New(cfg.Backends, time.Duration(cfg.HealthIntervalSeconds)*time.Second, peerTLS)
+	if cfg.Gossip != nil && cfg.Gossip.Location != "" {
+		// I4: prefer routing to nearby peers over raw latency alone.
+		reg.SetSelfLocation(cfg.Gossip.Location)
+	}
 	go reg.Run(ctx)
 
 	// applyRevoke evicts a node locally: record it and drop it from routing.

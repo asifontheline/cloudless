@@ -83,6 +83,11 @@ paths:
   /status:
     get:
       summary: Mesh status — nodes, routes, load
+      description: >
+        Backends are ordered by routing preference (I4): healthy before
+        unhealthy, then — when this node's own hierarchical location is
+        configured — nearby peers (more shared location prefix) before
+        distant ones, then fastest by measured latency.
       security: []
       responses:
         "200": { description: "Backends with health/latency, recent routes, in-flight load" }
