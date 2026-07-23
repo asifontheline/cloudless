@@ -40,7 +40,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #21 E2 | Join links/QR from console | ✅ |
 | #22 E3 | Internal naming | ⬜ |
 | #23 E4 | Signed release binaries | 🔶 (cross-platform build pipeline shipped; actual signing blocked on acquiring paid Windows/Apple certs) |
-| #67 | Merge-queue → deploy auto-trigger (token-cascade fix) | ⬜ |
+| #67 | Merge-queue → deploy auto-trigger (token-cascade fix) | ✅ (inline FTPS deploy in the same job, no cross-workflow trigger needed) |
 
 ## EPIC F — Beyond Inference
 | #24–#35 | Embeddings, speech, TTS, images, batch, scheduled, object store, backup, queues, vector search, anomaly quarantine, k-of-n validation | ⬜ |
