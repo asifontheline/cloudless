@@ -460,14 +460,19 @@ go build -o cloudless ./cmd/cloudless
   <ol style="padding-left:1.2rem">
     <li><strong>Open PowerShell</strong> — press the <kbd>⊞ Windows</kbd> key, type <em>PowerShell</em>,
       press Enter. A window appears where you can type commands — that's all it is.</li>
-    <li><strong>Install the tools</strong> (one-time) — paste this and press Enter, then close and reopen
-      PowerShell:
+    <li><strong>Install the tools</strong> (one-time) — paste this and press Enter:
 <pre>winget install Git.Git GoLang.Go</pre></li>
-    <li><strong>Copy-paste this</strong> and press Enter:
+    <li><strong>Close this PowerShell window completely and open a new one.</strong> This step is easy to
+      miss but required — Windows only picks up <code>git</code> and <code>go</code> on PATH in a
+      <em>fresh</em> window; typing the next commands in the same window that ran the install will fail with
+      <code>git : The term 'git' is not recognized...</code>.</li>
+    <li><strong>In the new window, copy-paste this</strong> and press Enter:
 <pre>git clone https://github.com/asifontheline/cloudless
 cd cloudless\cloudless
 go build -o cloudless.exe ./cmd/cloudless
-.\cloudless.exe up</pre></li>
+.\cloudless.exe up</pre>
+      Still not recognized after a fresh window? Search <em>Git Bash</em> in the Start menu (installed
+      alongside Git) and run the same commands there instead — it works regardless of PowerShell's PATH.</li>
   </ol>
 </div>
 
