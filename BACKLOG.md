@@ -30,7 +30,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #15 C5 | Mid-stream failover retry | ✅ |
 
 ## EPIC D — Evaluation & Paper
-| #16 D1 | Churn test harness | ⬜ |
+| #16 D1 | Churn test harness | ✅ |
 | #17 D2 | Latency/throughput benchmarks | ⬜ |
 | #18 D3 | Telemetry export | ⬜ |
 | #19 D4 | Paper §8 experiments | ⬜ |
