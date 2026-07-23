@@ -1,0 +1,87 @@
+name: Release binaries
+
+# E4 (#23), part 1: cross-platform build pipeline. Publishes ready-to-run
+# binaries as GitHub Release artifacts on a version tag — download and run,
+# no Go/git/compiling required. Unsigned for now; actual code signing (the
+# part that stops Windows Smart App Control / macOS Gatekeeper from
+# blocking a fresh binary) needs a paid, identity-verified certificate the
+# project doesn't have yet — tracked as the remaining blocker on #23.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and release (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cloudless/go.mod
+          cache-dependency-path: cloudless/go.sum
+      - name: Build
+        working-directory: cloudless
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          ext=""
+          [ "$GOOS" = "windows" ] && ext=".exe"
+          out="cloudless-${GOOS}-${GOARCH}${ext}"
+          go build -trimpath -ldflags="-s -w" -o "$out" ./cmd/cloudless
+          sha256sum "$out" > "$out.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cloudless-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            cloudless/cloudless-${{ matrix.goos }}-${{ matrix.goarch }}*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag || github.ref_name }}"
+          cd dist
+          sha256sum -c ./*.sha256 --quiet
+          gh release create "$tag" -R "$REPO" \
+            --title "$tag" \
+            --notes "Unsigned builds — Windows Smart App Control and macOS Gatekeeper may warn or block on first run until code signing lands (tracked on #23). SHA-256 checksums included; verify with \`sha256sum -c cloudless-<platform>.sha256\`." \
+            ./*

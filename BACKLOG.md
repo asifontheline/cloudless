@@ -39,7 +39,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #20 E1 | Bundled encrypted overlay | ⬜ |
 | #21 E2 | Join links/QR from console | ✅ |
 | #22 E3 | Internal naming | ⬜ |
-| #23 E4 | Signed release binaries | ⬜ |
+| #23 E4 | Signed release binaries | 🔶 (cross-platform build pipeline shipped; actual signing blocked on acquiring paid Windows/Apple certs) |
 | #67 | Merge-queue → deploy auto-trigger (token-cascade fix) | ⬜ |
 
 ## EPIC F — Beyond Inference
