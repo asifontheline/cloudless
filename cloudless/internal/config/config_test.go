@@ -61,6 +61,33 @@ func TestConcurrencyAndQuotaBlocks(t *testing.T) {
 	}
 }
 
+func TestRuntimeBlock(t *testing.T) {
+	c, err := Load(write(t, `{"backends":[{"name":"n","base_url":"http://x"}],
+		"runtime":{"command":["ollama","serve"],"dir":"/opt/ollama"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Runtime == nil {
+		t.Fatal("runtime block missing")
+	}
+	if len(c.Runtime.Command) != 2 || c.Runtime.Command[0] != "ollama" || c.Runtime.Command[1] != "serve" {
+		t.Fatalf("runtime command wrong: %+v", c.Runtime.Command)
+	}
+	if c.Runtime.Dir != "/opt/ollama" {
+		t.Fatalf("runtime dir = %q", c.Runtime.Dir)
+	}
+}
+
+func TestRuntimeBlockAbsentByDefault(t *testing.T) {
+	c, err := Load(write(t, `{"backends":[{"name":"n","base_url":"http://x"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Runtime != nil {
+		t.Fatalf("runtime should be nil when not configured, got %+v", c.Runtime)
+	}
+}
+
 func TestGossipDefaults(t *testing.T) {
 	c, err := Load(write(t, `{"gossip":{"secret":"0123456789abcdef0123456789abcdef"}}`))
 	if err != nil {

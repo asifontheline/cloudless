@@ -118,6 +118,10 @@ type Gateway struct {
 	// Ext, when set, is the polyglot extension registry (K4): services in
 	// any language reachable through the gateway at /x/<name>/... .
 	Ext *ext.Registry
+
+	// RuntimeStatus, when set, reports the supervised local inference
+	// backend's process status (B5): running, PID, restarts, last exit.
+	RuntimeStatus func() any
 }
 
 const routeLogSize = 20
@@ -318,6 +322,14 @@ func (g *Gateway) Handler() http.Handler {
 			return
 		}
 		json.NewEncoder(w).Encode(g.Replication())
+	}))
+	mux.HandleFunc("GET /runtime", withGzip(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if g.RuntimeStatus == nil {
+			json.NewEncoder(w).Encode(map[string]any{"supervised": false})
+			return
+		}
+		json.NewEncoder(w).Encode(g.RuntimeStatus())
 	}))
 	// M3 vault: owner-encrypted objects. List is public like /store (names
 	// and hashes only); contents and writes are admin — and Get succeeds

@@ -34,6 +34,15 @@ type Config struct {
 	Concurrency           *Concurrency `json:"concurrency,omitempty"`        // gateway backpressure (nil = defaults)
 	ReplicationFactor     int          `json:"replication_factor,omitempty"` // copies per stored artifact (default 3)
 	Backup                *Backup      `json:"backup,omitempty"`             // scheduled off-mesh export (M5)
+	Runtime               *Runtime     `json:"runtime,omitempty"`            // supervised local inference backend (B5)
+}
+
+// Runtime supervises a local inference backend process (e.g. `ollama serve`)
+// — launched and restarted on unexpected exit, so the operator doesn't have
+// to keep it alive by hand (B5).
+type Runtime struct {
+	Command []string `json:"command"`       // argv, e.g. ["ollama","serve"]
+	Dir     string   `json:"dir,omitempty"` // working directory (empty = inherit)
 }
 
 // Backup schedules an automatic off-mesh export: a passphrase-encrypted
