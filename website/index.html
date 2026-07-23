@@ -487,6 +487,24 @@ go build -o cloudless.exe ./cmd/cloudless
       Still not recognized after a fresh window? Search <em>Git Bash</em> in the Start menu (installed
       alongside Git) and run the same commands there instead — it works regardless of PowerShell's PATH.</li>
   </ol>
+  <p class="muted" style="font-size:.9rem;margin-top:.8rem"><strong>If <code>cloudless.exe</code> is
+  "blocked by your organization's Device Guard policy"</strong> — that message shows even on personal,
+  non-work machines; it's Windows' <em>Smart App Control</em> feature blocking an unsigned binary (release
+  binaries aren't code-signed yet — tracked in
+  <a href="https://github.com/asifontheline/cloudless/issues/23" target="_blank" rel="noopener">#23</a>).
+  Check <strong>Windows Security → App &amp; browser control → Smart App Control</strong>: if it says
+  <em>Evaluation</em>, you can turn it off there (a restart is required for the change to actually take
+  effect, even though the toggle updates immediately). If it says <em>On</em>, Microsoft does not allow
+  turning it back off without reinstalling Windows — in that case, run cloudless inside
+  <a href="https://learn.microsoft.com/windows/wsl/install" target="_blank" rel="noopener">WSL</a> instead,
+  which isn't subject to this Windows-executable-specific policy at all:
+<pre>wsl --install
+# after the restart it asks for, open the "Ubuntu" app, then inside it:
+sudo apt update && sudo apt install -y golang-go git
+git clone https://github.com/asifontheline/cloudless
+cd cloudless/cloudless
+go build -o cloudless ./cmd/cloudless
+./cloudless up</pre></p>
 </div>
 
 <div class="os-pane" data-os="nix">
