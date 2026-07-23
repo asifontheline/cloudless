@@ -57,7 +57,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #47 I1 | Per-node resource share controls (5% default → 70% ceiling) | ✅ |
 | #48 I2 | Reciprocity: contribution-based entitlement | ⬜ |
 | #49 I3 | Geo network map | 🔶 (map live; enrichment ongoing) |
-| #50 I4 | Locality-aware redundancy & routing | ⬜ |
+| #50 I4 | Locality-aware redundancy & routing | ✅ (redundancy via M1's domain-diversified placement; routing now prefers nearby healthy peers over raw latency) |
 
 ## EPIC J — Mobile Nodes
 | #53 J1 | Mobile node agent (Android & iOS) | ⬜ |
