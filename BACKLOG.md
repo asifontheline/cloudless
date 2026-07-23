@@ -31,7 +31,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 
 ## EPIC D — Evaluation & Paper
 | #16 D1 | Churn test harness | ✅ |
-| #17 D2 | Latency/throughput benchmarks | ⬜ |
+| #17 D2 | Latency/throughput benchmarks | ✅ (`cloudless bench` — p50/p95/p99 latency, req/s, tok/s) |
 | #18 D3 | Telemetry export | ⬜ |
 | #19 D4 | Paper §8 experiments | ⬜ |
 

@@ -58,6 +58,13 @@ Inspect the mesh:
 ./cloudless status -addr http://127.0.0.1:8080
 ```
 
+Measure real latency and throughput against it (D2) — a number you can
+trust because it came from your own mesh, not a marketing claim:
+
+```sh
+./cloudless bench -addr http://127.0.0.1:8080 -key <api_key> -n 50 -c 8
+```
+
 ## Mesh mode (gossip discovery)
 
 Instead of a static `backends` list, give each node a `gossip` section — peers

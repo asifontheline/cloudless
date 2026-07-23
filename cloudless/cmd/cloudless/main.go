@@ -21,6 +21,7 @@ import (
 
 	"cloudless/internal/audit"
 	"cloudless/internal/backup"
+	"cloudless/internal/bench"
 	"cloudless/internal/config"
 	"cloudless/internal/ext"
 	"cloudless/internal/gateway"
@@ -81,6 +82,8 @@ func main() {
 		auditCmd(os.Args[2:])
 	case "token":
 		tokenCmd(os.Args[2:])
+	case "bench":
+		benchCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -93,7 +96,8 @@ func printUsage() {
 usage:
   cloudless up     [-join <secret>@<host:port>] [-backend <url>]   # zero-config start
   cloudless serve  -config config.json
-  cloudless status -addr http://127.0.0.1:8080`)
+  cloudless status -addr http://127.0.0.1:8080
+  cloudless bench  -addr http://127.0.0.1:8080 -key <api_key> [-n 20] [-c 4]  # measured latency/throughput (D2)`)
 }
 
 // up is the zero-friction path: detect a local runtime, generate a config
@@ -641,6 +645,32 @@ func runServe(cfg *config.Config) {
 	log.Printf("cloudless gateway listening on %s with %d backend(s)", cfg.Listen, len(cfg.Backends))
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
+	}
+}
+
+// benchCmd fires a synthetic load of chat-completions requests at a running
+// node and reports measured latency percentiles and throughput (D2) — a
+// number the operator can trust because it came from their own mesh, not a
+// marketing claim.
+func benchCmd(args []string) {
+	fs := flag.NewFlagSet("bench", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	apiKey := fs.String("key", "", "API key")
+	n := fs.Int("n", 20, "number of requests")
+	c := fs.Int("c", 4, "concurrent requests")
+	body := fs.String("body", `{"messages":[{"role":"user","content":"hi"}]}`, "request body (JSON)")
+	fs.Parse(args)
+	if *apiKey == "" {
+		log.Fatal("bench: -key is required")
+	}
+	fmt.Printf("Benchmarking %s: %d requests, concurrency %d...\n", *addr, *n, *c)
+	r := bench.Run(context.Background(), &http.Client{}, *addr+"/v1/chat/completions", *apiKey, *body, *n, *c)
+	fmt.Printf("\n%d/%d succeeded in %s\n", r.Successes, r.N, r.Duration.Round(time.Millisecond))
+	fmt.Printf("latency   p50=%s  p95=%s  p99=%s\n",
+		r.Percentile(50).Round(time.Millisecond), r.Percentile(95).Round(time.Millisecond), r.Percentile(99).Round(time.Millisecond))
+	fmt.Printf("throughput  %.1f req/s  %.1f tok/s\n", r.RequestsPerSec(), r.TokensPerSec())
+	if r.Failures > 0 {
+		fmt.Printf("%d request(s) failed\n", r.Failures)
 	}
 }
 
