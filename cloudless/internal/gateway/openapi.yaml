@@ -305,6 +305,17 @@ paths:
       security: []
       responses:
         "200": { description: "{target, objects: [{name, replicas, target, holders, domains, healthy}], scanned}" }
+  /runtime:
+    get:
+      summary: Supervised local inference backend status (B5)
+      description: >
+        When the node's config carries a `runtime` block, this reports the
+        supervised process's live state — it's launched and restarted on
+        unexpected exit so the operator doesn't have to keep it alive by
+        hand.
+      security: []
+      responses:
+        "200": { description: "{supervised, running, pid, restarts, last_exit, last_exit_at}" }
   /extensions:
     get:
       summary: List registered polyglot extensions (K4)

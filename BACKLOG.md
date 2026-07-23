@@ -20,7 +20,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #7 B2 | Mesh pull-through cache | ✅ |
 | #8 B3 | Safe-format allowlist (reject pickle) | ✅ |
 | #9 B4 | Model registry in console | ✅ (via Model Commons page) |
-| #10 B5 | Runtime supervisor | ⬜ |
+| #10 B5 | Runtime supervisor | ✅ |
 
 ## EPIC C — Accounts & Fair Use
 | #11 C1 | Per-user API keys | ✅ |

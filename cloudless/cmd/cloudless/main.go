@@ -36,6 +36,7 @@ import (
 	"cloudless/internal/revoke"
 	"cloudless/internal/share"
 	"cloudless/internal/store"
+	"cloudless/internal/supervisor"
 	"cloudless/internal/usage"
 	"cloudless/internal/vault"
 )
@@ -574,6 +575,21 @@ func runServe(cfg *config.Config) {
 		} else {
 			log.Printf("audit: signing unavailable: %v", err)
 		}
+	}
+	// B5: supervise a local inference backend process, if configured —
+	// launched and restarted on unexpected exit so the operator doesn't
+	// have to keep it alive by hand.
+	if cfg.Runtime != nil && len(cfg.Runtime.Command) > 0 {
+		sup := supervisor.New(cfg.Runtime.Command, cfg.Runtime.Dir)
+		go sup.Run(ctx)
+		gw.RuntimeStatus = func() any {
+			st := sup.Status()
+			return map[string]any{
+				"supervised": true, "running": st.Running, "pid": st.PID,
+				"restarts": st.Restarts, "last_exit": st.LastExit, "last_exit_at": st.LastExitAt,
+			}
+		}
+		log.Printf("supervisor: managing local runtime %v", cfg.Runtime.Command)
 	}
 	// Backpressure defaults: 8 concurrent, up to 64 waiting, 5s wait.
 	cc := cfg.Concurrency
