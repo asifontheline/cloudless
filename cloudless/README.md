@@ -58,6 +58,28 @@ Inspect the mesh:
 ./cloudless status -addr http://127.0.0.1:8080
 ```
 
+Measure real latency and throughput against it (D2) — a number you can
+trust because it came from your own mesh, not a marketing claim:
+
+```sh
+./cloudless bench -addr http://127.0.0.1:8080 -key <api_key> -n 50 -c 8
+```
+
+Scrape node health, routing, and usage into your own monitoring (D3) — any
+standard scraper can pull this, no proprietary agent required:
+
+```sh
+curl http://127.0.0.1:8080/metrics
+```
+
+Look up a node or extension's address by its stable name (E3), instead of
+hardcoding an IP:
+
+```sh
+./cloudless resolve -addr http://127.0.0.1:8080          # list the directory
+./cloudless resolve -addr http://127.0.0.1:8080 <name>   # resolve one
+```
+
 ## Mesh mode (gossip discovery)
 
 Instead of a static `backends` list, give each node a `gossip` section — peers

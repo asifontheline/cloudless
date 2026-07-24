@@ -31,14 +31,14 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 
 ## EPIC D — Evaluation & Paper
 | #16 D1 | Churn test harness | ✅ |
-| #17 D2 | Latency/throughput benchmarks | ⬜ |
-| #18 D3 | Telemetry export | ⬜ |
+| #17 D2 | Latency/throughput benchmarks | ✅ (`cloudless bench` — p50/p95/p99 latency, req/s, tok/s) |
+| #18 D3 | Telemetry export | ✅ (`GET /metrics` — Prometheus-compatible text exposition) |
 | #19 D4 | Paper §8 experiments | ⬜ |
 
 ## EPIC E — Network & Onboarding
 | #20 E1 | Bundled encrypted overlay | ⬜ |
 | #21 E2 | Join links/QR from console | ✅ |
-| #22 E3 | Internal naming | ⬜ |
+| #22 E3 | Internal naming | ✅ (`GET /names`, `cloudless resolve` — nodes + extensions, one directory) |
 | #23 E4 | Signed release binaries | 🔶 (cross-platform build pipeline shipped; actual signing blocked on acquiring paid Windows/Apple certs) |
 | #67 | Merge-queue → deploy auto-trigger (token-cascade fix) | ✅ (inline FTPS deploy in the same job, no cross-workflow trigger needed) |
 
