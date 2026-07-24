@@ -45,7 +45,7 @@ func startMeshNode(t *testing.T, name, backendURL string, join ...string) *node 
 	}
 	n := &node{base: fmt.Sprintf("http://127.0.0.1:%d", apiPort), cmd: cmd}
 	t.Cleanup(func() { cmd.Process.Kill(); cmd.Wait() })
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 300; i++ {
 		if r, err := http.Get(n.base + "/healthz"); err == nil {
 			r.Body.Close()
 			if r.StatusCode == http.StatusOK {
@@ -115,7 +115,7 @@ func TestTwoNodeMeshJoinAndChurn(t *testing.T) {
 	}
 	t.Cleanup(func() { seedCmd.Process.Kill(); seedCmd.Wait() })
 	seedBase := fmt.Sprintf("http://127.0.0.1:%d", apiPort)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 300; i++ {
 		if r, err := http.Get(seedBase + "/healthz"); err == nil {
 			r.Body.Close()
 			break

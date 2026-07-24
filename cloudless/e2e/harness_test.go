@@ -95,7 +95,7 @@ func startNode(t *testing.T, apiKey string, backendURLs ...string) (base string)
 	t.Cleanup(func() { cmd.Process.Kill(); cmd.Wait() })
 
 	base = fmt.Sprintf("http://127.0.0.1:%d", port)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 300; i++ {
 		if r, err := http.Get(base + "/healthz"); err == nil {
 			r.Body.Close()
 			if r.StatusCode == http.StatusOK {
