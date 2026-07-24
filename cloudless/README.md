@@ -72,6 +72,14 @@ standard scraper can pull this, no proprietary agent required:
 curl http://127.0.0.1:8080/metrics
 ```
 
+Look up a node or extension's address by its stable name (E3), instead of
+hardcoding an IP:
+
+```sh
+./cloudless resolve -addr http://127.0.0.1:8080          # list the directory
+./cloudless resolve -addr http://127.0.0.1:8080 <name>   # resolve one
+```
+
 ## Mesh mode (gossip discovery)
 
 Instead of a static `backends` list, give each node a `gossip` section — peers

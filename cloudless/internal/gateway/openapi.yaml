@@ -321,6 +321,33 @@ paths:
       security: []
       responses:
         "200": { description: "{supervised, running, pid, restarts, last_exit, last_exit_at}" }
+  /metrics:
+    get:
+      summary: Node health, routing, and usage state (D3)
+      description: >
+        Prometheus-compatible text exposition format — any standard scraper
+        can pull it directly, no proprietary agent or export step required.
+      security: []
+      responses:
+        "200": { description: "text/plain; version=0.0.4 — cloudless_backend_healthy, cloudless_backend_latency_ms, cloudless_usage_requests_total, and related series" }
+  /names:
+    get:
+      summary: Internal directory of resolvable names (E3)
+      description: >
+        Every mesh backend and registered extension, by stable name, so
+        callers don't hardcode addresses.
+      security: []
+      responses:
+        "200": { description: "{names: [{kind, name, address, location, healthy, latency_ms}]}" }
+  /names/{name}:
+    get:
+      summary: Resolve one name (E3)
+      security: []
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "{kind, name, address, location, healthy, latency_ms}" }
+        "404": { description: "no node or extension with that name" }
   /extensions:
     get:
       summary: List registered polyglot extensions (K4)

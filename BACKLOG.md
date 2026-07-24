@@ -38,7 +38,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 ## EPIC E — Network & Onboarding
 | #20 E1 | Bundled encrypted overlay | ⬜ |
 | #21 E2 | Join links/QR from console | ✅ |
-| #22 E3 | Internal naming | ⬜ |
+| #22 E3 | Internal naming | ✅ (`GET /names`, `cloudless resolve` — nodes + extensions, one directory) |
 | #23 E4 | Signed release binaries | 🔶 (cross-platform build pipeline shipped; actual signing blocked on acquiring paid Windows/Apple certs) |
 | #67 | Merge-queue → deploy auto-trigger (token-cascade fix) | ✅ (inline FTPS deploy in the same job, no cross-workflow trigger needed) |
 

@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -332,6 +333,23 @@ func (g *Gateway) Handler() http.Handler {
 			return
 		}
 		json.NewEncoder(w).Encode(g.RuntimeStatus())
+	}))
+	mux.HandleFunc("GET /names", withGzip(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"names": g.names()})
+	}))
+	mux.HandleFunc("GET /names/{name}", withGzip(func(w http.ResponseWriter, r *http.Request) {
+		name := r.PathValue("name")
+		for _, e := range g.names() {
+			if e.Name == name {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(e)
+				return
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "no node or extension named " + name})
 	}))
 	// M3 vault: owner-encrypted objects. List is public like /store (names
 	// and hashes only); contents and writes are admin — and Get succeeds
@@ -1100,6 +1118,43 @@ func (g *Gateway) handleLedger(w http.ResponseWriter, _ *http.Request) {
 		"contributed":  toSorted(nodes),
 		"consumed":     toSorted(consumers),
 	})
+}
+
+// NameEntry is one resolvable name in the mesh's internal directory (E3):
+// a node's inference backend or a registered extension (K4), whichever a
+// service inside the mesh might want a stable address for.
+type NameEntry struct {
+	Kind      string `json:"kind"` // "node" or "extension"
+	Name      string `json:"name"`
+	Address   string `json:"address"`
+	Location  string `json:"location,omitempty"`
+	Healthy   bool   `json:"healthy"`
+	LatencyMS int64  `json:"latency_ms,omitempty"`
+}
+
+// names returns the full internal directory: mesh backends ranked by the
+// registry, plus any registered extensions, sorted by kind then name.
+func (g *Gateway) names() []NameEntry {
+	ranked := g.reg.Ranked()
+	out := make([]NameEntry, 0, len(ranked))
+	for _, s := range ranked {
+		out = append(out, NameEntry{
+			Kind: "node", Name: s.Backend.Name, Address: s.Backend.BaseURL,
+			Location: s.Backend.Location, Healthy: s.Healthy, LatencyMS: s.LatencyMS,
+		})
+	}
+	if g.Ext != nil {
+		for _, e := range g.Ext.List() {
+			out = append(out, NameEntry{Kind: "extension", Name: e.Name, Address: e.BaseURL, Healthy: e.Healthy})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Kind != out[j].Kind {
+			return out[i].Kind < out[j].Kind
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out
 }
 
 // handleMetrics serves node health, routing, and usage state in
