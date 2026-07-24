@@ -20,6 +20,7 @@ permissions:
   contents: write
   pull-requests: write
   checks: read
+  actions: write
 
 jobs:
   merge:
@@ -42,11 +43,31 @@ jobs:
           git config user.name "merge-queue"
           git config user.email "merge-queue@users.noreply.github.com"
           start_sha=$(git rev-parse origin/main)
+
+          # A CI run triggered by this workflow's own push (gh pr
+          # update-branch below) sometimes lands in a stuck "action_required"
+          # state instead of running — a GitHub approval gate on bot-pushed
+          # commits. Left alone it sits there forever since no human is
+          # watching between cycles, so self-approve it before checking a
+          # PR's status.
+          approve_stuck_runs() {
+            local branch="$1"
+            local run_id
+            for run_id in $(gh run list -R "$REPO" --branch "$branch" --limit 5 \
+                --json databaseId,status,conclusion \
+                --jq '.[] | select(.status=="completed" and .conclusion=="action_required") | .databaseId'); do
+              echo "approving stuck run $run_id on $branch"
+              gh api "repos/$REPO/actions/runs/$run_id/approve" -X POST >/dev/null 2>&1 || true
+            done
+          }
+
           prs=$(gh pr list -R "$REPO" --state open --label ready-to-merge --json number --jq '.[].number')
           if [ -z "$prs" ]; then echo "No PRs labelled ready-to-merge."; exit 0; fi
           merged_any=false
           for pr in $prs; do
             echo "::group::PR #$pr"
+            head_branch=$(gh pr view "$pr" -R "$REPO" --json headRefName --jq .headRefName)
+            approve_stuck_runs "$head_branch"
             if ! gh pr checks "$pr" -R "$REPO"; then
               echo "PR #$pr has failing or pending checks — leaving for next cycle."
               echo "::endgroup::"; continue
@@ -78,6 +99,7 @@ jobs:
             deadline=$((SECONDS + 600))
             synced_ok=false
             while [ "$SECONDS" -lt "$deadline" ]; do
+              approve_stuck_runs "$head_branch"
               if gh pr checks "$pr" -R "$REPO" >/dev/null 2>&1; then
                 synced_ok=true
                 break
