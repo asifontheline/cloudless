@@ -62,7 +62,10 @@ func launchSeed(t *testing.T, gossipPort, apiPort int, backendURL string) string
 		t.Logf("seed output:\n%s", out.String())
 	})
 	base := fmt.Sprintf("http://127.0.0.1:%d", apiPort)
-	for i := 0; i < 100; i++ {
+	// 15s budget: `go test ./...` runs packages concurrently, and this
+	// process's startup can stall well past 5s under that contention even
+	// though it's fine in isolation — a real flake, not a bug (L1).
+	for i := 0; i < 300; i++ {
 		if r, err := http.Get(base + "/healthz"); err == nil {
 			r.Body.Close()
 			return base
