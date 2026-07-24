@@ -65,6 +65,13 @@ trust because it came from your own mesh, not a marketing claim:
 ./cloudless bench -addr http://127.0.0.1:8080 -key <api_key> -n 50 -c 8
 ```
 
+Scrape node health, routing, and usage into your own monitoring (D3) — any
+standard scraper can pull this, no proprietary agent required:
+
+```sh
+curl http://127.0.0.1:8080/metrics
+```
+
 ## Mesh mode (gossip discovery)
 
 Instead of a static `backends` list, give each node a `gossip` section — peers

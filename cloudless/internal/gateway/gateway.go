@@ -29,6 +29,7 @@ import (
 	"cloudless/internal/revoke"
 	"cloudless/internal/share"
 	"cloudless/internal/store"
+	"cloudless/internal/telemetry"
 	"cloudless/internal/usage"
 	"cloudless/internal/vault"
 )
@@ -143,6 +144,7 @@ func (g *Gateway) Handler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("GET /status", withGzip(g.handleStatus))
+	mux.HandleFunc("GET /metrics", withGzip(g.handleMetrics))
 	if g.EnrollHandler != nil {
 		mux.HandleFunc("POST /enroll", g.EnrollHandler)
 	}
@@ -1098,6 +1100,16 @@ func (g *Gateway) handleLedger(w http.ResponseWriter, _ *http.Request) {
 		"contributed":  toSorted(nodes),
 		"consumed":     toSorted(consumers),
 	})
+}
+
+// handleMetrics serves node health, routing, and usage state in
+// Prometheus-compatible text exposition format (D3) for any standard
+// scraper — no proprietary agent or export step required.
+func (g *Gateway) handleMetrics(w http.ResponseWriter, _ *http.Request) {
+	inflightN, waiting := g.Limiter.Stats()
+	load := telemetry.Load{Inflight: inflightN, Waiting: waiting, MaxConcurrent: int64(g.Limiter.Capacity())}
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	w.Write(telemetry.Render(g.reg.Ranked(), g.Usage.Snapshot(), load))
 }
 
 func (g *Gateway) handleStatus(w http.ResponseWriter, _ *http.Request) {
