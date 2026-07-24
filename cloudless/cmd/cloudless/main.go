@@ -84,6 +84,8 @@ func main() {
 		tokenCmd(os.Args[2:])
 	case "bench":
 		benchCmd(os.Args[2:])
+	case "resolve":
+		resolveCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -97,7 +99,8 @@ usage:
   cloudless up     [-join <secret>@<host:port>] [-backend <url>]   # zero-config start
   cloudless serve  -config config.json
   cloudless status -addr http://127.0.0.1:8080
-  cloudless bench  -addr http://127.0.0.1:8080 -key <api_key> [-n 20] [-c 4]  # measured latency/throughput (D2)`)
+  cloudless bench  -addr http://127.0.0.1:8080 -key <api_key> [-n 20] [-c 4]  # measured latency/throughput (D2)
+  cloudless resolve -addr http://127.0.0.1:8080 [<name>]  # look up a node or extension's address (E3)`)
 }
 
 // up is the zero-friction path: detect a local runtime, generate a config
@@ -672,6 +675,44 @@ func benchCmd(args []string) {
 	if r.Failures > 0 {
 		fmt.Printf("%d request(s) failed\n", r.Failures)
 	}
+}
+
+// resolveCmd looks up a stable name inside the mesh (E3) — a node's
+// inference backend or a registered extension — without hardcoding an IP.
+func resolveCmd(args []string) {
+	fs := flag.NewFlagSet("resolve", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	fs.Parse(args)
+
+	if fs.NArg() == 0 {
+		resp, err := http.Get(*addr + "/names")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var out struct {
+			Names []gateway.NameEntry `json:"names"`
+		}
+		json.NewDecoder(resp.Body).Decode(&out)
+		fmt.Printf("%-10s %-20s %-32s %-8s %s\n", "KIND", "NAME", "ADDRESS", "HEALTHY", "LOCATION")
+		for _, e := range out.Names {
+			fmt.Printf("%-10s %-20s %-32s %-8v %s\n", e.Kind, e.Name, e.Address, e.Healthy, e.Location)
+		}
+		return
+	}
+
+	name := fs.Arg(0)
+	resp, err := http.Get(*addr + "/names/" + name)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		log.Fatalf("no node or extension named %q", name)
+	}
+	var e gateway.NameEntry
+	json.NewDecoder(resp.Body).Decode(&e)
+	fmt.Println(e.Address)
 }
 
 func usageCmd(args []string) {

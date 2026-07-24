@@ -14,6 +14,7 @@ import (
 
 	"cloudless/internal/audit"
 	"cloudless/internal/config"
+	"cloudless/internal/ext"
 	"cloudless/internal/registry"
 )
 
@@ -270,6 +271,87 @@ func TestBatchLimits(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("bad batch size must 400, got %d", rec.Code)
 		}
+	}
+}
+
+// /names lists every backend the registry knows about, resolvable by name
+// without hardcoding an address (E3).
+func TestNamesListsBackends(t *testing.T) {
+	g := newTestGateway(t, "http://backend-a:1", "http://backend-b:2")
+	req := httptest.NewRequest(http.MethodGet, "/names", nil)
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+	var out struct {
+		Names []NameEntry `json:"names"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Names) != 2 {
+		t.Fatalf("want 2 names, got %d: %+v", len(out.Names), out.Names)
+	}
+	for _, e := range out.Names {
+		if e.Kind != "node" {
+			t.Errorf("want kind=node, got %q", e.Kind)
+		}
+	}
+}
+
+// /names/{name} resolves one entry directly, the CLI's `resolve` path.
+func TestNamesResolveByName(t *testing.T) {
+	g := newTestGateway(t, "http://backend-a:1")
+	req := httptest.NewRequest(http.MethodGet, "/names/a", nil)
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+	var e NameEntry
+	if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
+		t.Fatal(err)
+	}
+	if e.Name != "a" || e.Address != "http://backend-a:1" {
+		t.Fatalf("wrong entry: %+v", e)
+	}
+}
+
+// An unknown name resolves to 404, not a silent empty result.
+func TestNamesResolveUnknown(t *testing.T) {
+	g := newTestGateway(t, "http://backend-a:1")
+	req := httptest.NewRequest(http.MethodGet, "/names/does-not-exist", nil)
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status %d, want 404", rec.Code)
+	}
+}
+
+// Registered extensions (K4) appear in the same directory as nodes, so
+// callers resolve either kind through one interface.
+func TestNamesIncludesExtensions(t *testing.T) {
+	g := newTestGateway(t, "http://backend-a:1")
+	g.Ext = ext.Open(filepath.Join(t.TempDir(), "ext.json"))
+	if _, err := g.Ext.Register(ext.Extension{Name: "embeddings", BaseURL: "http://127.0.0.1:9090"}); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/names", nil)
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	var out struct {
+		Names []NameEntry `json:"names"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &out)
+	found := false
+	for _, e := range out.Names {
+		if e.Kind == "extension" && e.Name == "embeddings" && e.Address == "http://127.0.0.1:9090" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("extension not in names directory: %+v", out.Names)
 	}
 }
 
