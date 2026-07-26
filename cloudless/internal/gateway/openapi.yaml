@@ -50,7 +50,10 @@ paths:
       description: >
         1-64 independent requests divided across healthy nodes concurrently;
         results return in submission order. Each item keeps single-request
-        semantics (failover, backpressure, quota, metering).
+        semantics (failover, backpressure, quota, metering). The response
+        also reports a measured speedup (O6): elapsed wall-clock time versus
+        the sum of each item's own duration — what running them one at a
+        time would have cost, never a modeled or claimed number.
       requestBody:
         required: true
         content:
@@ -77,6 +80,10 @@ paths:
                         status: { type: integer }
                         backend: { type: string }
                         body: { type: object }
+                        duration_ms: { type: integer }
+                  timing:
+                    type: object
+                    description: "{elapsed_ms, sequential_ms, speedup_x} — measured, not modeled (O6)"
         "400": { description: Bad batch (size or shape) }
   /healthz:
     get: { summary: Liveness probe, security: [], responses: { "200": { description: OK } } }

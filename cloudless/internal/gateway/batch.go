@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"cloudless/internal/usage"
 )
@@ -24,9 +25,10 @@ const (
 )
 
 type batchResult struct {
-	Status  int             `json:"status"`
-	Backend string          `json:"backend"`
-	Body    json.RawMessage `json:"body"`
+	Status     int             `json:"status"`
+	Backend    string          `json:"backend"`
+	Body       json.RawMessage `json:"body"`
+	DurationMS int64           `json:"duration_ms"`
 }
 
 // forwardBuffered tries ranked backends starting at offset `start` (so
@@ -88,6 +90,7 @@ func (g *Gateway) handleBatch(w http.ResponseWriter, r *http.Request) {
 	if len(req.Requests) < workers {
 		workers = len(req.Requests)
 	}
+	batchStart := time.Now()
 	var wg sync.WaitGroup
 	idx := make(chan int)
 	for w := 0; w < workers; w++ {
@@ -104,20 +107,42 @@ func (g *Gateway) handleBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	close(idx)
 	wg.Wait()
+	elapsedMS := time.Since(batchStart).Milliseconds()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"results": results})
+	json.NewEncoder(w).Encode(map[string]any{"results": results, "timing": batchTiming(results, elapsedMS)})
+}
+
+// batchTiming reports the fan-out's honest, measured speedup (O6): wall
+// clock time for the whole batch versus the sum of each item's own
+// duration — what running them one at a time on a single backend would
+// have cost. Never a modeled or claimed number, only what was measured.
+func batchTiming(results []batchResult, elapsedMS int64) map[string]any {
+	var sequentialMS int64
+	for _, r := range results {
+		sequentialMS += r.DurationMS
+	}
+	speedup := 1.0
+	if elapsedMS > 0 {
+		speedup = float64(sequentialMS) / float64(elapsedMS)
+	}
+	return map[string]any{
+		"elapsed_ms":    elapsedMS,
+		"sequential_ms": sequentialMS,
+		"speedup_x":     speedup,
+	}
 }
 
 func (g *Gateway) batchOne(ctx context.Context, key, path string, body json.RawMessage, i int) batchResult {
+	start := time.Now()
 	if ok, _ := g.Quota.Allow(key); !ok {
 		return batchResult{Status: http.StatusTooManyRequests, Backend: "-",
-			Body: json.RawMessage(`{"error":"quota exceeded — group fair-use limit reached"}`)}
+			Body: json.RawMessage(`{"error":"quota exceeded — group fair-use limit reached"}`), DurationMS: time.Since(start).Milliseconds()}
 	}
 	if g.Limiter != nil {
 		release, ok := g.Limiter.Acquire(ctx)
 		if !ok {
 			return batchResult{Status: http.StatusServiceUnavailable, Backend: "-",
-				Body: json.RawMessage(`{"error":"node busy — retry shortly (backpressure)"}`)}
+				Body: json.RawMessage(`{"error":"node busy — retry shortly (backpressure)"}`), DurationMS: time.Since(start).Milliseconds()}
 		}
 		defer release()
 	}
@@ -138,5 +163,5 @@ func (g *Gateway) batchOne(ctx context.Context, key, path string, body json.RawM
 		quoted, _ := json.Marshal(string(respBody))
 		respBody = quoted
 	}
-	return batchResult{Status: status, Backend: backend, Body: respBody}
+	return batchResult{Status: status, Backend: backend, Body: respBody, DurationMS: time.Since(start).Milliseconds()}
 }
