@@ -123,6 +123,21 @@ This epic family captures the public-cloud-style service catalog and names it in
 | #119 P10 | Mesh Data Lake & Analytics — ETL, streaming, and query services | ⬜ P3 |
 | #120 P11 | Mesh Edge Relay & IoT — device onboarding, telemetry, and edge execution | ⬜ P3 |
 
+## EPIC Q — End-User CLI
+The `cloudless` binary today is operator-shaped (up, serve, keys, vault, backup, revoke...). This
+epic is the consumer-facing counterpart: a scriptable command surface for people who just want to
+*use* a mesh — send a prompt, pipe data through it, wire it into a shell script or CI job — without
+writing code against the Python/JS SDKs (K2/K3) or hand-rolling curl calls. Same wire API underneath;
+this is ergonomics, not new capability.
+| ID | Story | Status |
+|---|---|---|
+| #121 Q1 | `cloudless chat` — one-shot and interactive prompts, streamed to the terminal | ⬜ P2 |
+| #122 Q2 | Stdin/stdout piping — prompt from stdin, completion to stdout, composes in shell pipelines | ⬜ P2 |
+| #123 Q3 | Uniform `--format json\|table\|plain` across every command, for scripting | ⬜ P2 |
+| #124 Q4 | Multi-profile config (`cloudless config set/get/use`) — switch between meshes without re-flagging `-addr`/`-key` every time | ⬜ P2 |
+| #125 Q5 | `CLOUDLESS_API_KEY` env var + documented exit-code conventions, so CI/scripts never need the key on the command line or in shell history | ⬜ P2 |
+| #126 Q6 | Shell completion (bash/zsh/fish) | ⬜ P3 |
+
 ## Cross-cutting infrastructure (shipped)
 - One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
 - CI validation engine + branch-protected `main` + 2-hourly review-gated merge queue ✅
