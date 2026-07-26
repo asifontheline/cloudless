@@ -215,6 +215,20 @@ paths:
         "409": { description: Already revoked or unknown }
   /store:
     get: { summary: List model artifacts (content-addressed), security: [], responses: { "200": { description: Artifacts } } }
+  /store/pull:
+    post:
+      summary: Pull an artifact from the mesh (admin)
+      description: >
+        When more than one peer holds the artifact and it's large enough to
+        be worth splitting, byte ranges are fetched from all of them
+        concurrently and reassembled (O4) instead of one peer serving the
+        whole blob serially. The reassembled file is re-hashed on add
+        regardless of how many peers it came from.
+      parameters: [ { name: name, in: query, required: true, schema: { type: string } } ]
+      responses:
+        "200": { description: "{pulled, from_peers, sha256} or {pulled: false, reason} if already present" }
+        "404": { description: No peer in the mesh has this artifact }
+        "502": { description: Pull or verification failed }
   /vault:
     get:
       summary: List owner-encrypted vault objects (names and ciphertext hashes)
