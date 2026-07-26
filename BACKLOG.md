@@ -106,7 +106,7 @@ Individual machines are modest; the mesh is not. Speed comes from dividing work 
 | #104 O3 | Model sharding — run models no single node can | ⬜ P2 |
 | #105 O4 | Chunked parallel transfers from many peers | ⬜ P2 |
 | #106 O5 | Divide-and-conquer batch jobs — map, process, merge | ⬜ P2 |
-| #107 O6 | Speed-aware scheduling & honest speed-up metrics | ⬜ P2 |
+| #107 O6 | Speed-aware scheduling & honest speed-up metrics | ✅ (`/v1/batch` reports measured elapsed vs. summed sequential time — real speedup, not a claimed number) |
 | #109 O7 | Transfer compression — compress on the wire, decompress at receiver | ✅ |
 
 ## EPIC P — Mesh Cloud Offerings (next wave; after current epics)

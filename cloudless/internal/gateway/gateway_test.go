@@ -234,6 +234,61 @@ func TestBatchFanOut(t *testing.T) {
 	}
 }
 
+// A batch's honest speedup (O6): fanning N slow items across backends
+// should measure faster than their summed individual durations, and the
+// response must report both numbers, not just a claimed multiplier.
+func TestBatchReportsHonestSpeedup(t *testing.T) {
+	mk := func() *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(80 * time.Millisecond)
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"usage":{"prompt_tokens":1,"completion_tokens":1}}`)
+		}))
+	}
+	a, b := mk(), mk()
+	defer a.Close()
+	defer b.Close()
+
+	g := newTestGateway(t, a.URL, b.URL)
+	items := make([]string, 8)
+	for i := range items {
+		items[i] = `{"n":1}`
+	}
+	body := `{"path":"/v1/chat/completions","requests":[` + strings.Join(items, ",") + `]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/batch", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-key")
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Results []struct {
+			DurationMS int64 `json:"duration_ms"`
+		} `json:"results"`
+		Timing struct {
+			ElapsedMS    int64   `json:"elapsed_ms"`
+			SequentialMS int64   `json:"sequential_ms"`
+			SpeedupX     float64 `json:"speedup_x"`
+		} `json:"timing"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	for i, r := range out.Results {
+		if r.DurationMS <= 0 {
+			t.Errorf("item %d has no measured duration", i)
+		}
+	}
+	if out.Timing.ElapsedMS <= 0 || out.Timing.SequentialMS <= 0 {
+		t.Fatalf("timing summary missing measured values: %+v", out.Timing)
+	}
+	if out.Timing.SpeedupX <= 1.0 {
+		t.Fatalf("fan-out across 2 backends should measure a speedup > 1x, got %.2f (elapsed=%dms sequential=%dms)",
+			out.Timing.SpeedupX, out.Timing.ElapsedMS, out.Timing.SequentialMS)
+	}
+}
+
 // A batch item that hits a dead backend fails over like a single request.
 func TestBatchItemFailover(t *testing.T) {
 	good := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
