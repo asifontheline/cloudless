@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -762,6 +763,11 @@ func (g *Gateway) handleStorePull(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"pulled": false, "reason": "already present"})
 		return
 	}
+	// Gather every peer that has it (not just the first) so a large
+	// artifact can be split across all of them instead of one peer
+	// serving the whole blob serially (O4).
+	var sources []chunkSource
+	var size int64
 	for _, b := range g.reg.Ranked() {
 		base := strings.TrimSuffix(b.Backend.BaseURL, "/v1")
 		if !strings.HasPrefix(base, "https://") {
@@ -776,35 +782,39 @@ func (g *Gateway) handleStorePull(w http.ResponseWriter, r *http.Request) {
 		}
 		json.NewDecoder(list.Body).Decode(&lr)
 		list.Body.Close()
-		has := false
 		for _, a := range lr.Artifacts {
 			if a.Name == name {
-				has = true
+				sources = append(sources, chunkSource{Base: base, Name: name})
+				size = a.Size
 				break
 			}
 		}
-		if !has {
-			continue
-		}
-		blob, err := g.client.Get(base + "/blob?name=" + name)
-		if err != nil || blob.StatusCode != http.StatusOK {
-			if blob != nil {
-				blob.Body.Close()
-			}
-			continue
-		}
-		e, err := g.Models.Add(name, blob.Body)
-		blob.Body.Close()
-		if err != nil {
-			log.Printf("store: pull of %q from %s failed verification: %v", name, b.Backend.Name, err)
-			continue
-		}
-		log.Printf("store: pulled %s from %s (sha256 %s…)", name, b.Backend.Name, e.SHA256[:12])
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"pulled": true, "from": b.Backend.Name, "sha256": e.SHA256})
+	}
+	if len(sources) == 0 {
+		http.Error(w, `{"error":"no peer in the mesh has this artifact — fall back to a public repository"}`, http.StatusNotFound)
 		return
 	}
-	http.Error(w, `{"error":"no peer in the mesh has this artifact — fall back to a public repository"}`, http.StatusNotFound)
+	tmpPath, err := fetchChunked(r.Context(), g.client, sources, size)
+	if err != nil {
+		http.Error(w, `{"error":`+strconv.Quote("pull failed: "+err.Error())+`}`, http.StatusBadGateway)
+		return
+	}
+	defer os.Remove(tmpPath)
+	f, err := os.Open(tmpPath)
+	if err != nil {
+		http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+	e, err := g.Models.Add(name, f)
+	if err != nil {
+		log.Printf("store: pull of %q failed verification: %v", name, err)
+		http.Error(w, `{"error":"pull failed verification — discarded"}`, http.StatusBadGateway)
+		return
+	}
+	log.Printf("store: pulled %s from %d peer(s) (sha256 %s…)", name, len(sources), e.SHA256[:12])
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"pulled": true, "from_peers": len(sources), "sha256": e.SHA256})
 }
 
 func (g *Gateway) handleStoreVerify(w http.ResponseWriter, r *http.Request) {

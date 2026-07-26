@@ -104,7 +104,7 @@ Individual machines are modest; the mesh is not. Speed comes from dividing work 
 | #102 O1 | Parallel fan-out — split batch work across nodes, merge results | ✅ |
 | #103 O2 | Speculative racing — first answer wins | ✅ |
 | #104 O3 | Model sharding — run models no single node can | ⬜ P2 |
-| #105 O4 | Chunked parallel transfers from many peers | ⬜ P2 |
+| #105 O4 | Chunked parallel transfers from many peers | ✅ (`/store/pull` splits large artifacts across every peer that holds them) |
 | #106 O5 | Divide-and-conquer batch jobs — map, process, merge | ⬜ P2 |
 | #107 O6 | Speed-aware scheduling & honest speed-up metrics | ✅ (`/v1/batch` reports measured elapsed vs. summed sequential time — real speedup, not a claimed number) |
 | #109 O7 | Transfer compression — compress on the wire, decompress at receiver | ✅ |
