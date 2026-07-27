@@ -946,16 +946,11 @@ func usageCmd(args []string) {
 // keysCmd manages per-user API keys: list | create <name> | revoke <prefix>.
 func keysCmd(args []string) {
 	fs := flag.NewFlagSet("keys", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
+	format := fs.String("format", "table", "output format: table, json (list only)")
 	fs.Parse(args)
-	if *adminKey == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
-				*adminKey = cfg.APIKey
-			}
-		}
-	}
+	resolveAddrKey(addr, adminKey)
 	do := func(method, path string, body string) *http.Response {
 		req, _ := http.NewRequest(method, *addr+path, strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer "+*adminKey)
@@ -978,6 +973,10 @@ func keysCmd(args []string) {
 			Keys []keys.Public `json:"keys"`
 		}
 		json.NewDecoder(resp.Body).Decode(&out)
+		if *format == "json" {
+			printJSON(out)
+			return
+		}
 		fmt.Printf("%-20s %-12s %-10s %s\n", "NAME", "KEY", "STATE", "CREATED")
 		for _, k := range out.Keys {
 			state := "active"
@@ -1018,18 +1017,13 @@ func keysCmd(args []string) {
 // registered with the node and reachable at /x/<name>/... .
 func extCmd(args []string) {
 	fs := flag.NewFlagSet("ext", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
 	runtime := fs.String("runtime", "", "informational runtime label (python, node, rust, ...)")
 	desc := fs.String("desc", "", "one-line description for the console")
+	format := fs.String("format", "table", "output format: table, json (list only)")
 	fs.Parse(args)
-	if *adminKey == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
-				*adminKey = cfg.APIKey
-			}
-		}
-	}
+	resolveAddrKey(addr, adminKey)
 	do := func(method, path string, body io.Reader) *http.Response {
 		req, _ := http.NewRequest(method, *addr+path, body)
 		req.Header.Set("Authorization", "Bearer "+*adminKey)
@@ -1051,6 +1045,10 @@ func extCmd(args []string) {
 			Extensions []ext.Extension `json:"extensions"`
 		}
 		json.NewDecoder(resp.Body).Decode(&out)
+		if *format == "json" {
+			printJSON(out)
+			return
+		}
 		fmt.Printf("%-20s %-28s %-8s %-8s %s\n", "NAME", "BASE URL", "RUNTIME", "HEALTH", "ROUTE")
 		for _, e := range out.Extensions {
 			health := "down"
@@ -1089,18 +1087,12 @@ func extCmd(args []string) {
 // backupCmd exports/imports the off-mesh encrypted archive (M5).
 func backupCmd(args []string) {
 	fs := flag.NewFlagSet("backup", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
 	pass := fs.String("passphrase", "", "archive passphrase (required)")
 	file := fs.String("file", "", "archive path (default cloudless-backup.sealed)")
 	fs.Parse(args)
-	if *adminKey == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
-				*adminKey = cfg.APIKey
-			}
-		}
-	}
+	resolveAddrKey(addr, adminKey)
 	if *pass == "" {
 		log.Fatal("-passphrase is required — the archive leaves the mesh encrypted")
 	}
@@ -1159,16 +1151,10 @@ func backupCmd(args []string) {
 // restoreCmd rebuilds local data from surviving mesh replicas (M4).
 func restoreCmd(args []string) {
 	fs := flag.NewFlagSet("restore", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
 	fs.Parse(args)
-	if *adminKey == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
-				*adminKey = cfg.APIKey
-			}
-		}
-	}
+	resolveAddrKey(addr, adminKey)
 	body, _ := json.Marshal(map[string]any{"names": fs.Args()})
 	req, _ := http.NewRequest("POST", *addr+"/restore", strings.NewReader(string(body)))
 	req.Header.Set("Authorization", "Bearer "+*adminKey)
@@ -1211,16 +1197,11 @@ func restoreCmd(args []string) {
 // node before replication; only this node can open them.
 func vaultCmd(args []string) {
 	fs := flag.NewFlagSet("vault", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
+	format := fs.String("format", "table", "output format: table, json (list only)")
 	fs.Parse(args)
-	if *adminKey == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
-				*adminKey = cfg.APIKey
-			}
-		}
-	}
+	resolveAddrKey(addr, adminKey)
 	do := func(method, path string, body io.Reader) *http.Response {
 		req, _ := http.NewRequest(method, *addr+path, body)
 		req.Header.Set("Authorization", "Bearer "+*adminKey)
@@ -1242,6 +1223,10 @@ func vaultCmd(args []string) {
 			Objects []vault.Entry `json:"objects"`
 		}
 		json.NewDecoder(resp.Body).Decode(&out)
+		if *format == "json" {
+			printJSON(out)
+			return
+		}
 		fmt.Printf("%-28s %10s  %-8s %s\n", "NAME", "SIZE", "KIND", "CIPHERTEXT SHA256")
 		for _, e := range out.Objects {
 			kind := "owned"
@@ -1308,16 +1293,11 @@ func vaultCmd(args []string) {
 
 func modelsCmd(args []string) {
 	fs := flag.NewFlagSet("models", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
+	format := fs.String("format", "table", "output format: table, json (list only)")
 	fs.Parse(args)
-	if *adminKey == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
-				*adminKey = cfg.APIKey
-			}
-		}
-	}
+	resolveAddrKey(addr, adminKey)
 	sub := "list"
 	if fs.NArg() > 0 {
 		sub = fs.Arg(0)
@@ -1333,6 +1313,10 @@ func modelsCmd(args []string) {
 			Artifacts []store.Entry `json:"artifacts"`
 		}
 		json.NewDecoder(resp.Body).Decode(&out)
+		if *format == "json" {
+			printJSON(out)
+			return
+		}
 		fmt.Printf("%-28s %-12s %10s  %s\n", "NAME", "FORMAT", "SIZE", "SHA256")
 		for _, e := range out.Artifacts {
 			fmt.Printf("%-28s %-12s %10d  %s\n", e.Name, e.Format, e.Size, e.SHA256[:16]+"…")
@@ -1423,18 +1407,13 @@ func shareCmd(args []string) {
 		rest = append(rest, a)
 	}
 	fs := flag.NewFlagSet("share", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
 	cpu := fs.Int("cpu", -1, "CPU share percent (0..70)")
 	when := fs.String("when", "", "share when: always | charging | idle")
+	format := fs.String("format", "table", "output format: table, json (show only)")
 	fs.Parse(rest)
-	if *adminKey == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
-				*adminKey = cfg.APIKey
-			}
-		}
-	}
+	resolveAddrKey(addr, adminKey)
 	if sub == "set" {
 		body := map[string]any{}
 		if *cpu >= 0 {
@@ -1470,6 +1449,10 @@ func shareCmd(args []string) {
 		SharedCores int `json:"shared_cores"`
 	}
 	json.NewDecoder(resp.Body).Decode(&d)
+	if *format == "json" {
+		printJSON(d)
+		return
+	}
 	fmt.Printf("CPU share: %d%% (ceiling %d%%) · %d shared core(s) · when: %s\n",
 		d.Limits.CPUPercent, d.Ceiling, d.SharedCores, d.Limits.ShareWhen)
 }
@@ -1486,16 +1469,11 @@ func nodesCmd(args []string) {
 		rest = append(rest, a)
 	}
 	fs := flag.NewFlagSet("nodes", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
+	format := fs.String("format", "table", "output format: table, json (revocations only)")
 	fs.Parse(rest)
-	if *adminKey == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
-				*adminKey = cfg.APIKey
-			}
-		}
-	}
+	resolveAddrKey(addr, adminKey)
 	switch sub {
 	case "revoke":
 		if fs.NArg() < 1 {
@@ -1523,6 +1501,10 @@ func nodesCmd(args []string) {
 			Revoked []revoke.Record `json:"revoked"`
 		}
 		json.NewDecoder(resp.Body).Decode(&out)
+		if *format == "json" {
+			printJSON(out)
+			return
+		}
 		fmt.Println("REVOKED NODES")
 		for _, r := range out.Revoked {
 			fmt.Printf("  %-30s %s\n", r.Name, r.Revoked.Format("2006-01-02 15:04"))
@@ -1532,8 +1514,11 @@ func nodesCmd(args []string) {
 
 func auditCmd(args []string) {
 	fs := flag.NewFlagSet("audit", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
+	var noKey string
+	resolveAddrKey(addr, &noKey)
 	resp, err := http.Get(*addr + "/audit")
 	if err != nil {
 		log.Fatal(err)
@@ -1546,6 +1531,10 @@ func auditCmd(args []string) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		log.Fatal(err)
+	}
+	if *format == "json" {
+		printJSON(out)
+		return
 	}
 	if out.Intact {
 		fmt.Println("audit chain: INTACT ✓")
@@ -1669,17 +1658,11 @@ func ledgerCmd(args []string) {
 // tokenCmd mints a single-use expiring join token on the CA node (A2).
 func tokenCmd(args []string) {
 	fs := flag.NewFlagSet("token", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	adminKey := fs.String("admin-key", "", "cluster admin key (default: from ~/.cloudless/config.json)")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
 	ttl := fs.Int("ttl", 15, "token validity in minutes")
 	fs.Parse(args)
-	if *adminKey == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
-				*adminKey = cfg.APIKey
-			}
-		}
-	}
+	resolveAddrKey(addr, adminKey)
 	body := fmt.Sprintf(`{"ttl_minutes":%d}`, *ttl)
 	req, _ := http.NewRequest(http.MethodPost, *addr+"/join-tokens", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+*adminKey)

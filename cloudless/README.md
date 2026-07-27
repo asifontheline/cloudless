@@ -91,8 +91,8 @@ hardcoding an IP:
 ```
 
 Talking to more than one mesh? Save a profile instead of re-typing
-`-addr`/`-key` every time (Q4) — `chat`, `status`, `resolve`, and `bench`
-all pick up the active one automatically:
+`-addr`/`-key` every time (Q4) — every command that talks to a gateway
+picks up the active one automatically:
 
 ```sh
 ./cloudless config -addr http://127.0.0.1:8080 -key <api_key> set home
