@@ -70,11 +70,16 @@ func (s *profileStore) save() error {
 	return os.WriteFile(path, raw, 0o600)
 }
 
-// resolveAddrKey fills in addr/key from the active profile when the caller
-// didn't pass -addr/-key explicitly (both still empty after fs.Parse).
-// Falls back to the standard default address and, for the key, the node's
-// own config.json — unchanged behavior for anyone not using profiles.
+// resolveAddrKey fills in addr/key when the caller didn't pass -addr/-key
+// explicitly (both still empty after fs.Parse). Priority: explicit flag
+// (already set, nothing to do) > CLOUDLESS_API_KEY env var (Q5 — so CI and
+// scripts never need the key on the command line or in shell history) >
+// active profile > the standard default address and, for the key, the
+// node's own config.json — unchanged behavior for anyone using neither.
 func resolveAddrKey(addr, key *string) {
+	if *key == "" {
+		*key = os.Getenv("CLOUDLESS_API_KEY")
+	}
 	if *addr == "" || *key == "" {
 		s := loadProfiles()
 		if p, ok := s.Profiles[s.Current]; ok {

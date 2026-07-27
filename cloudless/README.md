@@ -100,6 +100,16 @@ all pick up the active one automatically:
 ./cloudless status   # no -addr/-key needed
 ```
 
+In CI or scripts, skip both and set `CLOUDLESS_API_KEY` instead (Q5) — the
+key never has to appear on the command line or land in shell history.
+Every command exits `0` on success and non-zero on any failure (bad key,
+unreachable node, bad input), so `&&`/`set -e` behave as expected:
+
+```sh
+export CLOUDLESS_API_KEY=<api_key>
+./cloudless status || echo "mesh unreachable"
+```
+
 ## Mesh mode (gossip discovery)
 
 Instead of a static `backends` list, give each node a `gossip` section — peers
