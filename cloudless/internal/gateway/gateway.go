@@ -23,6 +23,7 @@ import (
 
 	"cloudless/internal/audit"
 	"cloudless/internal/backup"
+	"cloudless/internal/config"
 	"cloudless/internal/ext"
 	"cloudless/internal/inflight"
 	"cloudless/internal/keys"
@@ -424,6 +425,9 @@ func (g *Gateway) Handler() http.Handler {
 			http.Error(w, `{"error":`+strconv.Quote(err.Error())+`}`, http.StatusUnprocessableEntity)
 			return
 		}
+		if reg.Inference {
+			g.reg.Upsert(config.Backend{Name: reg.Name, BaseURL: reg.BaseURL})
+		}
 		g.Audit.Append("cluster", "ext.register", reg.Name, reg.BaseURL)
 		log.Printf("ext: registered %s -> %s (%s)", reg.Name, reg.BaseURL, reg.Runtime)
 		w.Header().Set("Content-Type", "application/json")
@@ -434,6 +438,7 @@ func (g *Gateway) Handler() http.Handler {
 			http.Error(w, `{"error":"unknown extension"}`, http.StatusNotFound)
 			return
 		}
+		g.reg.Remove(r.PathValue("name")) // no-op if it never served inference
 		g.Audit.Append("cluster", "ext.remove", r.PathValue("name"), "")
 		w.WriteHeader(http.StatusNoContent)
 	}))

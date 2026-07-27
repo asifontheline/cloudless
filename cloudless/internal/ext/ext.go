@@ -36,6 +36,13 @@ type Extension struct {
 	Added       time.Time `json:"added"`
 	Healthy     bool      `json:"healthy"`
 	LastSeen    time.Time `json:"last_seen,omitempty"`
+	// Inference (K5 — polyglot runtime backends): when true, this
+	// extension speaks the standard chat-completions wire format and is
+	// also added to the gateway's routing pool at /v1/chat/completions,
+	// not just proxied at /x/<name>/... . A Python/Rust/anything server
+	// becomes a real inference backend without the operator hand-editing
+	// config.json's static backends list.
+	Inference bool `json:"inference,omitempty"`
 }
 
 type Registry struct {

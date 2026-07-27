@@ -106,6 +106,63 @@ func TestExtensionRegistrationValidation(t *testing.T) {
 	}
 }
 
+// K5: an extension registered with inference:true joins the routing pool
+// and actually serves /v1/chat/completions traffic — not just /x/... — and
+// leaves the pool again on removal.
+func TestExtensionInferenceJoinsAndLeavesRouting(t *testing.T) {
+	var hits int
+	svc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"hi"}}]}`)
+	}))
+	defer svc.Close()
+
+	g := newTestGateway(t) // no static backends — the extension must be the only route
+	g.Ext = ext.Open(filepath.Join(t.TempDir(), "extensions.json"))
+
+	body := `{"name":"pyinfer","base_url":"` + svc.URL + `","inference":true}`
+	if rec := extRequest(t, g, http.MethodPost, "/extensions", body, "test-key"); rec.Code != http.StatusOK {
+		t.Fatalf("register: status %d, body %s", rec.Code, rec.Body)
+	}
+
+	rec := proxyRequest(t, g, `{}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("inference extension not routed to: status %d, body %s", rec.Code, rec.Body)
+	}
+	if hits != 1 {
+		t.Fatalf("extension backend hit %d times, want 1", hits)
+	}
+
+	if rec := extRequest(t, g, http.MethodDelete, "/extensions/pyinfer", "", "test-key"); rec.Code != http.StatusNoContent {
+		t.Fatalf("remove: status %d", rec.Code)
+	}
+	rec = proxyRequest(t, g, `{}`)
+	if rec.Code == http.StatusOK {
+		t.Fatal("removed inference extension must no longer be routable")
+	}
+}
+
+// A plain extension (inference:false, the default) never joins routing —
+// it stays proxy-only at /x/..., preserving today's behavior exactly.
+func TestExtensionWithoutInferenceStaysProxyOnly(t *testing.T) {
+	svc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer svc.Close()
+
+	g := newTestGateway(t)
+	g.Ext = ext.Open(filepath.Join(t.TempDir(), "extensions.json"))
+	body := `{"name":"sidecar","base_url":"` + svc.URL + `"}`
+	if rec := extRequest(t, g, http.MethodPost, "/extensions", body, "test-key"); rec.Code != http.StatusOK {
+		t.Fatalf("register: status %d, body %s", rec.Code, rec.Body)
+	}
+	rec := proxyRequest(t, g, `{}`)
+	if rec.Code == http.StatusOK {
+		t.Fatal("non-inference extension must not be routable at /v1/*")
+	}
+}
+
 // Registrations survive a node restart.
 func TestExtensionPersistence(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "extensions.json")
