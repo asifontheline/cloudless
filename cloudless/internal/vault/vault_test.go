@@ -175,3 +175,29 @@ func TestDeleteAndOverwrite(t *testing.T) {
 		t.Fatal("deleted object still readable")
 	}
 }
+
+// L7: Path() resolves by exact name against the in-memory index and
+// returns a path built from the object's own computed hash — never the
+// caller-supplied name concatenated into a filesystem path — so a
+// traversal-shaped name can only ever miss, never escape the vault dir.
+func TestPathRejectsUnknownAndTraversalNames(t *testing.T) {
+	v := mustOpen(t)
+	if _, err := v.Put("secret.txt", strings.NewReader("payload")); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{
+		"../secret.txt", "../../etc/passwd", "..%2f..%2fetc%2fpasswd",
+		"secret.txt/../../../etc/passwd", "/etc/passwd", "",
+	} {
+		if p, ok := v.Path(name); ok {
+			t.Errorf("Path(%q) resolved to %q, want not-found", name, p)
+		}
+	}
+	p, ok := v.Path("secret.txt")
+	if !ok {
+		t.Fatal("legitimate name should still resolve")
+	}
+	if !strings.Contains(p, v.dir) {
+		t.Errorf("resolved path %q escapes vault dir %q", p, v.dir)
+	}
+}

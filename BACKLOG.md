@@ -80,7 +80,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 | #87 L4 | SDK conformance test cases (Python & JS) against a live node | ✅ |
 | #88 L5 | Tests-required policy for all future features | ✅ (soft coverage gate; hardens with L1) |
 | #89 L6 | Browser test cases — console & website smoke tests | ⬜ |
-| #90 L7 | Security regression test cases | ⬜ |
+| #90 L7 | Security regression test cases | 🔶 (revoked-node routing eviction + admin-key gating, path-traversal-name rejection on store/vault; not a full endpoint-by-endpoint audit) |
 
 ## EPIC M — Data Durability & Recovery (MUST-DO)
 Node churn must never mean lost or breached data. Prerequisite for Epic N recruitment.

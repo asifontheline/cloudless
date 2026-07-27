@@ -143,3 +143,33 @@ func TestSafetensorsAndOnnxAdmitted(t *testing.T) {
 		t.Error("pickle disguised as onnx admitted")
 	}
 }
+
+// L7: Path() resolves by exact name against the in-memory index and
+// returns a path built from the artifact's own computed hash — never the
+// caller-supplied name concatenated into a filesystem path — so a
+// traversal-shaped name can only ever miss, never escape the store dir.
+func TestPathRejectsUnknownAndTraversalNames(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Add("model.gguf", strings.NewReader("GGUF\x03\x00\x00\x00payload")); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{
+		"../model.gguf", "../../etc/passwd", "..%2f..%2fetc%2fpasswd",
+		"model.gguf/../../../etc/passwd", "/etc/passwd", "",
+	} {
+		if p, ok := s.Path(name); ok {
+			t.Errorf("Path(%q) resolved to %q, want not-found", name, p)
+		}
+	}
+	// The legitimate name still resolves, and to somewhere inside dir.
+	p, ok := s.Path("model.gguf")
+	if !ok {
+		t.Fatal("legitimate name should still resolve")
+	}
+	if !strings.Contains(p, s.dir) {
+		t.Errorf("resolved path %q escapes store dir %q", p, s.dir)
+	}
+}
