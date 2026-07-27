@@ -687,6 +687,7 @@ func benchCmd(args []string) {
 func resolveCmd(args []string) {
 	fs := flag.NewFlagSet("resolve", flag.ExitOnError)
 	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
 
 	if fs.NArg() == 0 {
@@ -699,6 +700,10 @@ func resolveCmd(args []string) {
 			Names []gateway.NameEntry `json:"names"`
 		}
 		json.NewDecoder(resp.Body).Decode(&out)
+		if *format == "json" {
+			printJSON(out)
+			return
+		}
 		fmt.Printf("%-10s %-20s %-32s %-8s %s\n", "KIND", "NAME", "ADDRESS", "HEALTHY", "LOCATION")
 		for _, e := range out.Names {
 			fmt.Printf("%-10s %-20s %-32s %-8v %s\n", e.Kind, e.Name, e.Address, e.Healthy, e.Location)
@@ -717,6 +722,10 @@ func resolveCmd(args []string) {
 	}
 	var e gateway.NameEntry
 	json.NewDecoder(resp.Body).Decode(&e)
+	if *format == "json" {
+		printJSON(e)
+		return
+	}
 	fmt.Println(e.Address)
 }
 
@@ -731,6 +740,16 @@ type chatMessage struct {
 // automatically like a Unix tool should: a prompt argument means one-shot;
 // piped stdin (no TTY) is read whole as the prompt; otherwise an
 // interactive REPL keeps conversation history across turns.
+// printJSON is the -format json path shared by every read command (Q3):
+// scripts get exactly the decoded API response instead of a human table.
+func printJSON(v any) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(b))
+}
+
 func chatCmd(args []string) {
 	fs := flag.NewFlagSet("chat", flag.ExitOnError)
 	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
@@ -891,6 +910,7 @@ func chatRepl(addr, apiKey, model string) {
 func usageCmd(args []string) {
 	fs := flag.NewFlagSet("usage", flag.ExitOnError)
 	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
 	resp, err := http.Get(*addr + "/usage")
 	if err != nil {
@@ -904,6 +924,10 @@ func usageCmd(args []string) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		log.Fatal(err)
+	}
+	if *format == "json" {
+		printJSON(out)
+		return
 	}
 	fmt.Printf("%-12s %-30s %8s %10s %10s  %s\n", "KEY", "BACKEND", "REQS", "PROMPT", "COMPLETE", "LAST USED")
 	for _, u := range out.Usage {
@@ -1537,6 +1561,7 @@ func auditCmd(args []string) {
 func capacityCmd(args []string) {
 	fs := flag.NewFlagSet("capacity", flag.ExitOnError)
 	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
 	resp, err := http.Get(*addr + "/capacity")
 	if err != nil {
@@ -1555,6 +1580,10 @@ func capacityCmd(args []string) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		log.Fatal(err)
+	}
+	if *format == "json" {
+		printJSON(out)
+		return
 	}
 	fmt.Printf("%-30s %-9s %8s  %s\n", "NODE", "STATE", "REQS", "VERDICT")
 	for _, n := range out.Nodes {
@@ -1577,6 +1606,7 @@ func savingsCmd(args []string) {
 	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
 	rp := fs.String("prompt-rate", "0.50", "reference USD per 1M prompt tokens")
 	rc := fs.String("completion-rate", "1.50", "reference USD per 1M completion tokens")
+	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
 	resp, err := http.Get(*addr + "/savings?prompt_per_1m=" + *rp + "&completion_per_1m=" + *rc)
 	if err != nil {
@@ -1592,6 +1622,10 @@ func savingsCmd(args []string) {
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		log.Fatal(err)
 	}
+	if *format == "json" {
+		printJSON(out)
+		return
+	}
 	fmt.Printf("mesh served: %d requests · %d prompt + %d completion tokens\n",
 		out.Requests, out.PromptTokens, out.CompletionTokens)
 	fmt.Printf("hosted-API equivalent: $%.4f    mesh marginal cost: $0.00\n", out.Hosted)
@@ -1600,6 +1634,7 @@ func savingsCmd(args []string) {
 func ledgerCmd(args []string) {
 	fs := flag.NewFlagSet("ledger", flag.ExitOnError)
 	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
 	resp, err := http.Get(*addr + "/ledger")
 	if err != nil {
@@ -1613,6 +1648,10 @@ func ledgerCmd(args []string) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		log.Fatal(err)
+	}
+	if *format == "json" {
+		printJSON(out)
+		return
 	}
 	fmt.Println("CONTRIBUTED (by node)")
 	for _, l := range out.Contributed {
@@ -1666,6 +1705,7 @@ func tokenCmd(args []string) {
 func status(args []string) {
 	fs := flag.NewFlagSet("status", flag.ExitOnError)
 	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
 
 	resp, err := http.Get(*addr + "/status")
@@ -1684,6 +1724,10 @@ func status(args []string) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		log.Fatal(err)
+	}
+	if *format == "json" {
+		printJSON(out)
+		return
 	}
 	fmt.Printf("LOAD  %d in-flight, %d waiting (max concurrent %d)\n",
 		out.Load.InFlight, out.Load.Waiting, out.Load.MaxConcurrent)
