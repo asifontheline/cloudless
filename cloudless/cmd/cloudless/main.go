@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/tls"
@@ -86,6 +88,8 @@ func main() {
 		benchCmd(os.Args[2:])
 	case "resolve":
 		resolveCmd(os.Args[2:])
+	case "chat":
+		chatCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -100,7 +104,8 @@ usage:
   cloudless serve  -config config.json
   cloudless status -addr http://127.0.0.1:8080
   cloudless bench  -addr http://127.0.0.1:8080 -key <api_key> [-n 20] [-c 4]  # measured latency/throughput (D2)
-  cloudless resolve -addr http://127.0.0.1:8080 [<name>]  # look up a node or extension's address (E3)`)
+  cloudless resolve -addr http://127.0.0.1:8080 [<name>]  # look up a node or extension's address (E3)
+  cloudless chat -addr http://127.0.0.1:8080 -key <api_key> ["prompt"]  # one-shot, piped, or interactive (Q1)`)
 }
 
 // up is the zero-friction path: detect a local runtime, generate a config
@@ -713,6 +718,174 @@ func resolveCmd(args []string) {
 	var e gateway.NameEntry
 	json.NewDecoder(resp.Body).Decode(&e)
 	fmt.Println(e.Address)
+}
+
+// chatMessage mirrors the standard chat-completions wire shape.
+type chatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// chatCmd is the end-user counterpart to the operator commands above (Q1):
+// send a prompt and see the reply, no code required. Three modes, picked
+// automatically like a Unix tool should: a prompt argument means one-shot;
+// piped stdin (no TTY) is read whole as the prompt; otherwise an
+// interactive REPL keeps conversation history across turns.
+func chatCmd(args []string) {
+	fs := flag.NewFlagSet("chat", flag.ExitOnError)
+	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	apiKey := fs.String("key", "", "API key (default: from ~/.cloudless/config.json)")
+	model := fs.String("model", "", "model id (optional — backend default if omitted)")
+	fs.Parse(args)
+	if *apiKey == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
+				*apiKey = cfg.APIKey
+			}
+		}
+	}
+	if *apiKey == "" {
+		log.Fatal("chat: -key is required (or set it in ~/.cloudless/config.json)")
+	}
+
+	if prompt := strings.Join(fs.Args(), " "); prompt != "" {
+		if _, err := chatOnce(*addr, *apiKey, *model, []chatMessage{{Role: "user", Content: prompt}}); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	if !isTerminal(os.Stdin) {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			log.Fatal(err)
+		}
+		prompt := strings.TrimSpace(string(data))
+		if prompt == "" {
+			log.Fatal("chat: no prompt given and stdin was empty")
+		}
+		if _, err := chatOnce(*addr, *apiKey, *model, []chatMessage{{Role: "user", Content: prompt}}); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	chatRepl(*addr, *apiKey, *model)
+}
+
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+func chatOnce(addr, apiKey, model string, messages []chatMessage) (string, error) {
+	resp, err := chatRequest(addr, apiKey, model, messages)
+	if err != nil {
+		return "", err
+	}
+	return streamChatToStdout(resp)
+}
+
+func chatRequest(addr, apiKey, model string, messages []chatMessage) (*http.Response, error) {
+	body, err := json.Marshal(map[string]any{"model": model, "messages": messages, "stream": true})
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodPost, addr+"/v1/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 0} // completions can run for minutes
+	return client.Do(req)
+}
+
+// streamChatToStdout prints the reply as it arrives (SSE) and returns the
+// full text so the REPL can keep it in conversation history. Falls back to
+// a single non-streamed decode if the backend didn't stream.
+func streamChatToStdout(resp *http.Response) (string, error) {
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("chat failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(b)))
+	}
+	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
+		var out struct {
+			Choices []struct {
+				Message chatMessage `json:"message"`
+			} `json:"choices"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return "", err
+		}
+		if len(out.Choices) == 0 {
+			return "", fmt.Errorf("empty response")
+		}
+		fmt.Println(out.Choices[0].Message.Content)
+		return out.Choices[0].Message.Content, nil
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1<<20)
+	var full strings.Builder
+	for scanner.Scan() {
+		line := scanner.Text()
+		data, ok := strings.CutPrefix(line, "data: ")
+		if !ok {
+			continue
+		}
+		if data == "[DONE]" {
+			break
+		}
+		var chunk struct {
+			Choices []struct {
+				Delta struct {
+					Content string `json:"content"`
+				} `json:"delta"`
+			} `json:"choices"`
+		}
+		if json.Unmarshal([]byte(data), &chunk) != nil {
+			continue
+		}
+		for _, c := range chunk.Choices {
+			if c.Delta.Content != "" {
+				fmt.Print(c.Delta.Content)
+				full.WriteString(c.Delta.Content)
+			}
+		}
+	}
+	fmt.Println()
+	return full.String(), scanner.Err()
+}
+
+func chatRepl(addr, apiKey, model string) {
+	fmt.Println("cloudless chat — interactive. Ctrl+D or /exit to quit.")
+	var history []chatMessage
+	scanner := bufio.NewScanner(os.Stdin)
+	for {
+		fmt.Print("> ")
+		if !scanner.Scan() {
+			fmt.Println()
+			return
+		}
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		if line == "/exit" || line == "/quit" {
+			return
+		}
+		history = append(history, chatMessage{Role: "user", Content: line})
+		reply, err := chatOnce(addr, apiKey, model, history)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			history = history[:len(history)-1] // don't poison history with a failed turn
+			continue
+		}
+		history = append(history, chatMessage{Role: "assistant", Content: reply})
+	}
 }
 
 func usageCmd(args []string) {

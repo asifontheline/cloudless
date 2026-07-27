@@ -44,7 +44,17 @@ lsof -ti:8080 -sTCP:LISTEN | xargs kill -INT
 If it was started with `&` in a shell you still have open, `fg` first (bring
 it to the foreground), then `Ctrl+C` works normally.
 
-Point any standard chat-completions client at it:
+Point any standard chat-completions client at it — or just talk to it
+directly, no code required (Q1). One-shot, piped, or interactive, picked
+automatically:
+
+```sh
+./cloudless chat -addr http://127.0.0.1:8080 -key <api_key> "hi"   # one-shot
+echo "hi" | ./cloudless chat -addr http://127.0.0.1:8080 -key <api_key>  # piped
+./cloudless chat -addr http://127.0.0.1:8080 -key <api_key>              # interactive
+```
+
+Or the raw wire API, for anything else:
 
 ```sh
 curl http://127.0.0.1:8080/v1/chat/completions \

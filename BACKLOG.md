@@ -131,8 +131,8 @@ writing code against the Python/JS SDKs (K2/K3) or hand-rolling curl calls. Same
 this is ergonomics, not new capability.
 | ID | Story | Status |
 |---|---|---|
-| #121 Q1 | `cloudless chat` — one-shot and interactive prompts, streamed to the terminal | ⬜ P2 |
-| #122 Q2 | Stdin/stdout piping — prompt from stdin, completion to stdout, composes in shell pipelines | ⬜ P2 |
+| #121 Q1 | `cloudless chat` — one-shot and interactive prompts, streamed to the terminal | ✅ |
+| #122 Q2 | Stdin/stdout piping — prompt from stdin, completion to stdout, composes in shell pipelines | ✅ (shipped with Q1 — piped stdin auto-detected) |
 | #123 Q3 | Uniform `--format json\|table\|plain` across every command, for scripting | ⬜ P2 |
 | #124 Q4 | Multi-profile config (`cloudless config set/get/use`) — switch between meshes without re-flagging `-addr`/`-key` every time | ⬜ P2 |
 | #125 Q5 | `CLOUDLESS_API_KEY` env var + documented exit-code conventions, so CI/scripts never need the key on the command line or in shell history | ⬜ P2 |
