@@ -92,6 +92,8 @@ func main() {
 		chatCmd(os.Args[2:])
 	case "config":
 		configCmd(os.Args[2:])
+	case "completion":
+		completionCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -110,7 +112,8 @@ usage:
   cloudless chat -addr http://127.0.0.1:8080 -key <api_key> ["prompt"]  # one-shot, piped, or interactive (Q1)
   cloudless config -addr <addr> -key <key> set <name>   # save a profile (Q4)
   cloudless config use <name>                           # switch active profile
-  cloudless config list | get [name] | rm <name>`)
+  cloudless config list | get [name] | rm <name>
+  cloudless completion <bash|zsh|fish>                  # shell completion (Q6)`)
 }
 
 // up is the zero-friction path: detect a local runtime, generate a config

@@ -110,6 +110,12 @@ export CLOUDLESS_API_KEY=<api_key>
 ./cloudless status || echo "mesh unreachable"
 ```
 
+Tab-complete every subcommand (Q6):
+
+```sh
+source <(./cloudless completion bash)   # or: zsh, fish
+```
+
 ## Mesh mode (gossip discovery)
 
 Instead of a static `backends` list, give each node a `gossip` section — peers
