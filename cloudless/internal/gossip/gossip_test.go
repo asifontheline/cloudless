@@ -198,6 +198,54 @@ func TestTwoNodesConverge(t *testing.T) {
 	}
 }
 
+// R3: Members() is what the joining node's own post-join confirmation
+// check relies on — it must actually reflect real convergence, not just
+// report self.
+func TestMembersReflectsRealConvergence(t *testing.T) {
+	pa, pb := freePort(t), freePort(t)
+	addrA := "127.0.0.1:" + strconv.Itoa(pa)
+	addrB := "127.0.0.1:" + strconv.Itoa(pb)
+
+	regA := registry.New(nil, time.Hour, nil)
+	meshA, err := Start(Options{NodeName: "a", BindAddr: addrA, BackendURL: "http://backend-a:8080"}, regA)
+	if err != nil {
+		t.Fatalf("start a: %v", err)
+	}
+	defer meshA.Leave()
+
+	if got := meshA.Members(); len(got) != 1 || got[0] != "a" {
+		t.Fatalf("standalone node should see only itself, got %v", got)
+	}
+
+	regB := registry.New(nil, time.Hour, nil)
+	meshB, err := Start(Options{
+		NodeName: "b", BindAddr: addrB, Join: []string{addrA}, BackendURL: "http://backend-b:8080",
+	}, regB)
+	if err != nil {
+		t.Fatalf("start b: %v", err)
+	}
+	defer meshB.Leave()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		peers := meshB.Members()
+		if len(peers) == 2 {
+			found := map[string]bool{}
+			for _, p := range peers {
+				found[p] = true
+			}
+			if !found["a"] || !found["b"] {
+				t.Fatalf("Members() = %v, want both a and b", peers)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("joining node never saw both peers: %v", peers)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
 // A revocation gossiped from one node is applied by its peer — the
 // propagation half of A4 (the handshake-refusal half is covered in pki).
 func TestBroadcastRevokePropagates(t *testing.T) {
