@@ -410,6 +410,41 @@ func TestNamesIncludesExtensions(t *testing.T) {
 	}
 }
 
+// GET /metrics serves Prometheus-compatible text exposition, reflecting
+// real backend state (D3). L1 backfill: this handler had zero coverage —
+// only the underlying telemetry.Render() was tested.
+func TestHandleMetrics(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	g := newTestGateway(t, backend.URL)
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	ct := rec.Header().Get("Content-Type")
+	if !strings.HasPrefix(ct, "text/plain") {
+		t.Fatalf("Content-Type = %q, want text/plain prefix", ct)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"# HELP cloudless_backend_healthy",
+		"cloudless_backend_healthy{backend=\"a\"}",
+		"cloudless_inflight_requests",
+		"cloudless_max_concurrent_requests",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("metrics output missing %q, got:\n%s", want, body)
+		}
+	}
+}
+
 // The formal API spec is served by every node and stays valid YAML (K1).
 func TestOpenAPIServed(t *testing.T) {
 	g := newTestGateway(t)
