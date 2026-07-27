@@ -90,6 +90,8 @@ func main() {
 		resolveCmd(os.Args[2:])
 	case "chat":
 		chatCmd(os.Args[2:])
+	case "config":
+		configCmd(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -105,7 +107,10 @@ usage:
   cloudless status -addr http://127.0.0.1:8080
   cloudless bench  -addr http://127.0.0.1:8080 -key <api_key> [-n 20] [-c 4]  # measured latency/throughput (D2)
   cloudless resolve -addr http://127.0.0.1:8080 [<name>]  # look up a node or extension's address (E3)
-  cloudless chat -addr http://127.0.0.1:8080 -key <api_key> ["prompt"]  # one-shot, piped, or interactive (Q1)`)
+  cloudless chat -addr http://127.0.0.1:8080 -key <api_key> ["prompt"]  # one-shot, piped, or interactive (Q1)
+  cloudless config -addr <addr> -key <key> set <name>   # save a profile (Q4)
+  cloudless config use <name>                           # switch active profile
+  cloudless config list | get [name] | rm <name>`)
 }
 
 // up is the zero-friction path: detect a local runtime, generate a config
@@ -662,14 +667,15 @@ func runServe(cfg *config.Config) {
 // marketing claim.
 func benchCmd(args []string) {
 	fs := flag.NewFlagSet("bench", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	apiKey := fs.String("key", "", "API key")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	apiKey := fs.String("key", "", "API key (default: active profile)")
 	n := fs.Int("n", 20, "number of requests")
 	c := fs.Int("c", 4, "concurrent requests")
 	body := fs.String("body", `{"messages":[{"role":"user","content":"hi"}]}`, "request body (JSON)")
 	fs.Parse(args)
+	resolveAddrKey(addr, apiKey)
 	if *apiKey == "" {
-		log.Fatal("bench: -key is required")
+		log.Fatal("bench: -key is required (or set an active profile: cloudless config set/use)")
 	}
 	fmt.Printf("Benchmarking %s: %d requests, concurrency %d...\n", *addr, *n, *c)
 	r := bench.Run(context.Background(), &http.Client{}, *addr+"/v1/chat/completions", *apiKey, *body, *n, *c)
@@ -686,9 +692,11 @@ func benchCmd(args []string) {
 // inference backend or a registered extension — without hardcoding an IP.
 func resolveCmd(args []string) {
 	fs := flag.NewFlagSet("resolve", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
+	var noKey string
+	resolveAddrKey(addr, &noKey)
 
 	if fs.NArg() == 0 {
 		resp, err := http.Get(*addr + "/names")
@@ -752,19 +760,13 @@ func printJSON(v any) {
 
 func chatCmd(args []string) {
 	fs := flag.NewFlagSet("chat", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
-	apiKey := fs.String("key", "", "API key (default: from ~/.cloudless/config.json)")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
+	apiKey := fs.String("key", "", "API key (default: active profile, or ~/.cloudless/config.json)")
 	model := fs.String("model", "", "model id (optional — backend default if omitted)")
 	fs.Parse(args)
+	resolveAddrKey(addr, apiKey)
 	if *apiKey == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			if cfg, err := config.Load(filepath.Join(home, ".cloudless", "config.json")); err == nil {
-				*apiKey = cfg.APIKey
-			}
-		}
-	}
-	if *apiKey == "" {
-		log.Fatal("chat: -key is required (or set it in ~/.cloudless/config.json)")
+		log.Fatal("chat: -key is required (or set an active profile: cloudless config set/use)")
 	}
 
 	if prompt := strings.Join(fs.Args(), " "); prompt != "" {
@@ -1704,9 +1706,11 @@ func tokenCmd(args []string) {
 
 func status(args []string) {
 	fs := flag.NewFlagSet("status", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
+	var noKey string
+	resolveAddrKey(addr, &noKey)
 
 	resp, err := http.Get(*addr + "/status")
 	if err != nil {
