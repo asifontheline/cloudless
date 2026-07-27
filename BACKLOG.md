@@ -55,7 +55,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 
 ## EPIC I — Community Fabric
 | #47 I1 | Per-node resource share controls (5% default → 70% ceiling) | ✅ |
-| #48 I2 | Reciprocity: contribution-based entitlement | ⬜ |
+| #48 I2 | Reciprocity: contribution-based entitlement | 🔶 (`/ledger` reports an advisory entitlement hint per contributing node; no binding exists today between a node's identity and an individual user's API key, so this informs an admin's manual `cloudless keys` decision rather than auto-enforcing anything) |
 | #49 I3 | Geo network map | 🔶 (map live; enrichment ongoing) |
 | #50 I4 | Locality-aware redundancy & routing | ✅ (redundancy via M1's domain-diversified placement; routing now prefers nearby healthy peers over raw latency) |
 

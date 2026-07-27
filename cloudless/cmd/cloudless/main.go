@@ -914,9 +914,11 @@ func chatRepl(addr, apiKey, model string) {
 
 func usageCmd(args []string) {
 	fs := flag.NewFlagSet("usage", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
+	var noKey string
+	resolveAddrKey(addr, &noKey)
 	resp, err := http.Get(*addr + "/usage")
 	if err != nil {
 		log.Fatal(err)
@@ -1554,9 +1556,11 @@ func auditCmd(args []string) {
 
 func capacityCmd(args []string) {
 	fs := flag.NewFlagSet("capacity", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
+	var noKey string
+	resolveAddrKey(addr, &noKey)
 	resp, err := http.Get(*addr + "/capacity")
 	if err != nil {
 		log.Fatal(err)
@@ -1597,11 +1601,13 @@ func capacityCmd(args []string) {
 
 func savingsCmd(args []string) {
 	fs := flag.NewFlagSet("savings", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	rp := fs.String("prompt-rate", "0.50", "reference USD per 1M prompt tokens")
 	rc := fs.String("completion-rate", "1.50", "reference USD per 1M completion tokens")
 	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
+	var noKey string
+	resolveAddrKey(addr, &noKey)
 	resp, err := http.Get(*addr + "/savings?prompt_per_1m=" + *rp + "&completion_per_1m=" + *rc)
 	if err != nil {
 		log.Fatal(err)
@@ -1627,9 +1633,11 @@ func savingsCmd(args []string) {
 
 func ledgerCmd(args []string) {
 	fs := flag.NewFlagSet("ledger", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "gateway address")
+	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	format := fs.String("format", "table", "output format: table, json")
 	fs.Parse(args)
+	var noKey string
+	resolveAddrKey(addr, &noKey)
 	resp, err := http.Get(*addr + "/ledger")
 	if err != nil {
 		log.Fatal(err)
@@ -1647,9 +1655,13 @@ func ledgerCmd(args []string) {
 		printJSON(out)
 		return
 	}
+	// EntitlementHint (I2) is advisory only — a suggested quota multiplier
+	// for an admin's manual `cloudless keys` decision, not anything this
+	// CLI or the gateway auto-applies.
 	fmt.Println("CONTRIBUTED (by node)")
 	for _, l := range out.Contributed {
-		fmt.Printf("  %-30s %6d reqs %8d tokens %5.1f%%\n", l.Party, l.Requests, l.Tokens, l.Share)
+		fmt.Printf("  %-30s %6d reqs %8d tokens %5.1f%%  entitlement hint %.2fx\n",
+			l.Party, l.Requests, l.Tokens, l.Share, l.EntitlementHint)
 	}
 	fmt.Println("CONSUMED (by key)")
 	for _, l := range out.Consumed {

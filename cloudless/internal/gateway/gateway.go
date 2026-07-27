@@ -1078,6 +1078,14 @@ type LedgerLine struct {
 	Requests int64   `json:"requests"`
 	Tokens   int64   `json:"tokens"`
 	Share    float64 `json:"share_pct"`
+	// EntitlementHint (I2): a contributing node's suggested quota
+	// multiplier — 1.0 baseline, +1% per 1% of mesh tokens it served.
+	// Advisory only: there's no binding today between a node's identity
+	// and an individual user's API key (the cluster runs on one shared
+	// key; per-user keys are a separate, unrelated system), so this
+	// informs an admin's manual `cloudless keys` decision rather than
+	// auto-adjusting anything. Set on contributed lines only.
+	EntitlementHint float64 `json:"entitlement_hint,omitempty"`
 }
 
 // handleLedger aggregates usage into the fairness view: contribution by
@@ -1122,10 +1130,14 @@ func (g *Gateway) handleLedger(w http.ResponseWriter, _ *http.Request) {
 		}
 		return out
 	}
+	contributed := toSorted(nodes)
+	for i := range contributed {
+		contributed[i].EntitlementHint = 1 + contributed[i].Share/100
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
 		"total_tokens": totalTokens,
-		"contributed":  toSorted(nodes),
+		"contributed":  contributed,
 		"consumed":     toSorted(consumers),
 	})
 }
