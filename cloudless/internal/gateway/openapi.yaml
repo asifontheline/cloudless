@@ -373,14 +373,16 @@ paths:
     get:
       summary: List registered polyglot extensions (K4)
       security: []
-      responses: { "200": { description: "{extensions: [{name, base_url, runtime, description, healthy}]}" } }
+      responses: { "200": { description: "{extensions: [{name, base_url, runtime, description, healthy, inference}]}" } }
     post:
       summary: Register an extension (admin)
       description: >
         An extension is any HTTP service, in any language. Once registered it
         is reachable at /x/{name}/... with the same bearer keys as inference;
         the gateway strips mesh credentials before proxying and
-        health-checks the service.
+        health-checks the service. When inference is true (K5), the service
+        also joins the /v1/chat/completions routing pool as a real backend —
+        a polyglot runtime, not just a proxied side-service.
       requestBody:
         required: true
         content:
@@ -393,6 +395,7 @@ paths:
                 base_url: { type: string }
                 runtime: { type: string }
                 description: { type: string }
+                inference: { type: boolean, default: false }
       responses:
         "200": { description: Registered }
         "403": { description: Admin key required }

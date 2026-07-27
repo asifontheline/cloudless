@@ -439,6 +439,14 @@ func runServe(cfg *config.Config) {
 	}
 	gw.Ext = ext.Open(extPath)
 	go gw.Ext.Run(ctx, 15*time.Second, nil)
+	// K5: extensions registered as inference backends survive a restart —
+	// ext.Registry persists to disk, but registry.Registry only knows
+	// about config.json's static list at boot, so re-hydrate it here.
+	for _, e := range gw.Ext.List() {
+		if e.Inference {
+			reg.Upsert(config.Backend{Name: e.Name, BaseURL: e.BaseURL})
+		}
+	}
 
 	// M5: scheduled off-mesh export — the archive survives the whole mesh.
 	if cfg.Backup != nil && dataVault != nil && cfg.Backup.Path != "" && cfg.Backup.Passphrase != "" {
@@ -1026,6 +1034,7 @@ func extCmd(args []string) {
 	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
 	runtime := fs.String("runtime", "", "informational runtime label (python, node, rust, ...)")
 	desc := fs.String("desc", "", "one-line description for the console")
+	inference := fs.Bool("inference", false, "also add as an inference backend at /v1/chat/completions (K5)")
 	format := fs.String("format", "table", "output format: table, json (list only)")
 	fs.Parse(args)
 	resolveAddrKey(addr, adminKey)
@@ -1054,19 +1063,25 @@ func extCmd(args []string) {
 			printJSON(out)
 			return
 		}
-		fmt.Printf("%-20s %-28s %-8s %-8s %s\n", "NAME", "BASE URL", "RUNTIME", "HEALTH", "ROUTE")
+		fmt.Printf("%-20s %-28s %-8s %-8s %-10s %s\n", "NAME", "BASE URL", "RUNTIME", "HEALTH", "INFERENCE", "ROUTE")
 		for _, e := range out.Extensions {
 			health := "down"
 			if e.Healthy {
 				health = "up"
 			}
-			fmt.Printf("%-20s %-28s %-8s %-8s /x/%s/…\n", e.Name, e.BaseURL, e.Runtime, health, e.Name)
+			inf := ""
+			if e.Inference {
+				inf = "yes"
+			}
+			fmt.Printf("%-20s %-28s %-8s %-8s %-10s /x/%s/…\n", e.Name, e.BaseURL, e.Runtime, health, inf, e.Name)
 		}
 	case "add":
 		if fs.NArg() < 3 {
-			log.Fatal("usage: cloudless ext add <name> <base-url> [-runtime python] [-desc ...]")
+			log.Fatal("usage: cloudless ext [-runtime python] [-desc ...] [-inference] add <name> <base-url>")
 		}
-		body, _ := json.Marshal(ext.Extension{Name: fs.Arg(1), BaseURL: fs.Arg(2), Runtime: *runtime, Description: *desc})
+		body, _ := json.Marshal(ext.Extension{
+			Name: fs.Arg(1), BaseURL: fs.Arg(2), Runtime: *runtime, Description: *desc, Inference: *inference,
+		})
 		resp := do("POST", "/extensions", strings.NewReader(string(body)))
 		defer resp.Body.Close()
 		raw, _ := io.ReadAll(resp.Body)
@@ -1074,6 +1089,9 @@ func extCmd(args []string) {
 			log.Fatalf("add failed: %s", raw)
 		}
 		fmt.Printf("registered: %s\nreachable at %s/x/%s/... (same bearer keys as inference)\n", raw, *addr, fs.Arg(1))
+		if *inference {
+			fmt.Printf("also added as an inference backend — routes /v1/chat/completions traffic to it like any other node\n")
+		}
 	case "rm":
 		if fs.NArg() < 2 {
 			log.Fatal("usage: cloudless ext rm <name>")
