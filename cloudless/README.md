@@ -132,6 +132,12 @@ then discover each other and the routing table follows the live mesh:
 The first node omits `join`. The `secret` encrypts and authenticates gossip
 (AES-GCM) — nodes without it cannot join the mesh.
 
+A joining node confirms it actually made it in (R3): 5 seconds after
+`cloudless up -join ...` starts, it logs either `✓ connected — N peer(s)
+visible` or `⚠ NOT CONNECTED` — the enrollment step (HTTPS) and the gossip
+join (raw UDP/TCP) can succeed and fail independently, so a firewalled or
+NAT-isolated gossip port no longer looks identical to a real join.
+
 ## Behavior
 
 - Probes each backend's `GET /models` every `health_interval_seconds`.

@@ -396,6 +396,26 @@ func runServe(cfg *config.Config) {
 		}
 		defer mesh.Leave()
 		log.Printf("gossip: node %s on %s", cfg.Gossip.NodeName, cfg.Gossip.Bind)
+		// R3: a joining node's memberlist.Join can fail silently (a single
+		// log line easy to miss) and the process keeps running standalone
+		// with no further signal — the exact "am I actually in?" confusion
+		// this story exists to close. Give an explicit, loud answer once
+		// there's been time to converge, instead of leaving it to a
+		// console table that stays quietly empty.
+		if len(cfg.Gossip.Join) > 0 {
+			go func(m *gossip.Mesh) {
+				time.Sleep(5 * time.Second)
+				peers := m.Members()
+				if len(peers) <= 1 {
+					log.Printf("gossip: ⚠ NOT CONNECTED — no peers visible %ds after joining. "+
+						"This node is running standalone. Check that UDP/TCP %s is reachable from the seed "+
+						"(firewall, NAT, or WSL2's default networking mode are the usual causes).",
+						5, cfg.Gossip.Bind)
+					return
+				}
+				log.Printf("gossip: ✓ connected — %d peer(s) visible: %s", len(peers), strings.Join(peers, ", "))
+			}(mesh)
+		}
 	}
 
 	gw := gateway.New(reg, cfg.APIKey, peerTLS)

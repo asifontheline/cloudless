@@ -166,6 +166,18 @@ func (m *Mesh) Leave() {
 	m.list.Shutdown()
 }
 
+// Members lists currently known peer names, including self (R3) — used to
+// give a joining node an explicit, unmissable confirmation that it's
+// actually connected to the mesh rather than silently running standalone.
+func (m *Mesh) Members() []string {
+	nodes := m.list.Members()
+	names := make([]string, len(nodes))
+	for i, n := range nodes {
+		names[i] = n.Name
+	}
+	return names
+}
+
 // logWriter routes memberlist's internal logs through the standard logger
 // at reduced noise.
 type logWriter struct{}
