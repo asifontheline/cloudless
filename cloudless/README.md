@@ -138,6 +138,10 @@ visible` or `⚠ NOT CONNECTED` — the enrollment step (HTTPS) and the gossip
 join (raw UDP/TCP) can succeed and fail independently, so a firewalled or
 NAT-isolated gossip port no longer looks identical to a real join.
 
+If enrollment itself fails, the error is diagnosed in plain language (R2)
+— "connection refused by http://seed:8080 — the seed node isn't listening
+there" instead of a raw Go dial error.
+
 ## Behavior
 
 - Probes each backend's `GET /models` every `health_interval_seconds`.

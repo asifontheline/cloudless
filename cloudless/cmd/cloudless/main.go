@@ -8,12 +8,14 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -119,6 +121,31 @@ usage:
 // up is the zero-friction path: detect a local runtime, generate a config
 // with a fresh cluster secret (or join an existing mesh), persist it, print
 // the join command for the next machine, and serve.
+// diagnoseJoinError turns a raw network error from enrollment into a
+// plain-language cause (R2) — "dial tcp 192.168.1.5:8080: connect:
+// connection refused" tells an engineer plenty and a first-time user
+// nothing actionable. Non-network errors (a rejected join token, a bad
+// secret) already carry their own clear message and pass through as-is.
+func diagnoseJoinError(err error, target string) string {
+	var uerr *url.Error
+	if !errors.As(err, &uerr) {
+		return err.Error()
+	}
+	if uerr.Timeout() {
+		return fmt.Sprintf("timed out connecting to %s — check that the seed node is running and reachable "+
+			"(firewall, VPN, or a wrong host/port are the usual causes)", target)
+	}
+	var dnsErr *net.DNSError
+	if errors.As(uerr.Err, &dnsErr) {
+		return fmt.Sprintf("could not resolve %q — check the hostname/IP is correct", dnsErr.Name)
+	}
+	if errors.Is(uerr.Err, syscall.ECONNREFUSED) {
+		return fmt.Sprintf("connection refused by %s — the seed node isn't listening there "+
+			"(wrong port, or the seed process isn't running)", target)
+	}
+	return fmt.Sprintf("could not reach %s: %v", target, uerr.Err)
+}
+
 func up(args []string) {
 	fs := flag.NewFlagSet("up", flag.ExitOnError)
 	joinArg := fs.String("join", "", "join an existing mesh: <secret>@<host:port>")
@@ -169,7 +196,7 @@ func up(args []string) {
 				}
 			}
 			if err := relay.Enroll(api, cfg.PKIDir, cfg.Gossip.NodeName, []byte(cfg.Gossip.Secret), *joinToken); err != nil {
-				log.Fatal(err)
+				log.Fatal("join failed: " + diagnoseJoinError(err, api))
 			}
 			log.Printf("pki: enrolled with %s; certificate received", api)
 		}
