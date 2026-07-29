@@ -156,6 +156,24 @@ walk someone through it next time.
 | #132 R6 | Guided interactive first-run — `cloudless up` with no flags and no existing config prompts step-by-step instead of assuming the operator already knows the right flags | ⬜ P2 |
 | #133 R7 | Join-link admin key errors are diagnosable without DevTools — the console surfaces what key it actually sent, not just "admin key required" | ✅ (`adminKeyHint()` distinguishes "no key saved" from "saved key was rejected" across every admin action: revoke, restore, share, keys, join-link) |
 
+## EPIC S — Security Operations & Attack Resilience
+The mesh already has real defenses baked into its foundation — mTLS between nodes (A3), single-use
+join tokens (A2), node revocation (A4), a hash-chained audit log (A5), a safe-format allowlist that
+rejects pickle-based model files outright (B3), and per-key rate limits (C3). This epic is the
+operational layer on top: catching attacks *in progress*, not just admitting the right nodes and
+rejecting the wrong file formats. Scope is deliberately narrow to what a small mesh operator can
+actually act on — this is not a SOC. Never claim "foolproof"; layered defense only, matching this
+project's existing security posture.
+| ID | Story | Status |
+|---|---|---|
+| #134 S1 | Dependency vulnerability scanning in CI (`govulncheck`) — known CVEs in our own dependency tree caught before merge, not discovered after | ✅ (runs in both CI validation and the merge queue's pre-merge revalidation; currently clean) |
+| #135 S2 | Abuse-pattern quarantine — a key or node showing attack-shaped behavior (mass auth failures, request flooding past quota, scanning for endpoints) is automatically flagged and rate-limited harder, not just counted | ⬜ P2 |
+| #136 S3 | Security incident response runbook — documented, concrete steps for a leaked cluster secret, a compromised node, or a malicious extension registration; who revokes what, in what order | ⬜ P1 |
+| #137 S4 | Extension network isolation guidance — K4/K5 extensions run under their own OS permissions already (the gateway proxies, never executes); document and, where possible, enforce that they shouldn't have unrestricted outbound network access by default | ⬜ P2 |
+| #138 S5 | Audit-log tamper alerting — `Verify()` already detects a broken hash chain (A5); when it does, the node should say so loudly (console banner, non-zero health check) instead of only surfacing it to whoever happens to query `/audit` | ✅ (`GET /healthz` returns 503 + a logged warning when the audit chain is broken; mesh routing is unaffected — peer health probes hit the backend's own `/models`, not this endpoint) |
+| #139 S6 | Gossip message rate-limiting — an authenticated-but-compromised peer flooding gossip traffic shouldn't be able to degrade the mesh for everyone else | ⬜ P2 |
+| #140 S7 | Release artifact provenance — checksums (and, once E4 ships, signatures) published alongside every release binary, documented verification steps for anyone downloading one | ⬜ P2 |
+
 ## Cross-cutting infrastructure (shipped)
 - One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
 - CI validation engine + branch-protected `main` + 2-hourly review-gated merge queue ✅

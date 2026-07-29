@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: cloudless/go.mod
+          go-version: 'stable'
           cache-dependency-path: cloudless/go.sum
       - name: Build
         working-directory: cloudless
@@ -62,6 +62,14 @@ jobs:
             echo "These files need gofmt:"; echo "$unformatted"; exit 1
           fi
 
+      # Dependency vulnerability scanning (S1, #134): known CVEs in our own
+      # dependency tree caught before merge, not discovered after.
+      - name: govulncheck
+        working-directory: cloudless
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
   python-sdk:
     name: python sdk
     runs-on: ubuntu-latest
@@ -97,7 +105,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: cloudless/go.mod
+          go-version: 'stable'
           cache-dependency-path: cloudless/go.sum
       - uses: actions/setup-node@v4
         with:

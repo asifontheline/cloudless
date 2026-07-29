@@ -144,6 +144,19 @@ func New(reg *registry.Registry, apiKey string, tlsCfg *tls.Config) *Gateway {
 func (g *Gateway) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		// S5: a broken audit hash chain means tampering happened. Verify()
+		// already detects this (A5) — the gap was that it only surfaced to
+		// whoever happened to query /audit. Failing the liveness probe
+		// makes it loud: any orchestration or monitoring watching this
+		// node notices immediately, not only an operator who thinks to
+		// check.
+		if g.Audit != nil {
+			if ok, brokenAt := g.Audit.Verify(); !ok {
+				log.Printf("audit: TAMPERED — hash chain broken at sequence %d", brokenAt)
+				http.Error(w, `{"error":"audit log integrity check failed — see /audit"}`, http.StatusServiceUnavailable)
+				return
+			}
+		}
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("GET /status", withGzip(g.handleStatus))
