@@ -154,7 +154,7 @@ walk someone through it next time.
 | #130 R4 | Proactive OS security-gate detection — recognize Windows Smart App Control / Device Guard and macOS Gatekeeper blocks and explain the one-step fix immediately, instead of a cryptic exec failure | ⬜ P2 |
 | #131 R5 | WSL2 networking guidance built into `up` on Windows — detect default NAT mode and either warn with the exact `.wslconfig` fix or (stretch) offer to apply it | ⬜ P2 |
 | #132 R6 | Guided interactive first-run — `cloudless up` with no flags and no existing config prompts step-by-step instead of assuming the operator already knows the right flags | ⬜ P2 |
-| #133 R7 | Join-link admin key errors are diagnosable without DevTools — the console surfaces what key it actually sent, not just "admin key required" | ⬜ P2 |
+| #133 R7 | Join-link admin key errors are diagnosable without DevTools — the console surfaces what key it actually sent, not just "admin key required" | ✅ (`adminKeyHint()` distinguishes "no key saved" from "saved key was rejected" across every admin action: revoke, restore, share, keys, join-link) |
 
 ## Cross-cutting infrastructure (shipped)
 - One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
