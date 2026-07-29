@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -549,5 +550,58 @@ func TestOpenAPIServed(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Fatalf("spec missing %q", want)
 		}
+	}
+}
+
+// GET /healthz stays 200 with an intact audit log — no audit set at all
+// (many nodes don't enable one) must not be treated as tampered either.
+func TestHealthzOKWithIntactOrNoAudit(t *testing.T) {
+	g := newTestGateway(t)
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("no audit configured: status %d, want 200", rec.Code)
+	}
+
+	g.Audit = newTestAudit(t)
+	g.Audit.Append("cluster", "keys.create", "alice", "")
+	g.Audit.Append("cluster", "share.set", "node-a", "cpu=70")
+	rec = httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("intact audit log: status %d, want 200", rec.Code)
+	}
+}
+
+// S5: a tampered audit log fails the liveness probe loudly instead of
+// only surfacing to whoever happens to query /audit.
+func TestHealthzFailsOnTamperedAudit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit.log")
+	l := audit.Open(path)
+	l.Append("cluster", "keys.create", "alice", "")
+	l.Append("cluster", "revoke", "bob", "secret-reason")
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tampered := []byte(string(raw))
+	idx := strings.Index(string(tampered), "secret-reason")
+	if idx < 0 {
+		t.Fatal("could not find entry to tamper")
+	}
+	tampered[idx] = 'X'
+	if err := os.WriteFile(path, tampered, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	g := newTestGateway(t)
+	g.Audit = audit.Open(path) // fresh load of the tampered file
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("tampered audit log: status %d, want 503", rec.Code)
 	}
 }

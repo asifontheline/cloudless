@@ -62,6 +62,14 @@ jobs:
             echo "These files need gofmt:"; echo "$unformatted"; exit 1
           fi
 
+      # Dependency vulnerability scanning (S1, #134): known CVEs in our own
+      # dependency tree caught before merge, not discovered after.
+      - name: govulncheck
+        working-directory: cloudless
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
   python-sdk:
     name: python sdk
     runs-on: ubuntu-latest
