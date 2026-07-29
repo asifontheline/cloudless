@@ -445,6 +445,7 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("/x/{name}/", g.auth(g.handleExtProxy))
 
 	mux.HandleFunc("POST /v1/batch", g.auth(g.handleBatch))
+	mux.HandleFunc("POST /v1/map", g.auth(g.handleMap))
 	mux.HandleFunc("/v1/", g.auth(g.handleProxy))
 	return mux
 }
