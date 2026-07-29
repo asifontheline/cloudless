@@ -249,7 +249,7 @@ function renderMap() {
         if (!confirm('Revoke ' + a.dataset.revoke + '? Its certificate is refused mesh-wide and it is dropped from routing.')) return;
         const r = await fetch('/revoke/' + encodeURIComponent(a.dataset.revoke), {method:'POST',
           headers:{'Authorization':'Bearer '+(localStorage.getItem('adminKey')||'')}});
-        if (!r.ok) alert('Revoke failed — need the admin key (set it on the Members page).');
+        if (!r.ok) alert('Revoke failed — ' + adminKeyHint() + '.');
         load();
       });
     } catch {}
@@ -694,7 +694,7 @@ function renderReplication() {
     m.textContent = 'Restoring from surviving replicas…';
     const r = await fetch('/restore', {method: 'POST',
       headers: {'Authorization': 'Bearer ' + (localStorage.getItem('adminKey') || '')}, body: '{}'});
-    if (!r.ok) { m.textContent = 'Restore failed (' + r.status + ') — is the admin key set on the Members page?'; return; }
+    if (!r.ok) { m.textContent = 'Restore failed (' + r.status + ') — ' + adminKeyHint() + '.'; return; }
     const d = await r.json();
     const all = [...(d.models || []), ...(d.vault || [])];
     const restored = all.filter(x => x.outcome === 'restored');
@@ -765,7 +765,7 @@ function renderShare() {
     const r = await fetch('/share', {method:'PUT', headers:{'Authorization':'Bearer '+(localStorage.getItem('adminKey')||''),'Content-Type':'application/json'}, body: JSON.stringify(body)});
     const m = document.getElementById('smsg'); m.style.display='block';
     if (r.ok) { const d = await r.json(); m.textContent = `Applied: ${d.limits.cpu_percent}% CPU · ${d.shared_cores} shared core(s) · ${d.limits.share_when}.`; load(); }
-    else m.textContent = 'Need the admin key (set it on the Members page).';
+    else { const h = adminKeyHint(); m.textContent = h.charAt(0).toUpperCase() + h.slice(1) + '.'; }
   };
   load();
 }
@@ -790,7 +790,7 @@ function renderKeys() {
   const load = async () => {
     try {
       const r = await fetch('/keys', {headers: hdr()});
-      if (!r.ok) { document.getElementById('kerr').textContent = 'Enter the admin key to manage members.'; return; }
+      if (!r.ok) { const h = adminKeyHint(); document.getElementById('kerr').textContent = h.charAt(0).toUpperCase() + h.slice(1) + '.'; return; }
       document.getElementById('kerr').textContent = '';
       const d = await r.json();
       document.getElementById('klist').innerHTML = (d.keys||[]).map(k =>
@@ -956,7 +956,7 @@ function renderDashboard() {
     // that command — scan on another device to carry it across instead of
     // transcribing secret, address, and token by hand.
     const r = await fetch('/join-link', {method:'POST', headers:hdr, body:'{"ttl_minutes":15}'});
-    if (!r.ok) { el.textContent = r.status === 404 ? 'Only the founding (CA-holding) node can generate join links.' : 'Generating a join link failed — set the admin key on the Members page.'; return; }
+    if (!r.ok) { el.textContent = r.status === 404 ? 'Only the founding (CA-holding) node can generate join links.' : 'Generating a join link failed — ' + adminKeyHint() + '.'; return; }
     const d = await r.json();
     const cmd = d.command;
     el.innerHTML = `Single-use invite — valid until ${esc(new Date(d.expires).toLocaleTimeString())}, works exactly once.<br>` +
@@ -986,6 +986,14 @@ async function tick() {
   } catch { const e = document.getElementById('err'); if (e) e.style.display = 'block'; }
 }
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+// R7: an admin action's 401/403 said the same generic "set the admin key"
+// message whether no key was ever saved or the saved one was just wrong —
+// diagnosable only by opening DevTools. Distinguish the two without it.
+function adminKeyHint() {
+  return localStorage.getItem('adminKey')
+    ? 'the saved admin key was rejected — check it matches on the Members page'
+    : 'no admin key is saved — set one on the Members page';
+}
 route();
 </script>
 </body>
