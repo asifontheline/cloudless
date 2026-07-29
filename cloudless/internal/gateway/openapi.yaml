@@ -85,6 +85,50 @@ paths:
                     type: object
                     description: "{elapsed_ms, sequential_ms, speedup_x} — measured, not modeled (O6)"
         "400": { description: Bad batch (size or shape) }
+  /v1/map:
+    post:
+      summary: Divide-and-conquer over one task (O5)
+      description: >
+        One prompt template applied across many chunks — a document, a long
+        transcript — fanned out concurrently via the same mechanism as
+        /v1/batch (O1), then merged into a single result in submission
+        order. merge:"concat" (default) joins each chunk's completion with
+        blank lines, skipping any failed chunk rather than dropping the
+        whole response; merge:"none" returns only the per-chunk results.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template, chunks]
+              properties:
+                path: { type: string, default: /v1/chat/completions }
+                template: { type: string, description: "must contain {{chunk}}" }
+                chunks: { type: array, minItems: 1, maxItems: 64, items: { type: string } }
+                merge: { type: string, enum: [concat, none], default: concat }
+      responses:
+        "200":
+          description: Ordered per-chunk results, plus merged text when requested
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        status: { type: integer }
+                        backend: { type: string }
+                        body: { type: object }
+                        duration_ms: { type: integer }
+                  timing:
+                    type: object
+                    description: "{elapsed_ms, sequential_ms, speedup_x} — measured, not modeled (O6)"
+                  merged: { type: string, description: "present only when merge is \"concat\"" }
+        "400": { description: "Bad request: missing {{chunk}} in template, bad chunk count, or bad merge value" }
   /healthz:
     get: { summary: Liveness probe, security: [], responses: { "200": { description: OK } } }
   /status:

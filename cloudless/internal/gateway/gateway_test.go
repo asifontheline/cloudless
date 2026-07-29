@@ -237,6 +237,96 @@ func TestBatchFanOut(t *testing.T) {
 // A batch's honest speedup (O6): fanning N slow items across backends
 // should measure faster than their summed individual durations, and the
 // response must report both numbers, not just a claimed multiplier.
+// Divide-and-conquer (O5): a template applied across many chunks, fanned
+// out concurrently, and merged into one result in submission order.
+func TestMapAppliesTemplateAndMerges(t *testing.T) {
+	mk := func() *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var in struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			json.NewDecoder(r.Body).Decode(&in)
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"choices":[{"message":{"role":"assistant","content":"[%s]"}}],"usage":{"prompt_tokens":1,"completion_tokens":1}}`,
+				in.Messages[0].Content)
+		}))
+	}
+	a, b := mk(), mk()
+	defer a.Close()
+	defer b.Close()
+
+	g := newTestGateway(t, a.URL, b.URL)
+	body := `{"template":"summarize: {{chunk}}","chunks":["one","two","three"]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/map", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-key")
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Results []struct {
+			Status int `json:"status"`
+		} `json:"results"`
+		Merged string `json:"merged"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Results) != 3 {
+		t.Fatalf("want 3 results, got %d", len(out.Results))
+	}
+	want := "[summarize: one]\n\n[summarize: two]\n\n[summarize: three]"
+	if out.Merged != want {
+		t.Fatalf("merged = %q, want %q", out.Merged, want)
+	}
+}
+
+// A template missing {{chunk}} or an empty chunk list are rejected before
+// any request is fanned out, not silently applied verbatim to every chunk.
+func TestMapShapeValidation(t *testing.T) {
+	g := newTestGateway(t, "http://127.0.0.1:1")
+	for _, body := range []string{
+		`not json`,
+		`{"template":"no placeholder here","chunks":["a"]}`,
+		`{"template":"has {{chunk}}","chunks":[]}`,
+		`{"template":"has {{chunk}}","chunks":["a"],"merge":"bogus"}`,
+	} {
+		req := httptest.NewRequest(http.MethodPost, "/v1/map", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-key")
+		rec := httptest.NewRecorder()
+		g.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("body %s: got %d, want 400", body, rec.Code)
+		}
+	}
+}
+
+// merge:"none" skips the concatenation — the caller wants per-chunk
+// results only, not a merged blob it didn't ask for.
+func TestMapMergeNoneOmitsMerged(t *testing.T) {
+	svc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"x"}}],"usage":{"prompt_tokens":1,"completion_tokens":1}}`)
+	}))
+	defer svc.Close()
+
+	g := newTestGateway(t, svc.URL)
+	body := `{"template":"{{chunk}}","chunks":["a"],"merge":"none"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/map", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-key")
+	rec := httptest.NewRecorder()
+	g.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `"merged"`) {
+		t.Fatalf("merge:none must omit the merged field, got: %s", rec.Body.String())
+	}
+}
+
 func TestBatchReportsHonestSpeedup(t *testing.T) {
 	mk := func() *httptest.Server {
 		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
