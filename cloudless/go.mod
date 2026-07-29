@@ -1,6 +1,6 @@
 module cloudless
 
-go 1.25.0
+go 1.25.3
 
 require (
 	github.com/hashicorp/memberlist v0.6.0
