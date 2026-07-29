@@ -32,6 +32,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cloudless/go.mod
+          check-latest: true
           cache-dependency-path: cloudless/go.sum
       - name: Install govulncheck (S1, #134)
         run: go install golang.org/x/vuln/cmd/govulncheck@latest

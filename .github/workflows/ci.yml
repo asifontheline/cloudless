@@ -23,6 +23,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cloudless/go.mod
+          check-latest: true
           cache-dependency-path: cloudless/go.sum
       - name: Build
         working-directory: cloudless
@@ -106,6 +107,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cloudless/go.mod
+          check-latest: true
           cache-dependency-path: cloudless/go.sum
       - uses: actions/setup-node@v4
         with:
