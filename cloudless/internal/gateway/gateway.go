@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"sort"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/skip2/go-qrcode"
 
+	"cloudless/internal/abuse"
 	"cloudless/internal/audit"
 	"cloudless/internal/backup"
 	"cloudless/internal/config"
@@ -126,6 +128,11 @@ type Gateway struct {
 	// RuntimeStatus, when set, reports the supervised local inference
 	// backend's process status (B5): running, PID, restarts, last exit.
 	RuntimeStatus func() any
+
+	// Abuse, when set, locks out a source after repeated auth failures
+	// (S2) — credential stuffing or endpoint scanning gets rate-limited
+	// harder than the standard per-key quota, not merely counted.
+	Abuse *abuse.Guard
 }
 
 const routeLogSize = 20
@@ -463,16 +470,34 @@ func (g *Gateway) Handler() http.Handler {
 	return mux
 }
 
+// requestSource identifies the caller for abuse tracking (S2) — the
+// remote address with its port stripped, so the same client always maps
+// to the same source regardless of which ephemeral port it dialed from.
+func requestSource(r *http.Request) string {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
+
 func (g *Gateway) auth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if g.apiKey != "" {
+			source := requestSource(r)
+			if blocked, retry := g.Abuse.Blocked(source); blocked {
+				w.Header().Set("Retry-After", retry.Round(time.Second).String())
+				http.Error(w, `{"error":"too many failed attempts — try again later"}`, http.StatusTooManyRequests)
+				return
+			}
 			got := r.Header.Get("Authorization")
 			want := "Bearer " + g.apiKey
 			admin := subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
 			if !admin && !g.Keys.Active(strings.TrimPrefix(got, "Bearer ")) {
+				g.Abuse.RecordFailure(source)
 				http.Error(w, `{"error":"invalid api key"}`, http.StatusUnauthorized)
 				return
 			}
+			g.Abuse.RecordSuccess(source)
 		}
 		next(w, r)
 	}
@@ -963,11 +988,19 @@ func (g *Gateway) handleVaultCompact(w http.ResponseWriter, r *http.Request) {
 // adminOnly gates key management behind the cluster (admin) key.
 func (g *Gateway) adminOnly(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		source := requestSource(r)
+		if blocked, retry := g.Abuse.Blocked(source); blocked {
+			w.Header().Set("Retry-After", retry.Round(time.Second).String())
+			http.Error(w, `{"error":"too many failed attempts — try again later"}`, http.StatusTooManyRequests)
+			return
+		}
 		want := "Bearer " + g.apiKey
 		if g.apiKey == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte(want)) != 1 {
+			g.Abuse.RecordFailure(source)
 			http.Error(w, `{"error":"admin key required"}`, http.StatusForbidden)
 			return
 		}
+		g.Abuse.RecordSuccess(source)
 		next(w, r)
 	}
 }
