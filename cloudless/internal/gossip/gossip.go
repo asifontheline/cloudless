@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/memberlist"
@@ -53,6 +54,40 @@ type delegate struct {
 	meta    []byte
 	bcast   *memberlist.TransmitLimitedQueue
 	onApply func(name string) // applies a received revocation locally
+	limiter *rateLimiter      // S6: bounds gossip-message processing rate
+}
+
+// rateLimiter is a small token bucket: a compromised-but-authenticated peer
+// can still gossip, but can't force this node to do unbounded work per
+// message it receives (S6) — e.g. flooding fabricated revoke messages,
+// each of which would otherwise trigger a disk write and grow the revoked
+// set forever (internal/revoke.Set.Add persists on every new name).
+type rateLimiter struct {
+	mu     sync.Mutex
+	tokens float64
+	max    float64
+	rate   float64 // tokens refilled per second
+	last   time.Time
+}
+
+func newRateLimiter(burst, perSecond float64) *rateLimiter {
+	return &rateLimiter{tokens: burst, max: burst, rate: perSecond, last: time.Now()}
+}
+
+func (r *rateLimiter) Allow() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	now := time.Now()
+	r.tokens += now.Sub(r.last).Seconds() * r.rate
+	if r.tokens > r.max {
+		r.tokens = r.max
+	}
+	r.last = now
+	if r.tokens < 1 {
+		return false
+	}
+	r.tokens--
+	return true
 }
 
 func (d *delegate) NodeMeta(limit int) []byte {
@@ -64,6 +99,9 @@ func (d *delegate) NodeMeta(limit int) []byte {
 func (d *delegate) NotifyMsg(b []byte) {
 	if len(b) == 0 {
 		return
+	}
+	if d.limiter != nil && !d.limiter.Allow() {
+		return // dropped: over budget (S6) — a legitimate revoke is rare and will retransmit
 	}
 	var m revokeMsg
 	if json.Unmarshal(b, &m) == nil && m.Type == "revoke" && m.Name != "" && d.onApply != nil {
@@ -132,7 +170,7 @@ func Start(opts Options, reg *registry.Registry) (*Mesh, error) {
 	}
 	cfg.BindPort = port
 	cfg.AdvertisePort = port
-	cfg.Delegate = &delegate{meta: meta, bcast: bcast, onApply: opts.OnRevoke}
+	cfg.Delegate = &delegate{meta: meta, bcast: bcast, onApply: opts.OnRevoke, limiter: newRateLimiter(50, 10)}
 	cfg.Events = &events{reg: reg, self: opts.NodeName}
 	if len(opts.Secret) > 0 {
 		cfg.SecretKey = opts.Secret // AES-GCM; peers without the key cannot join

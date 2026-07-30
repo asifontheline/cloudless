@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"strconv"
 	"testing"
@@ -41,6 +42,56 @@ func TestDelegateNotifyMsgIgnoresGarbage(t *testing.T) {
 
 	if called {
 		t.Fatal("onApply must not fire on malformed or non-revoke messages")
+	}
+}
+
+// S6: a flood of gossip messages beyond the token bucket's budget is
+// dropped, not applied — bounding the work a single peer can force onto
+// this node regardless of how many messages it sends.
+func TestNotifyMsgRateLimitDropsFloodBeyondBudget(t *testing.T) {
+	applied := 0
+	d := &delegate{
+		onApply: func(string) { applied++ },
+		limiter: newRateLimiter(5, 0), // burst of 5, no refill during the test
+	}
+	for i := 0; i < 50; i++ {
+		msg, _ := json.Marshal(revokeMsg{Type: "revoke", Name: fmt.Sprintf("node-%d", i)})
+		d.NotifyMsg(msg)
+	}
+	if applied != 5 {
+		t.Fatalf("applied %d messages, want exactly the burst budget of 5", applied)
+	}
+}
+
+// Legitimate, modest traffic within budget is unaffected by the limiter.
+func TestNotifyMsgRateLimitAllowsTrafficWithinBudget(t *testing.T) {
+	applied := 0
+	d := &delegate{
+		onApply: func(string) { applied++ },
+		limiter: newRateLimiter(50, 10),
+	}
+	for i := 0; i < 3; i++ {
+		msg, _ := json.Marshal(revokeMsg{Type: "revoke", Name: fmt.Sprintf("node-%d", i)})
+		d.NotifyMsg(msg)
+	}
+	if applied != 3 {
+		t.Fatalf("applied %d of 3 in-budget messages, want 3", applied)
+	}
+}
+
+// The bucket refills over time — a peer isn't permanently silenced after
+// one burst, only bounded to a sustained rate.
+func TestRateLimiterRefillsOverTime(t *testing.T) {
+	r := newRateLimiter(1, 1000) // burst 1, refills fast so the test doesn't sleep long
+	if !r.Allow() {
+		t.Fatal("first call within burst should be allowed")
+	}
+	if r.Allow() {
+		t.Fatal("second immediate call should be denied — burst exhausted")
+	}
+	time.Sleep(5 * time.Millisecond) // 1000/s refill rate: ~5 tokens back by now
+	if !r.Allow() {
+		t.Fatal("call after refill window should be allowed again")
 	}
 }
 
