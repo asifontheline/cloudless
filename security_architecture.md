@@ -29,6 +29,29 @@ Peer-to-peer resource sharing is a hostile-takeover target: a compromised node c
 - When general compute arrives (containers/functions milestones), workloads run in rootless containers with: no host filesystem access, dropped capabilities, seccomp profiles, memory/CPU cgroup caps, and no outbound network by default (egress must be declared).
 - The agent itself runs as an unprivileged user; a compromised runtime process cannot reconfigure the node.
 
+**Extensions (K4/K5, S4) — a narrower exception, worth being precise about.** An
+admin can register any HTTP service, in any language, at `/x/<name>/...` and,
+since K5, as a real inference backend. This is *not* arbitrary code execution by
+the gateway: the extension is a process the operator already started and pointed
+the gateway at — the gateway only proxies to it, never spawns, never executes it.
+The trust boundary is exactly the operator's own admin key, same as any other
+admin-gated action.
+- **What's already true:** the gateway strips mesh credentials before forwarding
+  to an extension (it never sees the cluster's bearer tokens); registration is
+  admin-only and audited (`ext.register`/`ext.remove` in the signed audit log);
+  the extension itself runs under whatever OS user and permissions the operator
+  chose — the gateway has no ability to grant or escalate those.
+- **What the gateway can't enforce:** network egress from the extension's own
+  process. It isn't spawned by the gateway, so there's no process tree to apply
+  cgroup/seccomp/no-egress-by-default policy to (unlike the future containerized
+  compute above, which the mesh *does* control the lifecycle of).
+- **Operator guidance, not gateway enforcement:** run extensions in a container,
+  VM, or restricted OS account with only the network access the extension
+  actually needs — typically none outbound beyond what it must call. Don't run
+  an extension as the same user as the `cloudless` process itself. This is the
+  honest boundary: the mesh secures everything on its side of the proxy; what
+  runs on the other side is the operator's own deployment choice.
+
 ## Layer 4 — Artifact integrity & malware defense (T4)
 - **Content addressing everywhere:** every model blob and container image is identified by SHA-256; a byte that changes is a different artifact. Peers verify hashes before serving *and* before loading — a poisoned cache replica is detected, not executed.
 - **Safe model formats only:** weights are accepted exclusively in tensor-data formats (GGUF, safetensors, ONNX). Pickle-based model files are **rejected outright** — they can embed arbitrary code and are the main malware vector in the model ecosystem.
