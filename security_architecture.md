@@ -78,3 +78,59 @@ Encryption is universal — mesh control traffic, service traffic, and every byt
 - **M2:** hash verification on every blob path; format allowlist (reject pickle).
 - **M3:** per-key quotas, signed audit log.
 - **M4+:** anomaly quarantine, k-of-n result comparison, signed releases.
+
+## Incident response runbook (S3)
+Concrete steps using the actual shipped tooling — not the design intent above, what
+today's `cloudless` binary and gateway API can actually do right now. Written for
+whoever is holding the cluster admin key when something goes wrong.
+
+### A node is compromised
+1. **Evict it immediately:** `cloudless nodes revoke <node-name>` (or the console's
+   Members page). This drops its certificate and removes it from routing mesh-wide —
+   every peer refuses it on the next gossip round (A4).
+2. **Check what it did while trusted:** `cloudless audit` (or `GET /audit`) — the
+   hash-chained log shows every administrative action; `intact: true` confirms it
+   hasn't been tampered with. If `GET /healthz` is returning 503 (S5), the chain
+   itself may be compromised — treat the whole node's history as unverifiable.
+3. **Rotate anything the node could have read:** any vault objects (M3) it held
+   replicas of are still safe (ciphertext only, sealed by the owner's key) — but if
+   the *owner* node is the one compromised, rotate that vault's contents once you've
+   rebuilt the node.
+4. **Check its usage pattern:** `cloudless usage` / `cloudless ledger` for anomalous
+   token consumption in the window before you noticed — informs whether this was
+   automated abuse or a one-off.
+
+### A member's API key is leaked
+1. `cloudless keys revoke <key-prefix>` — immediate, no mesh-wide propagation delay
+   since key checks happen at the gateway serving the request.
+2. Issue a replacement: `cloudless keys create <name>`.
+3. Check `cloudless usage` for that key's consumption right up to revocation — a
+   sudden spike is the signal a leak was actually exploited, not just theoretical.
+
+### A malicious extension was registered
+1. `cloudless ext rm <name>` — stops both `/x/<name>/...` proxying and, if it had
+   `inference: true` (K5), pulls it out of `/v1/chat/completions` routing immediately.
+2. Registration is admin-only and audited (`ext.register` / `ext.remove` in
+   `cloudless audit`) — confirm who registered it and when.
+3. Extensions are proxied HTTP services under their own OS permissions, never
+   executed by the gateway (S4) — the blast radius is whatever that process itself
+   could reach, not the node's Go runtime.
+
+### The cluster secret itself leaks (not just one node's credentials)
+**Honest gap:** there is no in-place rotation for the shared gossip/join secret
+today — it's generated once at founding and used for both gossip encryption and
+join-token HMAC. If the secret itself (not a single node's cert) is exposed:
+1. Treat every node's continued membership as suspect — an attacker with the raw
+   secret can join directly, bypassing per-node revocation entirely.
+2. The only real mitigation right now is a fresh start: stand up a new mesh (new
+   `cloudless up`, new secret), export data from the old one (`cloudless backup
+   export`) and import it into the new (`cloudless backup import`, M5) — the
+   archive travels encrypted regardless of which mesh it lands in.
+3. In-place cluster-secret rotation without a full rebuild is a real gap, not yet
+   tracked as its own story — worth adding to Epic A or S if it recurs as a need.
+
+### General principle
+Revoke first, investigate after — `cloudless nodes revoke` / `cloudless keys
+revoke` / `cloudless ext rm` all take effect immediately and are cheap to reverse
+(re-issue) if you were wrong. The signed audit log means investigation evidence
+doesn't depend on acting slowly.
