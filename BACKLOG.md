@@ -168,11 +168,11 @@ project's existing security posture.
 |---|---|---|
 | #134 S1 | Dependency vulnerability scanning in CI (`govulncheck`) — known CVEs in our own dependency tree caught before merge, not discovered after | ✅ (runs in both CI validation and the merge queue's pre-merge revalidation; currently clean) |
 | #135 S2 | Abuse-pattern quarantine — a key or node showing attack-shaped behavior (mass auth failures, request flooding past quota, scanning for endpoints) is automatically flagged and rate-limited harder, not just counted | ⬜ P2 |
-| #136 S3 | Security incident response runbook — documented, concrete steps for a leaked cluster secret, a compromised node, or a malicious extension registration; who revokes what, in what order | ⬜ P1 |
+| #136 S3 | Security incident response runbook — documented, concrete steps for a leaked cluster secret, a compromised node, or a malicious extension registration; who revokes what, in what order | ✅ (`security_architecture.md` — verified every command against the actual CLI; honestly flags that in-place cluster-secret rotation is a real gap, not yet built) |
 | #137 S4 | Extension network isolation guidance — K4/K5 extensions run under their own OS permissions already (the gateway proxies, never executes); document and, where possible, enforce that they shouldn't have unrestricted outbound network access by default | ⬜ P2 |
 | #138 S5 | Audit-log tamper alerting — `Verify()` already detects a broken hash chain (A5); when it does, the node should say so loudly (console banner, non-zero health check) instead of only surfacing it to whoever happens to query `/audit` | ✅ (`GET /healthz` returns 503 + a logged warning when the audit chain is broken; mesh routing is unaffected — peer health probes hit the backend's own `/models`, not this endpoint) |
 | #139 S6 | Gossip message rate-limiting — an authenticated-but-compromised peer flooding gossip traffic shouldn't be able to degrade the mesh for everyone else | ⬜ P2 |
-| #140 S7 | Release artifact provenance — checksums (and, once E4 ships, signatures) published alongside every release binary, documented verification steps for anyone downloading one | ⬜ P2 |
+| #140 S7 | Release artifact provenance — checksums (and, once E4 ships, signatures) published alongside every release binary, documented verification steps for anyone downloading one | ✅ (already true of the E4 pipeline: `sha256sum` generated per binary, self-verified in CI before publishing, verification command in every release's notes; signatures remain blocked on the same paid certs as the rest of E4) |
 
 ## Cross-cutting infrastructure (shipped)
 - One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
