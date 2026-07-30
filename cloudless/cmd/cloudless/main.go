@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"cloudless/internal/abuse"
 	"cloudless/internal/audit"
 	"cloudless/internal/backup"
 	"cloudless/internal/bench"
@@ -446,6 +447,10 @@ func runServe(cfg *config.Config) {
 	}
 
 	gw := gateway.New(reg, cfg.APIKey, peerTLS)
+	// S2: 10 failed auth attempts from one source within a minute locks
+	// that source out for 5 minutes — credential stuffing or endpoint
+	// scanning gets rate-limited harder than the standard per-key quota.
+	gw.Abuse = abuse.New(10, time.Minute, 5*time.Minute)
 	// Revoking here applies locally and broadcasts to the whole mesh.
 	gw.Revoke = func(name string) bool {
 		if !revoked.Add(name) {
