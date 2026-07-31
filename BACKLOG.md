@@ -133,7 +133,7 @@ this is ergonomics, not new capability.
 |---|---|---|
 | #121 Q1 | `cloudless chat` — one-shot and interactive prompts, streamed to the terminal | ✅ |
 | #122 Q2 | Stdin/stdout piping — prompt from stdin, completion to stdout, composes in shell pipelines | ✅ (shipped with Q1 — piped stdin auto-detected) |
-| #123 Q3 | Uniform `--format json\|table\|plain` across every command, for scripting | 🔶 (`-format table\|json` now on every command with list-style output: status, resolve, usage, capacity, savings, ledger, keys, ext, vault, models, share, nodes, audit; `plain` still unimplemented) |
+| #123 Q3 | Uniform `--format json\|table\|plain` across every command, for scripting | ✅ (`table`\|`json`\|`plain` now on every command with structured output: status, resolve, usage, capacity, savings, ledger, keys, ext, vault, models, share, nodes, audit — `plain` is headerless tab-separated, verified scriptable end-to-end with a real `cut -f1` pipeline) |
 | #124 Q4 | Multi-profile config (`cloudless config set/get/use`) — switch between meshes without re-flagging `-addr`/`-key` every time | ✅ (`resolveAddrKey` wired into every command that talks to a gateway) |
 | #125 Q5 | `CLOUDLESS_API_KEY` env var + documented exit-code conventions, so CI/scripts never need the key on the command line or in shell history | ✅ (same `resolveAddrKey` path as Q4, so every command inherits it; exit codes documented) |
 | #126 Q6 | Shell completion (bash/zsh/fish) | ✅ (`cloudless completion bash\|zsh\|fish`) |

@@ -756,7 +756,7 @@ func benchCmd(args []string) {
 func resolveCmd(args []string) {
 	fs := flag.NewFlagSet("resolve", flag.ExitOnError)
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
-	format := fs.String("format", "table", "output format: table, json")
+	format := fs.String("format", "table", "output format: table, json, plain")
 	fs.Parse(args)
 	var noKey string
 	resolveAddrKey(addr, &noKey)
@@ -773,6 +773,12 @@ func resolveCmd(args []string) {
 		json.NewDecoder(resp.Body).Decode(&out)
 		if *format == "json" {
 			printJSON(out)
+			return
+		}
+		if *format == "plain" {
+			for _, e := range out.Names {
+				fmt.Printf("%s\t%s\t%s\t%v\t%s\n", e.Kind, e.Name, e.Address, e.Healthy, e.Location)
+			}
 			return
 		}
 		fmt.Printf("%-10s %-20s %-32s %-8s %s\n", "KIND", "NAME", "ADDRESS", "HEALTHY", "LOCATION")
@@ -975,7 +981,7 @@ func chatRepl(addr, apiKey, model string) {
 func usageCmd(args []string) {
 	fs := flag.NewFlagSet("usage", flag.ExitOnError)
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
-	format := fs.String("format", "table", "output format: table, json")
+	format := fs.String("format", "table", "output format: table, json, plain")
 	fs.Parse(args)
 	var noKey string
 	resolveAddrKey(addr, &noKey)
@@ -996,6 +1002,12 @@ func usageCmd(args []string) {
 		printJSON(out)
 		return
 	}
+	if *format == "plain" {
+		for _, u := range out.Usage {
+			fmt.Printf("%s\t%s\t%d\t%d\t%d\t%s\n", u.APIKey, u.Backend, u.Requests, u.PromptTokens, u.CompletionTokens, u.LastUsed.Format(time.RFC3339))
+		}
+		return
+	}
 	fmt.Printf("%-12s %-30s %8s %10s %10s  %s\n", "KEY", "BACKEND", "REQS", "PROMPT", "COMPLETE", "LAST USED")
 	for _, u := range out.Usage {
 		fmt.Printf("%-12s %-30s %8d %10d %10d  %s\n",
@@ -1013,7 +1025,7 @@ func keysCmd(args []string) {
 	fs := flag.NewFlagSet("keys", flag.ExitOnError)
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
-	format := fs.String("format", "table", "output format: table, json (list only)")
+	format := fs.String("format", "table", "output format: table, json, plain (list only)")
 	fs.Parse(args)
 	resolveAddrKey(addr, adminKey)
 	do := func(method, path string, body string) *http.Response {
@@ -1040,6 +1052,12 @@ func keysCmd(args []string) {
 		json.NewDecoder(resp.Body).Decode(&out)
 		if *format == "json" {
 			printJSON(out)
+			return
+		}
+		if *format == "plain" {
+			for _, k := range out.Keys {
+				fmt.Printf("%s\t%s\t%v\t%s\n", k.Name, k.Key, k.Revoked, k.Created.Format(time.RFC3339))
+			}
 			return
 		}
 		fmt.Printf("%-20s %-12s %-10s %s\n", "NAME", "KEY", "STATE", "CREATED")
@@ -1087,7 +1105,7 @@ func extCmd(args []string) {
 	runtime := fs.String("runtime", "", "informational runtime label (python, node, rust, ...)")
 	desc := fs.String("desc", "", "one-line description for the console")
 	inference := fs.Bool("inference", false, "also add as an inference backend at /v1/chat/completions (K5)")
-	format := fs.String("format", "table", "output format: table, json (list only)")
+	format := fs.String("format", "table", "output format: table, json, plain (list only)")
 	fs.Parse(args)
 	resolveAddrKey(addr, adminKey)
 	do := func(method, path string, body io.Reader) *http.Response {
@@ -1113,6 +1131,12 @@ func extCmd(args []string) {
 		json.NewDecoder(resp.Body).Decode(&out)
 		if *format == "json" {
 			printJSON(out)
+			return
+		}
+		if *format == "plain" {
+			for _, e := range out.Extensions {
+				fmt.Printf("%s\t%s\t%s\t%v\t%v\n", e.Name, e.BaseURL, e.Runtime, e.Healthy, e.Inference)
+			}
 			return
 		}
 		fmt.Printf("%-20s %-28s %-8s %-8s %-10s %s\n", "NAME", "BASE URL", "RUNTIME", "HEALTH", "INFERENCE", "ROUTE")
@@ -1274,7 +1298,7 @@ func vaultCmd(args []string) {
 	fs := flag.NewFlagSet("vault", flag.ExitOnError)
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
-	format := fs.String("format", "table", "output format: table, json (list only)")
+	format := fs.String("format", "table", "output format: table, json, plain (list only)")
 	fs.Parse(args)
 	resolveAddrKey(addr, adminKey)
 	do := func(method, path string, body io.Reader) *http.Response {
@@ -1300,6 +1324,12 @@ func vaultCmd(args []string) {
 		json.NewDecoder(resp.Body).Decode(&out)
 		if *format == "json" {
 			printJSON(out)
+			return
+		}
+		if *format == "plain" {
+			for _, e := range out.Objects {
+				fmt.Printf("%s\t%d\t%v\t%s\n", e.Name, e.Size, e.Sealed, e.SHA256)
+			}
 			return
 		}
 		fmt.Printf("%-28s %10s  %-8s %s\n", "NAME", "SIZE", "KIND", "CIPHERTEXT SHA256")
@@ -1370,7 +1400,7 @@ func modelsCmd(args []string) {
 	fs := flag.NewFlagSet("models", flag.ExitOnError)
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
-	format := fs.String("format", "table", "output format: table, json (list only)")
+	format := fs.String("format", "table", "output format: table, json, plain (list only)")
 	fs.Parse(args)
 	resolveAddrKey(addr, adminKey)
 	sub := "list"
@@ -1390,6 +1420,12 @@ func modelsCmd(args []string) {
 		json.NewDecoder(resp.Body).Decode(&out)
 		if *format == "json" {
 			printJSON(out)
+			return
+		}
+		if *format == "plain" {
+			for _, e := range out.Artifacts {
+				fmt.Printf("%s\t%s\t%d\t%s\n", e.Name, e.Format, e.Size, e.SHA256)
+			}
 			return
 		}
 		fmt.Printf("%-28s %-12s %10s  %s\n", "NAME", "FORMAT", "SIZE", "SHA256")
@@ -1486,7 +1522,7 @@ func shareCmd(args []string) {
 	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
 	cpu := fs.Int("cpu", -1, "CPU share percent (0..70)")
 	when := fs.String("when", "", "share when: always | charging | idle")
-	format := fs.String("format", "table", "output format: table, json (show only)")
+	format := fs.String("format", "table", "output format: table, json, plain (show only)")
 	fs.Parse(rest)
 	resolveAddrKey(addr, adminKey)
 	if sub == "set" {
@@ -1528,6 +1564,10 @@ func shareCmd(args []string) {
 		printJSON(d)
 		return
 	}
+	if *format == "plain" {
+		fmt.Printf("%d\t%d\t%d\t%s\n", d.Limits.CPUPercent, d.Ceiling, d.SharedCores, d.Limits.ShareWhen)
+		return
+	}
 	fmt.Printf("CPU share: %d%% (ceiling %d%%) · %d shared core(s) · when: %s\n",
 		d.Limits.CPUPercent, d.Ceiling, d.SharedCores, d.Limits.ShareWhen)
 }
@@ -1546,7 +1586,7 @@ func nodesCmd(args []string) {
 	fs := flag.NewFlagSet("nodes", flag.ExitOnError)
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	adminKey := fs.String("admin-key", "", "cluster admin key (default: active profile, or ~/.cloudless/config.json)")
-	format := fs.String("format", "table", "output format: table, json (revocations only)")
+	format := fs.String("format", "table", "output format: table, json, plain (revocations only)")
 	fs.Parse(rest)
 	resolveAddrKey(addr, adminKey)
 	switch sub {
@@ -1580,6 +1620,12 @@ func nodesCmd(args []string) {
 			printJSON(out)
 			return
 		}
+		if *format == "plain" {
+			for _, r := range out.Revoked {
+				fmt.Printf("%s\t%s\n", r.Name, r.Revoked.Format(time.RFC3339))
+			}
+			return
+		}
 		fmt.Println("REVOKED NODES")
 		for _, r := range out.Revoked {
 			fmt.Printf("  %-30s %s\n", r.Name, r.Revoked.Format("2006-01-02 15:04"))
@@ -1590,7 +1636,7 @@ func nodesCmd(args []string) {
 func auditCmd(args []string) {
 	fs := flag.NewFlagSet("audit", flag.ExitOnError)
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
-	format := fs.String("format", "table", "output format: table, json")
+	format := fs.String("format", "table", "output format: table, json, plain")
 	fs.Parse(args)
 	var noKey string
 	resolveAddrKey(addr, &noKey)
@@ -1611,6 +1657,12 @@ func auditCmd(args []string) {
 		printJSON(out)
 		return
 	}
+	if *format == "plain" {
+		for _, e := range out.Entries {
+			fmt.Printf("%d\t%s\t%s\t%s\t%s\n", e.Seq, e.Time.Format(time.RFC3339), e.Actor, e.Action, e.Target)
+		}
+		return
+	}
 	if out.Intact {
 		fmt.Println("audit chain: INTACT ✓")
 	} else {
@@ -1627,7 +1679,7 @@ func auditCmd(args []string) {
 func capacityCmd(args []string) {
 	fs := flag.NewFlagSet("capacity", flag.ExitOnError)
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
-	format := fs.String("format", "table", "output format: table, json")
+	format := fs.String("format", "table", "output format: table, json, plain")
 	fs.Parse(args)
 	var noKey string
 	resolveAddrKey(addr, &noKey)
@@ -1653,6 +1705,12 @@ func capacityCmd(args []string) {
 		printJSON(out)
 		return
 	}
+	if *format == "plain" {
+		for _, n := range out.Nodes {
+			fmt.Printf("%s\t%v\t%d\t%v\t%d\n", n.Node, n.Healthy, n.Requests, n.Idle, n.IdleSeconds)
+		}
+		return
+	}
 	fmt.Printf("%-30s %-9s %8s  %s\n", "NODE", "STATE", "REQS", "VERDICT")
 	for _, n := range out.Nodes {
 		state, verdict := "down", "unavailable"
@@ -1674,7 +1732,7 @@ func savingsCmd(args []string) {
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
 	rp := fs.String("prompt-rate", "0.50", "reference USD per 1M prompt tokens")
 	rc := fs.String("completion-rate", "1.50", "reference USD per 1M completion tokens")
-	format := fs.String("format", "table", "output format: table, json")
+	format := fs.String("format", "table", "output format: table, json, plain")
 	fs.Parse(args)
 	var noKey string
 	resolveAddrKey(addr, &noKey)
@@ -1696,6 +1754,10 @@ func savingsCmd(args []string) {
 		printJSON(out)
 		return
 	}
+	if *format == "plain" {
+		fmt.Printf("%d\t%d\t%d\t%.4f\n", out.Requests, out.PromptTokens, out.CompletionTokens, out.Hosted)
+		return
+	}
 	fmt.Printf("mesh served: %d requests · %d prompt + %d completion tokens\n",
 		out.Requests, out.PromptTokens, out.CompletionTokens)
 	fmt.Printf("hosted-API equivalent: $%.4f    mesh marginal cost: $0.00\n", out.Hosted)
@@ -1704,7 +1766,7 @@ func savingsCmd(args []string) {
 func ledgerCmd(args []string) {
 	fs := flag.NewFlagSet("ledger", flag.ExitOnError)
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
-	format := fs.String("format", "table", "output format: table, json")
+	format := fs.String("format", "table", "output format: table, json, plain")
 	fs.Parse(args)
 	var noKey string
 	resolveAddrKey(addr, &noKey)
@@ -1723,6 +1785,15 @@ func ledgerCmd(args []string) {
 	}
 	if *format == "json" {
 		printJSON(out)
+		return
+	}
+	if *format == "plain" {
+		for _, l := range out.Contributed {
+			fmt.Printf("contributed\t%s\t%d\t%d\t%.1f\t%.2f\n", l.Party, l.Requests, l.Tokens, l.Share, l.EntitlementHint)
+		}
+		for _, l := range out.Consumed {
+			fmt.Printf("consumed\t%s\t%d\t%d\t%.1f\n", l.Party, l.Requests, l.Tokens, l.Share)
+		}
 		return
 	}
 	// EntitlementHint (I2) is advisory only — a suggested quota multiplier
@@ -1775,7 +1846,7 @@ func tokenCmd(args []string) {
 func status(args []string) {
 	fs := flag.NewFlagSet("status", flag.ExitOnError)
 	addr := fs.String("addr", "", "gateway address (default: active profile, or http://127.0.0.1:8080)")
-	format := fs.String("format", "table", "output format: table, json")
+	format := fs.String("format", "table", "output format: table, json, plain")
 	fs.Parse(args)
 	var noKey string
 	resolveAddrKey(addr, &noKey)
@@ -1799,6 +1870,12 @@ func status(args []string) {
 	}
 	if *format == "json" {
 		printJSON(out)
+		return
+	}
+	if *format == "plain" {
+		for _, b := range out.Backends {
+			fmt.Printf("%s\t%s\t%v\t%d\n", b.Backend.Name, b.Backend.BaseURL, b.Healthy, b.LatencyMS)
+		}
 		return
 	}
 	fmt.Printf("LOAD  %d in-flight, %d waiting (max concurrent %d)\n",
