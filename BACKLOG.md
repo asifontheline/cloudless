@@ -184,6 +184,38 @@ a phone with only Bluetooth to a nearby node, a sensor with only LoRa, two machi
 the same room with no router between them. This epic is about making the transport
 layer pluggable and adding the mediums that matter for real deployment gaps, not
 protocol novelty for its own sake.
+
+**Candidate mediums (reference list — extend as new ones become relevant):**
+
+*Wired:*
+- Ethernet (copper, twisted pair) — Cat5e/6/7, most common LAN medium, up to ~10Gbps+
+- Fiber optic — light pulses through glass/plastic fiber, longest range + highest bandwidth, immune to EM interference
+- Coaxial cable — cable internet (DOCSIS), older Ethernet (10BASE2)
+- Powerline (PLC) — data over existing electrical wiring (e.g. HomePlug)
+- USB — short-range device-to-device/host
+- Serial/RS-232, RS-485 — legacy and industrial control systems
+- Thunderbolt — high-speed peripheral/display, can carry networking too
+
+*Wireless:*
+- Wi-Fi (802.11) — LAN-range RF, most common wireless network medium
+- Bluetooth / BLE — short-range, low-power, device pairing
+- Cellular (4G/5G/LTE) — wide-area, carrier infrastructure
+- Satellite — global coverage, high latency (except newer LEO constellations like Starlink)
+- NFC — very short range (cm), tap-to-connect
+- Zigbee / Z-Wave / Thread — low-power mesh, IoT/home automation
+- LoRa / LoRaWAN — long-range, low-bandwidth, low-power (IoT, sensors)
+- Infrared (IR) — line-of-sight, largely legacy (old remotes)
+- Microwave / point-to-point RF links — fixed wireless, backhaul
+- Ultra-wideband (UWB) — precise short-range ranging/positioning (e.g. AirTag-style)
+
+**Current state:** the gossip mesh and gateway run over standard TCP/UDP sockets, so
+they're already transport-*medium*-agnostic — nodes can be linked by any of the wired
+or wireless mediums above (Ethernet, Wi-Fi, cellular, even a Tailscale/VPN overlay
+across the internet) with zero code changes, as long as IP connectivity exists between
+them. What's actually missing (T1-T7 below) is support for mediums that *don't* carry
+IP on their own — Bluetooth, LoRa, NFC, USB/serial, offline media — which need an
+explicit transport layer, not just a cable plugged in. Any future medium worth
+supporting should be added to this reference list first, then given its own story.
 | ID | Story | Status |
 |---|---|---|
 | #141 T1 | Transport abstraction layer — decouple gossip and the gateway's peer traffic from raw TCP so alternate transports can plug in without touching mesh/routing logic | ⬜ P2 |
