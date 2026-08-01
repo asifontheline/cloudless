@@ -174,6 +174,26 @@ project's existing security posture.
 | #139 S6 | Gossip message rate-limiting — an authenticated-but-compromised peer flooding gossip traffic shouldn't be able to degrade the mesh for everyone else | ✅ (token-bucket in the gossip delegate — 50 burst, 10/s refill; found the concrete threat while writing this: revoke.Set.Add persists to disk on every distinct fabricated name, so this was a real unbounded disk-I/O and memory vector, not a hypothetical one) |
 | #140 S7 | Release artifact provenance — checksums (and, once E4 ships, signatures) published alongside every release binary, documented verification steps for anyone downloading one | ✅ (already true of the E4 pipeline: `sha256sum` generated per binary, self-verified in CI before publishing, verification command in every release's notes; signatures remain blocked on the same paid certs as the rest of E4) |
 
+## EPIC T — Extended Communication Channels & Devices
+Today every node talks over plain TCP/UDP sockets — gossip membership, mutual-TLS peer
+traffic, the gateway's HTTP API — which is transport-agnostic in practice (it already
+works over Ethernet, Wi-Fi, cellular, satellite, or a VPN overlay, unchanged) but
+transport-*blind* in design: nothing in the mesh knows or cares which medium a link
+actually runs over, and there's no path today for a device with no IP network at all —
+a phone with only Bluetooth to a nearby node, a sensor with only LoRa, two machines in
+the same room with no router between them. This epic is about making the transport
+layer pluggable and adding the mediums that matter for real deployment gaps, not
+protocol novelty for its own sake.
+| ID | Story | Status |
+|---|---|---|
+| #141 T1 | Transport abstraction layer — decouple gossip and the gateway's peer traffic from raw TCP so alternate transports can plug in without touching mesh/routing logic | ⬜ P2 |
+| #142 T2 | Bluetooth/BLE local transport — proximity nodes (especially mobile, J epic) discover and link without any existing IP infrastructure in the room | ⬜ P2 |
+| #143 T3 | LoRa/LoRaWAN long-range low-power transport — remote or rural nodes with no broadband, trading bandwidth for reach | ⬜ P3 |
+| #144 T4 | Offline store-and-forward sync ("sneakernet") — bridge two disconnected mesh segments via removable media when no live link exists between them at all | ⬜ P3 |
+| #145 T5 | Direct USB/serial link support — air-gapped or embedded/constrained devices with no network stack to speak of | ⬜ P3 |
+| #146 T6 | NFC tap-to-join — physical-proximity onboarding alongside E2's existing QR/join-link flow, for devices where scanning a code is awkward | ⬜ P3 |
+| #147 T7 | Transport health & cost awareness — surface which medium a link actually runs over (Wi-Fi/cellular/satellite/LoRa/...) and its latency/cost profile, so routing (already health- and locality-aware, I4) can factor it in | ⬜ P2 |
+
 ## Cross-cutting infrastructure (shipped)
 - One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
 - CI validation engine + branch-protected `main` + 2-hourly review-gated merge queue ✅
