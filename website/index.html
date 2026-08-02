@@ -106,6 +106,21 @@
   .side li { margin: .08rem 0; color: color-mix(in srgb, currentColor 80%, transparent); }
   .side a { text-decoration: none; }
   .side li a { color: var(--accent); }
+  .side-search { position: relative; margin: 0 0 .7rem; }
+  .side-search input { width: 100%; box-sizing: border-box; padding: .4rem .55rem; border-radius: 6px;
+        border: 1px solid var(--line); background: var(--card); color: inherit; font: inherit; font-size: .78rem; }
+  .side-search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .side-search-results { position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 6;
+        background: Canvas; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+        max-height: 60vh; overflow-y: auto; display: none; }
+  .side-search-results.on { display: block; }
+  .side-search-results button { display: block; width: 100%; text-align: left; padding: .45rem .6rem;
+        border: none; background: none; color: inherit; font: inherit; font-size: .78rem; cursor: pointer;
+        border-bottom: 1px solid var(--line); }
+  .side-search-results button:last-child { border-bottom: none; }
+  .side-search-results button:hover, .side-search-results button.active { background: var(--card); color: var(--accent); }
+  .side-search-results .hit-why { display: block; font-size: .68rem; color: var(--plan); margin-top: .1rem; }
+  .side-search-empty { padding: .5rem .6rem; font-size: .75rem; color: var(--plan); }
   .side li a:hover { text-decoration: underline; }
   .side .doc { display: block; padding: .15rem .3rem; border-radius: 6px; font-weight: 600; color: inherit; }
   .side .doc:hover { background: var(--card); color: var(--accent); }
@@ -180,6 +195,11 @@
 </header>
 <div class="layout">
 <aside class="side">
+  <div class="side-search">
+    <input id="featSearch" type="text" placeholder="Search features…" autocomplete="off"
+           aria-label="Search features" aria-expanded="false" role="combobox">
+    <div id="featSearchResults" class="side-search-results" role="listbox"></div>
+  </div>
   <h4>Features</h4>
   <p style="font-size:.7rem;color:var(--plan);margin:.1rem 0 .5rem">click any feature to see it working →</p>
   <details><summary>🧠 AI &amp; ML</summary><ul>
@@ -732,6 +752,167 @@ function closeFeat() { drawer.classList.remove('on'); ov.classList.remove('on');
 document.querySelectorAll('.feat').forEach(b => b.addEventListener('click', () => openFeat(b.dataset.f)));
 ov.addEventListener('click', closeFeat);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFeat(); });
+
+// Feature search (T-adjacent: an actual keyword index, not a page-load
+// wishlist). A real B+ tree over every feature's title + description —
+// grows for free as F/PLANNED grow, no re-architecture needed. A small,
+// deliberately extensible SYNONYMS map is what actually answers "does a
+// related-but-not-literal query surface the right feature" — a raw
+// keyword index alone cannot do that; add entries here as gaps show up.
+class BPlusTree {
+  constructor(order = 8) { this.order = order; this.root = { leaf: true, keys: [], values: [] }; }
+  insert(key, value) {
+    const leaf = this._findLeaf(key);
+    let i = leaf.keys.findIndex(k => k >= key);
+    if (i === -1) i = leaf.keys.length;
+    if (leaf.keys[i] === key) { leaf.values[i].add(value); }
+    else { leaf.keys.splice(i, 0, key); leaf.values.splice(i, 0, new Set([value])); }
+    if (leaf.keys.length > this.order - 1) this._splitLeaf(leaf);
+  }
+  get(key) { const leaf = this._findLeaf(key); const i = leaf.keys.indexOf(key); return i === -1 ? new Set() : leaf.values[i]; }
+  prefixSearch(prefix) {
+    const out = new Set();
+    let leaf = this._findLeaf(prefix);
+    outer:
+    while (leaf) {
+      for (let i = 0; i < leaf.keys.length; i++) {
+        const k = leaf.keys[i];
+        if (k.startsWith(prefix)) { for (const v of leaf.values[i]) out.add(v); }
+        else if (k > prefix) break outer; // sorted keys: prefix matches form one contiguous block
+      }
+      leaf = leaf.next;
+    }
+    return out;
+  }
+  _findLeaf(key) {
+    let node = this.root;
+    while (!node.leaf) { let i = 0; while (i < node.keys.length && key >= node.keys[i]) i++; node = node.children[i]; }
+    return node;
+  }
+  _splitLeaf(leaf) {
+    const mid = Math.ceil(leaf.keys.length / 2);
+    const right = { leaf: true, keys: leaf.keys.splice(mid), values: leaf.values.splice(mid), next: leaf.next };
+    leaf.next = right;
+    this._insertIntoParent(leaf, right.keys[0], right);
+  }
+  _insertIntoParent(left, key, right) {
+    const parent = this._findParent(this.root, left);
+    if (!parent) { this.root = { leaf: false, keys: [key], children: [left, right] }; return; }
+    const i = parent.children.indexOf(left);
+    parent.keys.splice(i, 0, key);
+    parent.children.splice(i + 1, 0, right);
+    if (parent.keys.length > this.order - 1) this._splitInternal(parent);
+  }
+  _splitInternal(node) {
+    const mid = Math.floor(node.keys.length / 2);
+    const upKey = node.keys[mid];
+    const right = { leaf: false, keys: node.keys.splice(mid + 1), children: node.children.splice(mid + 1) };
+    node.keys.splice(mid);
+    this._insertIntoParent(node, upKey, right);
+  }
+  _findParent(node, child) {
+    if (node.leaf) return null;
+    if (node.children.includes(child)) return node;
+    for (const c of node.children) { const p = this._findParent(c, child); if (p) return p; }
+    return null;
+  }
+}
+
+// Extend this as new features land or search gaps show up — each entry
+// widens a general/related term to the feature ids it should surface,
+// even with zero literal word overlap with the feature's own text.
+const SYNONYMS = {
+  database: ['kv', 'object', 'backup'],
+  db: ['kv', 'object', 'backup'],
+  ai: ['chat', 'embeddings', 'models', 'vectors'],
+  ml: ['chat', 'embeddings', 'models', 'vectors'],
+  llm: ['chat', 'models'],
+  security: ['mtls', 'audit', 'dataguard', 'safeformat'],
+  encryption: ['mtls', 'dataguard', 'safeformat'],
+  auth: ['passkey', 'members', 'mtls'],
+  login: ['passkey'],
+  compute: ['share', 'gateway', 'batch', 'scheduled', 'containers'],
+  gpu: ['share', 'gateway'],
+  cost: ['cost', 'ledger', 'usage'],
+  billing: ['cost', 'ledger', 'usage'],
+  money: ['cost', 'ledger'],
+  storage: ['models', 'object', 'backup', 'kv'],
+  network: ['membership', 'map', 'overlay', 'gateway'],
+  mesh: ['gateway', 'membership', 'map'],
+  identity: ['passkey', 'mtls', 'members'],
+  api: ['jssdk', 'pysdk', 'polyglot'],
+  sdk: ['jssdk', 'pysdk'],
+  language: ['polyglot', 'jssdk', 'pysdk'],
+  phone: ['mobile'],
+  tablet: ['mobile'],
+};
+
+const searchIndex = new BPlusTree(8);
+const searchCorpus = {}; // id -> {title, ids of tokens} for ranking/snippets
+function tokenize(s) { return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2); }
+(function buildSearchIndex() {
+  const all = { ...F };
+  for (const id in PLANNED) if (!all[id]) all[id] = { t: PLANNED[id], s: 'planned', d: '' };
+  for (const id in all) {
+    const f = all[id];
+    searchCorpus[id] = f.t;
+    const tokens = new Set([...tokenize(f.t), ...tokenize(f.d)]);
+    for (const tok of tokens) searchIndex.insert(tok, id);
+  }
+})();
+
+function searchFeatures(query) {
+  const qTokens = tokenize(query);
+  if (qTokens.length === 0) return [];
+  const scores = {}; // id -> {score, why: Set of matched terms}
+  const bump = (id, why, weight) => {
+    if (!scores[id]) scores[id] = { score: 0, why: new Set() };
+    scores[id].score += weight;
+    scores[id].why.add(why);
+  };
+  for (const qt of qTokens) {
+    for (const id of searchIndex.prefixSearch(qt)) bump(id, qt, 3);
+    for (const id of (SYNONYMS[qt] || [])) bump(id, qt + ' → related', 2);
+  }
+  // Title substring match ranks highest — an exact ask should win.
+  const qLower = query.toLowerCase();
+  for (const id in searchCorpus) {
+    if (searchCorpus[id].toLowerCase().includes(qLower)) bump(id, 'title match', 5);
+  }
+  return Object.entries(scores)
+    .sort((a, b) => b[1].score - a[1].score)
+    .slice(0, 8)
+    .map(([id, v]) => ({ id, why: [...v.why].join(', ') }));
+}
+
+const searchInput = document.getElementById('featSearch');
+const searchResults = document.getElementById('featSearchResults');
+function renderSearchResults(hits, query) {
+  if (!query.trim()) { searchResults.classList.remove('on'); searchInput.setAttribute('aria-expanded', 'false'); return; }
+  if (hits.length === 0) {
+    searchResults.innerHTML = '<div class="side-search-empty">No feature matches — try a broader term, or <a href="https://github.com/asifontheline/cloudless/issues" target="_blank" rel="noopener">suggest one ↗</a></div>';
+  } else {
+    searchResults.innerHTML = hits.map(h => {
+      const f = F[h.id] || { t: PLANNED[h.id] || h.id, s: 'planned' };
+      const status = f.s === 'live' ? '●' : f.s === 'in progress' ? '◐' : '○';
+      return `<button type="button" data-f="${h.id}" role="option">${status} ${f.t}<span class="hit-why">matched: ${h.why}</span></button>`;
+    }).join('');
+  }
+  searchResults.classList.add('on');
+  searchInput.setAttribute('aria-expanded', 'true');
+}
+searchInput.addEventListener('input', () => renderSearchResults(searchFeatures(searchInput.value), searchInput.value));
+searchInput.addEventListener('focus', () => { if (searchInput.value.trim()) renderSearchResults(searchFeatures(searchInput.value), searchInput.value); });
+searchResults.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-f]');
+  if (!btn) return;
+  openFeat(btn.dataset.f);
+  searchResults.classList.remove('on');
+  searchInput.setAttribute('aria-expanded', 'false');
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.side-search')) { searchResults.classList.remove('on'); searchInput.setAttribute('aria-expanded', 'false'); }
+});
 </script>
 </body>
 </html>
