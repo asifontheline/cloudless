@@ -230,6 +230,11 @@ supporting should be added to this reference list first, then given its own stor
 - One-command onboarding (`up`), encrypted gossip mesh, failover gateway, embedded web console ✅
 - CI validation engine + branch-protected `main` + 2-hourly review-gated merge queue ✅
 - Website auto-published to cldless.com; contributor guide + open protocol published ✅
+- Website feature search — a real B+ tree keyword index over every feature's title and
+  description, plus an extensible synonym layer so a related-but-not-literal query (e.g.
+  "database" or "security") surfaces the right feature even with no word overlap; verified
+  with 11 real functional tests against the actual site's feature data (not a DOM/browser
+  test — the search logic itself, executed) ✅
 
 ## Working agreements
 - **No direct commits to main** — branch → PR → CI validation → review (`ready-to-merge`) → merge queue.
