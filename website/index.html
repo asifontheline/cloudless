@@ -27,6 +27,7 @@
   header { position: sticky; top: 0; z-index: 5; border-bottom: 1px solid var(--line); padding: .7rem 1rem;
            backdrop-filter: blur(8px); background: color-mix(in srgb, Canvas 85%, transparent);
            display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+  .brand-home { display: flex; align-items: center; gap: .6rem; text-decoration: none; color: inherit; }
   .logo svg { height: 28px; display: block; }
   .wordmark { font-weight: 700; font-size: 1.1rem; }
   .wordmark s { color: var(--plan); text-decoration-color: var(--strike); text-decoration-thickness: 2.5px; }
@@ -183,8 +184,10 @@
 </head>
 <body>
 <header>
-  <span class="logo"><svg viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="#4a7dbd" stroke-width="6" stroke-linejoin="round"/><line x1="16" y1="72" x2="84" y2="12" stroke="#d64545" stroke-width="7" stroke-linecap="round"/></svg></span>
-  <span class="wordmark"><s>Cloud</s>Less</span>
+  <a class="brand-home" href="index.html" aria-label="CloudLess home" title="CloudLess home">
+    <span class="logo"><svg viewBox="0 0 100 84"><path d="M28 62 h44 a14 14 0 0 0 2-27.8 A20 20 0 0 0 35 27 a13 13 0 0 0-7 35 z" fill="none" stroke="#4a7dbd" stroke-width="6" stroke-linejoin="round"/><line x1="16" y1="72" x2="84" y2="12" stroke="#d64545" stroke-width="7" stroke-linecap="round"/></svg></span>
+    <span class="wordmark"><s>Cloud</s>Less</span>
+  </a>
   <a class="inbuild-top" href="https://github.com/asifontheline/cloudless" title="In-build — come be part of it">🚧 In-build — join us</a>
   <nav>
     <a href="#why">Why</a><a href="#features">Features</a><a href="#releases">Releases</a><a href="#start">Run a node</a>
