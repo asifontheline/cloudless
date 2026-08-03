@@ -54,3 +54,62 @@ type timeoutError struct{}
 func (timeoutError) Error() string   { return "i/o timeout" }
 func (timeoutError) Timeout() bool   { return true }
 func (timeoutError) Temporary() bool { return true }
+
+// R1: `cloudless join <link>` accepts the console's literal, copy-pasteable
+// "cloudless up -join ..." command text (see internal/gateway's
+// handleJoinLink), whether it arrives as one quoted arg (shell hands us a
+// single field) or unquoted (shell already split it into multiple fields).
+
+func TestParseJoinLinkQuotedFullCommand(t *testing.T) {
+	got, err := parseJoinLink([]string{
+		"cloudless up -join secret123@10.0.0.5:8080 -seed-api http://10.0.0.5:8080 -join-token tok1",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"-join", "secret123@10.0.0.5:8080", "-seed-api", "http://10.0.0.5:8080", "-join-token", "tok1"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestParseJoinLinkUnquotedFields(t *testing.T) {
+	got, err := parseJoinLink([]string{
+		"cloudless", "up", "-join", "secret123@10.0.0.5:8080", "-seed-api", "http://10.0.0.5:8080",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"-join", "secret123@10.0.0.5:8080", "-seed-api", "http://10.0.0.5:8080"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestParseJoinLinkWithoutLeadingCloudlessUp(t *testing.T) {
+	got, err := parseJoinLink([]string{"-join", "secret123@10.0.0.5:8080"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"-join", "secret123@10.0.0.5:8080"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestParseJoinLinkMissingJoinFlagErrors(t *testing.T) {
+	_, err := parseJoinLink([]string{"cloudless", "up", "-backend", "http://127.0.0.1:11434"})
+	if err == nil {
+		t.Fatal("expected an error for a link with no -join flag, got nil")
+	}
+}
+
+func TestParseJoinLinkEqualsFormFlag(t *testing.T) {
+	got, err := parseJoinLink([]string{"-join=secret123@10.0.0.5:8080"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Join(got, " ") != "-join=secret123@10.0.0.5:8080" {
+		t.Errorf("got %v", got)
+	}
+}
