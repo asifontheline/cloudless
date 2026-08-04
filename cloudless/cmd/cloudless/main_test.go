@@ -113,3 +113,72 @@ func TestParseJoinLinkEqualsFormFlag(t *testing.T) {
 		t.Errorf("got %v", got)
 	}
 }
+
+// R6: `cloudless up` with no flags, a real terminal, and no existing config
+// prompts step-by-step instead of silently guessing. The wizard's stdin/
+// stdout are injected so these tests don't touch a real terminal, and
+// `detect` is injected so they don't depend on a local inference runtime
+// actually being present on the machine running the tests.
+
+func TestFirstRunWizardJoinWithFullLink(t *testing.T) {
+	in := strings.NewReader("join\ncloudless up -join abc123@10.0.0.5:8080 -seed-api http://10.0.0.5:8080\n")
+	var out strings.Builder
+	got := runFirstRunWizard(in, &out, func() string { return "" })
+	want := []string{"-join", "abc123@10.0.0.5:8080", "-seed-api", "http://10.0.0.5:8080"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestFirstRunWizardJoinWithBareSecretHost(t *testing.T) {
+	in := strings.NewReader("j\nabc123@10.0.0.5:8080\n")
+	var out strings.Builder
+	got := runFirstRunWizard(in, &out, func() string { return "" })
+	want := []string{"-join", "abc123@10.0.0.5:8080"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestFirstRunWizardStartWithDetectedBackendSkipsPrompt(t *testing.T) {
+	in := strings.NewReader("start\n")
+	var out strings.Builder
+	got := runFirstRunWizard(in, &out, func() string { return "http://127.0.0.1:11434/v1" })
+	if got != nil {
+		t.Errorf("expected no extra args when a backend was auto-detected, got %v", got)
+	}
+	if strings.Contains(out.String(), "No local inference runtime detected") {
+		t.Error("should not ask for a backend when one was already detected")
+	}
+}
+
+func TestFirstRunWizardStartNoBackendDetectedPromptsAndUsesInput(t *testing.T) {
+	in := strings.NewReader("start\nhttp://10.0.0.9:9000\n")
+	var out strings.Builder
+	got := runFirstRunWizard(in, &out, func() string { return "" })
+	want := []string{"-backend", "http://10.0.0.9:9000"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	if !strings.Contains(out.String(), "No local inference runtime detected") {
+		t.Error("expected the wizard to explain why it's asking for a backend")
+	}
+}
+
+func TestFirstRunWizardStartNoBackendEmptyInputMeansRoutingOnly(t *testing.T) {
+	in := strings.NewReader("start\n\n")
+	var out strings.Builder
+	got := runFirstRunWizard(in, &out, func() string { return "" })
+	if got != nil {
+		t.Errorf("expected no args (routing-only node) for an empty backend answer, got %v", got)
+	}
+}
+
+func TestFirstRunWizardEmptyChoiceDefaultsToStart(t *testing.T) {
+	in := strings.NewReader("\n")
+	var out strings.Builder
+	got := runFirstRunWizard(in, &out, func() string { return "http://127.0.0.1:11434/v1" })
+	if got != nil {
+		t.Errorf("empty choice should default to start with a detected backend, got %v", got)
+	}
+}

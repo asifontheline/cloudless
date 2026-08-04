@@ -110,6 +110,8 @@ func printUsage() {
 
 usage:
   cloudless up     [-join <secret>@<host:port>] [-backend <url>]   # zero-config start
+                                                                    # (no flags + a real terminal + no
+                                                                    # existing config = guided prompts, R6)
   cloudless join   <link>                               # paste a console-generated join link/command (R1)
   cloudless serve  -config config.json
   cloudless status -addr http://127.0.0.1:8080
@@ -201,7 +203,51 @@ argument or unquoted, e.g.:
 	up(fields)
 }
 
+// runFirstRunWizard (R6) is the guided path for `cloudless up` invoked with
+// no flags at all: instead of silently assuming "start a brand-new mesh,
+// auto-detect a backend or run routing-only", it asks the two questions an
+// operator actually needs to answer — join or start, and (only if no local
+// runtime was auto-detected) what backend to use — then returns the
+// equivalent flag args for the normal up() flow to consume. `detect` is
+// injected so tests don't depend on a real local inference runtime being
+// present on the machine running them.
+func runFirstRunWizard(in io.Reader, out io.Writer, detect func() string) []string {
+	r := bufio.NewReader(in)
+	fmt.Fprint(out, "No existing config found — let's set up this node.\n\n")
+	fmt.Fprint(out, "Join an existing mesh, or start a new one? [start/join] (start): ")
+	choice := strings.ToLower(strings.TrimSpace(readLine(r)))
+	if strings.HasPrefix(choice, "j") {
+		fmt.Fprint(out, "\nPaste the join link/command from the console (or <secret>@<host:port>): ")
+		link := strings.TrimSpace(readLine(r))
+		if fields, err := parseJoinLink([]string{link}); err == nil {
+			return fields
+		}
+		return []string{"-join", link}
+	}
+	if backend := detect(); backend == "" {
+		fmt.Fprint(out, "\nNo local inference runtime detected (checked Ollama :11434, "+
+			"vLLM/OpenAI-compatible :8000 and :8081).\n")
+		fmt.Fprint(out, "Enter a backend URL to use, or press Enter to start as a routing-only relay node: ")
+		if b := strings.TrimSpace(readLine(r)); b != "" {
+			return []string{"-backend", b}
+		}
+	}
+	return nil
+}
+
+func readLine(r *bufio.Reader) string {
+	line, _ := r.ReadString('\n')
+	return line
+}
+
 func up(args []string) {
+	if len(args) == 0 && isTerminal(os.Stdin) && isTerminal(os.Stdout) {
+		if home, err := os.UserHomeDir(); err == nil {
+			if _, err := os.Stat(filepath.Join(home, ".cloudless", "config.json")); err != nil {
+				args = runFirstRunWizard(os.Stdin, os.Stdout, detectRuntime)
+			}
+		}
+	}
 	fs := flag.NewFlagSet("up", flag.ExitOnError)
 	joinArg := fs.String("join", "", "join an existing mesh: <secret>@<host:port>")
 	backend := fs.String("backend", "", "local inference endpoint (default: auto-detect)")
