@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"cloudless/internal/config"
+	"cloudless/internal/transport"
 )
 
 // BackendState is the registry's view of one backend: reachability and
@@ -30,12 +31,18 @@ type Registry struct {
 }
 
 // New builds a registry; tlsCfg (may be nil) carries the node's client cert
-// so health probes can reach peers' mutual-TLS relays.
+// so health probes can reach peers' mutual-TLS relays. Probes dial through
+// transport.Default (T1, #141) rather than net/http's own default dialer,
+// so an alternate peer medium can be substituted without touching probing
+// logic here.
 func New(backends []config.Backend, interval time.Duration, tlsCfg *tls.Config) *Registry {
 	r := &Registry{
 		states:   make(map[string]*BackendState, len(backends)),
 		interval: interval,
-		client:   &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{TLSClientConfig: tlsCfg}},
+		client: &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{
+			TLSClientConfig: tlsCfg,
+			DialContext:     transport.Default.DialContext,
+		}},
 	}
 	for _, b := range backends {
 		r.states[b.Name] = &BackendState{Backend: b}

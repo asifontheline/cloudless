@@ -218,7 +218,7 @@ explicit transport layer, not just a cable plugged in. Any future medium worth
 supporting should be added to this reference list first, then given its own story.
 | ID | Story | Status |
 |---|---|---|
-| #141 T1 | Transport abstraction layer — decouple gossip and the gateway's peer traffic from raw TCP so alternate transports can plug in without touching mesh/routing logic | ⬜ P2 |
+| #141 T1 | Transport abstraction layer — decouple gossip and the gateway's peer traffic from raw TCP so alternate transports can plug in without touching mesh/routing logic | ✅ (new `internal/transport` package: a `Dialer`/`Listener` seam, `TCP` as the unchanged default; wired into the relay's listener and the gateway/registry's peer `http.Client` dial; gossip's `Options.Transport` lets a future medium override memberlist's own pluggable `Transport` interface without touching delegate/routing code; unblocks T2/T3/T5. Verified with a real two-node mesh — join, gossip, and health probes all still work — plus 3 new unit tests) |
 | #142 T2 | Bluetooth/BLE local transport — proximity nodes (especially mobile, J epic) discover and link without any existing IP infrastructure in the room | ⬜ P2 |
 | #143 T3 | LoRa/LoRaWAN long-range low-power transport — remote or rural nodes with no broadband, trading bandwidth for reach | ⬜ P3 |
 | #144 T4 | Offline store-and-forward sync ("sneakernet") — bridge two disconnected mesh segments via removable media when no live link exists between them at all | ⬜ P3 |
