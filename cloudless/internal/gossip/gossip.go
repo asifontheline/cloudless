@@ -31,6 +31,12 @@ type Options struct {
 	Secret     []byte   // shared cluster key; encrypts and authenticates gossip
 	// OnRevoke applies a revocation received from a peer (persist + drop).
 	OnRevoke func(name string)
+	// Transport overrides memberlist's own transport (its pluggable seam for
+	// how membership packets actually move). Nil keeps today's default —
+	// memberlist's built-in NetTransport over TCP/UDP. Set this to route
+	// gossip over an alternate medium (T2/T3/T5) without touching any
+	// membership/delegate logic below (T1, #141).
+	Transport memberlist.Transport
 }
 
 type Mesh struct {
@@ -176,6 +182,9 @@ func Start(opts Options, reg *registry.Registry) (*Mesh, error) {
 		cfg.SecretKey = opts.Secret // AES-GCM; peers without the key cannot join
 	}
 	cfg.LogOutput = logWriter{}
+	if opts.Transport != nil {
+		cfg.Transport = opts.Transport
+	}
 
 	list, err := memberlist.Create(cfg)
 	if err != nil {

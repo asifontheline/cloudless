@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"cloudless/internal/pki"
+	"cloudless/internal/transport"
 )
 
 // BlobStore is the subset of the model store the relay serves to peers.
@@ -187,14 +188,21 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 
 // ListenAndServe runs the relay with mutual TLS from the cluster PKI.
 // list/path (may be nil) expose the local model store to peers for pulls.
+// The listener comes from transport.Default (T1, #141) rather than a direct
+// net.Listen call, so an alternate peer medium can be substituted without
+// touching this function's routing/TLS logic.
 func ListenAndServe(addr, pkiDir, backendURL string, models, vault *BlobSet, slots func() int, revoked pki.RevokedFn) error {
 	tlsCfg, err := pki.ServerTLS(pkiDir, revoked)
 	if err != nil {
 		return err
 	}
+	ln, err := transport.Default.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
 	srv := &http.Server{Addr: addr, Handler: NewServer(backendURL, models, vault, slots).Handler(), TLSConfig: tlsCfg}
 	log.Printf("relay: mutual-TLS peer endpoint on %s", addr)
-	return srv.ListenAndServeTLS("", "")
+	return srv.ServeTLS(ln, "", "")
 }
 
 // Entry is the exported artifact shape for callers assembling store adapters.

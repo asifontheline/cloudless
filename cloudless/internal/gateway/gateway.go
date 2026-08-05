@@ -35,6 +35,7 @@ import (
 	"cloudless/internal/share"
 	"cloudless/internal/store"
 	"cloudless/internal/telemetry"
+	"cloudless/internal/transport"
 	"cloudless/internal/usage"
 	"cloudless/internal/vault"
 )
@@ -138,13 +139,19 @@ type Gateway struct {
 const routeLogSize = 20
 
 // New builds the gateway; tlsCfg (may be nil) carries the node's client cert
-// for proxying to peers' mutual-TLS relays.
+// for proxying to peers' mutual-TLS relays. Peer connections dial through
+// transport.Default (T1, #141) rather than net/http's own default dialer,
+// so an alternate peer medium can be substituted without touching any
+// proxying/routing logic here.
 func New(reg *registry.Registry, apiKey string, tlsCfg *tls.Config) *Gateway {
 	return &Gateway{
 		reg:    reg,
 		apiKey: apiKey,
 		// No overall timeout: chat completions stream for minutes.
-		client: &http.Client{Timeout: 0, Transport: &http.Transport{TLSClientConfig: tlsCfg}},
+		client: &http.Client{Timeout: 0, Transport: &http.Transport{
+			TLSClientConfig: tlsCfg,
+			DialContext:     transport.Default.DialContext,
+		}},
 	}
 }
 
