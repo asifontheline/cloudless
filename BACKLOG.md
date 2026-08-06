@@ -56,7 +56,7 @@ project principles). This file is the canonical snapshot. Status as of 2026-07-1
 ## EPIC I — Community Fabric
 | #47 I1 | Per-node resource share controls (5% default → 70% ceiling) | ✅ |
 | #48 I2 | Reciprocity: contribution-based entitlement | 🔶 (`/ledger` reports an advisory entitlement hint per contributing node; no binding exists today between a node's identity and an individual user's API key, so this informs an admin's manual `cloudless keys` decision rather than auto-enforcing anything) |
-| #49 I3 | Geo network map | 🔶 (map live; enrichment ongoing) |
+| #49 I3 | Geo network map | 🔶 (console map live as a hierarchical tree, not yet a cartographic view; `cloudless status` now prints the same continent/country/state/city/village grouping with green/red health dots, so the CLI has parity with the console — remaining gap: an actual geographic/coordinate-based rendering, and location is still 100% manual via `-location`, no auto-geolocation) |
 | #50 I4 | Locality-aware redundancy & routing | ✅ (redundancy via M1's domain-diversified placement; routing now prefers nearby healthy peers over raw latency) |
 
 ## EPIC J — Mobile Nodes
