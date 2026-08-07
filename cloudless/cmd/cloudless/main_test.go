@@ -7,6 +7,9 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"cloudless/internal/config"
+	"cloudless/internal/registry"
 )
 
 // R2: raw Go network errors from a failed join attempt get a plain-language
@@ -180,5 +183,89 @@ func TestFirstRunWizardEmptyChoiceDefaultsToStart(t *testing.T) {
 	got := runFirstRunWizard(in, &out, func() string { return "http://127.0.0.1:11434/v1" })
 	if got != nil {
 		t.Errorf("empty choice should default to start with a detected backend, got %v", got)
+	}
+}
+
+// I3: `cloudless status` prints the same continent/country/state/city/
+// village grouping the console's map view builds, so an operator without a
+// browser gets the same picture.
+
+func backendState(name, location string, healthy bool) registry.BackendState {
+	return registry.BackendState{Backend: config.Backend{Name: name, Location: location}, Healthy: healthy}
+}
+
+func TestBuildLocationTreeGroupsByHierarchy(t *testing.T) {
+	tree := buildLocationTree([]registry.BackendState{
+		backendState("node-a", "NA/US/CA/SF", true),
+		backendState("node-b", "NA/US/CA/LA", true),
+		backendState("node-c", "EU/DE/Berlin", true),
+	})
+	na, ok := tree.children["NA"]
+	if !ok {
+		t.Fatal("expected an NA branch")
+	}
+	us, ok := na.children["US"]
+	if !ok {
+		t.Fatal("expected NA/US branch")
+	}
+	ca, ok := us.children["CA"]
+	if !ok {
+		t.Fatal("expected NA/US/CA branch")
+	}
+	if len(ca.children) != 2 {
+		t.Errorf("expected SF and LA under NA/US/CA, got %d children", len(ca.children))
+	}
+	if _, ok := tree.children["EU"]; !ok {
+		t.Error("expected an EU branch")
+	}
+}
+
+func TestBuildLocationTreeUnlocatedBucket(t *testing.T) {
+	tree := buildLocationTree([]registry.BackendState{
+		backendState("no-loc", "", true),
+		backendState("blank-slashes", "  /  /  ", false),
+	})
+	un, ok := tree.children["unlocated"]
+	if !ok {
+		t.Fatal("expected an 'unlocated' branch for empty/blank locations")
+	}
+	if len(un.leaves) != 2 {
+		t.Errorf("expected both empty and whitespace-only locations bucketed together, got %d", len(un.leaves))
+	}
+}
+
+func TestBuildLocationTreeTrimsWhitespaceSegments(t *testing.T) {
+	tree := buildLocationTree([]registry.BackendState{
+		backendState("node-a", " NA / US ", true),
+	})
+	if _, ok := tree.children["NA"]; !ok {
+		t.Fatalf("expected whitespace-trimmed segment 'NA', got children %v", tree.children)
+	}
+}
+
+func TestPrintGeoTreeIncludesEveryBackendAndHealthDot(t *testing.T) {
+	tree := buildLocationTree([]registry.BackendState{
+		backendState("healthy-node", "NA/US", true),
+		backendState("down-node", "NA/US", false),
+	})
+	var out strings.Builder
+	printGeoTree(&out, tree, "", 0, false) // no color, so output is plain-diffable
+	s := out.String()
+	for _, want := range []string{"NA", "US", "healthy-node", "down-node", "●", "○"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("expected output to contain %q, got:\n%s", want, s)
+		}
+	}
+}
+
+func TestHealthDotColorOnlyWhenRequested(t *testing.T) {
+	if strings.Contains(healthDot(true, false), "\033") {
+		t.Error("no-color mode should not emit ANSI escapes")
+	}
+	if !strings.Contains(healthDot(true, true), "\033[32m") {
+		t.Error("healthy + color should be green")
+	}
+	if !strings.Contains(healthDot(false, true), "\033[31m") {
+		t.Error("unhealthy + color should be red")
 	}
 }

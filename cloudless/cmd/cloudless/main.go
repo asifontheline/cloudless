@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -1993,4 +1994,88 @@ func status(args []string) {
 		fmt.Printf("  %s %-24s -> %-12s %d (retries %d)\n",
 			r.Time.Format("15:04:05"), r.Path, r.Backend, r.Status, r.Retries)
 	}
+	fmt.Println("MAP")
+	printGeoTree(os.Stdout, buildLocationTree(out.Backends), "", 0, isTerminal(os.Stdout))
+}
+
+// geoNode is one level of the hierarchical continent/country/state/city/
+// village tree (I3) — the same grouping the console's map view builds from
+// each backend's Location string, so `cloudless status` gives an operator
+// without a browser the same picture.
+type geoNode struct {
+	children map[string]*geoNode
+	leaves   []registry.BackendState
+}
+
+func (n *geoNode) child(name string) *geoNode {
+	if n.children == nil {
+		n.children = map[string]*geoNode{}
+	}
+	c, ok := n.children[name]
+	if !ok {
+		c = &geoNode{}
+		n.children[name] = c
+	}
+	return c
+}
+
+func buildLocationTree(backends []registry.BackendState) *geoNode {
+	root := &geoNode{}
+	for _, b := range backends {
+		node := root
+		parts := strings.Split(strings.TrimSpace(b.Backend.Location), "/")
+		placed := false
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			node = node.child(part)
+			placed = true
+		}
+		if !placed {
+			node = root.child("unlocated")
+		}
+		node.leaves = append(node.leaves, b)
+	}
+	return root
+}
+
+func printGeoTree(w io.Writer, n *geoNode, name string, depth int, useColor bool) {
+	if name != "" {
+		fmt.Fprintf(w, "%s%s\n", strings.Repeat("  ", depth), name)
+	}
+	keys := make([]string, 0, len(n.children))
+	for k := range n.children {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		printGeoTree(w, n.children[k], k, depth+1, useColor)
+	}
+	leaves := append([]registry.BackendState(nil), n.leaves...)
+	sort.Slice(leaves, func(i, j int) bool { return leaves[i].Backend.Name < leaves[j].Backend.Name })
+	for _, b := range leaves {
+		state := "unhealthy"
+		if b.Healthy {
+			state = fmt.Sprintf("healthy %dms", b.LatencyMS)
+		}
+		fmt.Fprintf(w, "%s%s %-12s %s\n", strings.Repeat("  ", depth+1), healthDot(b.Healthy, useColor), b.Backend.Name, state)
+	}
+}
+
+// healthDot mirrors the console's green/red dot; ANSI color is only used on
+// a real terminal so redirected/piped output (scripts, CI) stays clean.
+func healthDot(healthy bool, useColor bool) string {
+	symbol := "○"
+	if healthy {
+		symbol = "●"
+	}
+	if !useColor {
+		return symbol
+	}
+	if healthy {
+		return "\033[32m" + symbol + "\033[0m" // green
+	}
+	return "\033[31m" + symbol + "\033[0m" // red
 }
